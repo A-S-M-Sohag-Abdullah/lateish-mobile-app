@@ -33,6 +33,7 @@ import { ProfilePage } from "@/components/tab-pages/profile-page";
 import { RepTodayPage } from "@/components/tab-pages/rep-today-page";
 import { Text } from "@/components/ui/text";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { usePagerLock } from "@/store/pager-lock.store";
 import { useTabsStore } from "@/store/tabs.store";
 
 const PILL_W = 74;
@@ -66,6 +67,8 @@ export function TabsPager() {
 
   const page = useTabsStore((s) => s.page);
   const setPage = useTabsStore((s) => s.setPage);
+  // A nested horizontal scroller can freeze the pager's own swipe.
+  const locked = usePagerLock((s) => s.locked);
 
   const scrollRef = useRef<ScrollView>(null);
   const [pagerH, setPagerH] = useState(0);
@@ -204,6 +207,7 @@ export function TabsPager() {
           ref={scrollRef}
           horizontal
           pagingEnabled
+          scrollEnabled={!locked}
           showsHorizontalScrollIndicator={false}
           onScrollBeginDrag={() => {
             userDragging.current = true;
