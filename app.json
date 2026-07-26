@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "LATE(ish)",
+    "slug": "lateish",
+    "scheme": "lateish",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lateish.app"
+    },
+    "android": {
+      "package": "com.lateish.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0F1A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-font",
+      "expo-image",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0C1426",
+          "dark": {
+            "backgroundColor": "#0C1426"
+          },
+          "image": "./assets/logo.png",
+          "imageWidth": 68,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6381f3c3-632a-4eaf-8824-2f3237a9e1bc"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6381f3c3-632a-4eaf-8824-2f3237a9e1bc"
+    }
+  }
+}

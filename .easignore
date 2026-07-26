@@ -1,0 +1,11 @@
+# Files EAS Build should NOT upload (mirrors .gitignore; needed because this
+# folder is git-ignored by the parent repo, so EAS can't use git to filter).
+node_modules/
+.expo/
+dist/
+web-build/
+.git/
+android/
+ios/
+*.log
+*.tsbuildinfo
