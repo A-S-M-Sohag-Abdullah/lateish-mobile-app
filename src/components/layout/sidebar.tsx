@@ -33,6 +33,8 @@ import {
   View,
 } from "react-native";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import {
   SPLASH_GRADIENT_DIRECTION,
   SPLASH_GRADIENT_FROM,
@@ -83,6 +85,7 @@ export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const page = useTabsStore((s) => s.page);
   const setPage = useTabsStore((s) => s.setPage);
 
@@ -147,6 +150,8 @@ export function Sidebar() {
       visible={mounted}
       transparent
       animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={() => setOpen(false)}
     >
       <View className="flex-1">
@@ -190,8 +195,8 @@ export function Sidebar() {
             <ScrollView
               className="flex-1"
               contentContainerStyle={{
-                paddingTop: 12,
-                paddingBottom: 24,
+                paddingTop: insets.top + 12,
+                paddingBottom: insets.bottom + 24,
                 paddingHorizontal: 16,
                 gap: 20,
               }}

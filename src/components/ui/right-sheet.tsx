@@ -86,6 +86,8 @@ export function RightSheet({
       visible={mounted}
       transparent
       animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}
     >
       <SafeAreaProvider>

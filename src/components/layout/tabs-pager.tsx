@@ -93,10 +93,16 @@ export function TabsPager() {
   const lastPage = useRef(page);
   const lastWidth = useRef(width);
   const visibleIdx = useRef(page);
+  // True only while the user is physically dragging. A programmatic scroll
+  // (tab tap / sidebar) sets it false so the listener below stays out of the
+  // way — otherwise its mid-flight setPage calls fight the animation and the
+  // screen oscillates back and forth (only visible in release builds).
+  const userDragging = useRef(false);
 
   // A JS listener on the scroll event (fires reliably on Android for slow drags,
   // unlike onMomentumScrollEnd) advances the active page as it crosses each
-  // page boundary — which is what pre-mounts the next screen so it isn't blank.
+  // page boundary. Only acts during a real finger drag; programmatic scrolls
+  // are finalised by onMomentumEnd instead.
   // Memoised so the mid-swipe page re-renders don't rebuild the native event
   // binding, which is what made the pill stutter.
   const onScroll = useMemo(
@@ -104,7 +110,7 @@ export function TabsPager() {
       Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
         useNativeDriver: USE_NATIVE_DRIVER,
         listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-          if (width <= 0) return;
+          if (!userDragging.current || width <= 0) return;
           const idx = Math.round(e.nativeEvent.contentOffset.x / width);
           if (idx < 0 || idx >= PAGES.length || idx === visibleIdx.current)
             return;
@@ -127,6 +133,7 @@ export function TabsPager() {
       didInit.current = true;
       lastPage.current = page;
       lastWidth.current = width;
+      userDragging.current = false; // this scroll is programmatic
       // Animate only for a real (tab-tap / sidebar) jump; snap silently on the
       // first layout and on rotation so nothing visibly rubber-bands.
       const animated = !firstRun && !widthChanged;
@@ -154,6 +161,7 @@ export function TabsPager() {
     if (i === page) return;
     visibleIdx.current = i;
     lastPage.current = i; // effect will see we're already here and skip scrollTo
+    userDragging.current = false; // this scroll is programmatic
     scrollRef.current?.scrollTo({ x: i * width, animated: true });
     setPage(i);
   }
@@ -197,6 +205,9 @@ export function TabsPager() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
+          onScrollBeginDrag={() => {
+            userDragging.current = true;
+          }}
           onScroll={onScroll}
           onMomentumScrollEnd={onMomentumEnd}
           scrollEventThrottle={16}
