@@ -68,3 +68,65 @@ export const BDM_TERRITORIES: Territory[] = [
   { name: "Territory Beta", maturity: "Growth", score: 42, velocity: "3.8", cpc: "$18.50", cpcHigh: false, fulfillment: "88%", ordersWk: "2.1" },
   { name: "Territory Gamma", maturity: "Emerging", score: 38, velocity: "3.9", cpc: "$22.40", cpcHigh: true, fulfillment: "82%", ordersWk: "1.7" },
 ];
+
+// ── Territory inner tab ──────────────────────────────────────────────────────
+
+export type TierTone = "green" | "neutral" | "amber";
+export interface MarketTier {
+  name: string;
+  bdms: string;
+  desc: string;
+  avgCpc: string;
+  avgEff: string;
+  venues: string;
+  cases: string;
+  tone: TierTone;
+}
+export const MARKET_TIERS: MarketTier[] = [
+  {
+    name: "Mature Markets",
+    bdms: "1 BDM",
+    desc: "Established presence, focus on optimization",
+    avgCpc: "$14.20",
+    avgEff: "88%",
+    venues: "12",
+    cases: "355",
+    tone: "green",
+  },
+  {
+    name: "Growth Markets",
+    bdms: "2 BDMs",
+    desc: "Expanding footprint, balance acquisition & retention",
+    avgCpc: "$17.85",
+    avgEff: "77%",
+    venues: "19",
+    cases: "531",
+    tone: "neutral",
+  },
+  {
+    name: "Emerging Markets",
+    bdms: "1 BDM",
+    desc: "Early stage, higher acquisition costs expected",
+    avgCpc: "$22.40",
+    avgEff: "68%",
+    venues: "7",
+    cases: "194",
+    tone: "amber",
+  },
+];
+
+export interface NormRow {
+  name: string;
+  market: Maturity;
+  score: number; // out of 100
+  velocity: string;
+  cpc: string;
+  cpcTone: "green" | "muted" | "red";
+  fulfilment: string;
+}
+export const NORM_ROWS: NormRow[] = [
+  { name: "Territory Alpha", market: "Mature", score: 82, velocity: "3.7", cpc: "$14.20", cpcTone: "green", fulfilment: "94%" },
+  { name: "Territory Beta", market: "Growth", score: 70, velocity: "1.0", cpc: "$16.80", cpcTone: "green", fulfilment: "91%" },
+  { name: "Territory Gamma", market: "Emerging", score: 62, velocity: "3.8", cpc: "$18.50", cpcTone: "muted", fulfilment: "88%" },
+  { name: "Territory Delta", market: "Growth", score: 76, velocity: "3.9", cpc: "$22.40", cpcTone: "red", fulfilment: "82%" },
+];

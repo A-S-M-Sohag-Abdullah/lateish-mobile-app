@@ -1,6 +1,7 @@
-import { Activity, Bell, TrendingDown } from "lucide-react-native";
+import { Activity, Bell, MapPin, TrendingDown } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import Svg, { Polyline } from "react-native-svg";
 
 import { Dropdown } from "@/components/ui/dropdown";
 import { Progress } from "@/components/ui/progress";
@@ -15,8 +16,13 @@ import {
   BDM_SCORE_MAX,
   BDM_STATS,
   BDM_TERRITORIES,
+  MARKET_TIERS,
+  NORM_ROWS,
   type Maturity,
+  type MarketTier,
+  type NormRow,
   type Territory,
+  type TierTone,
 } from "@/lib/bdm-data";
 
 const NAVY: GradientColors = ["#132B5C", "#0B1833"];
@@ -134,6 +140,8 @@ export function BdmPage() {
                   <TerritoryCard key={t.name} territory={t} />
                 ))}
               </View>
+            ) : inner === "Territory" ? (
+              <TerritoryTab />
             ) : (
               <Stub name={inner} />
             )}
@@ -254,6 +262,215 @@ function TerritoryCard({ territory: t }: { territory: Territory }) {
         </View>
       </View>
     </View>
+  );
+}
+
+// ── Territory inner tab ──────────────────────────────────────────────────────
+
+const TIER: Record<
+  TierTone,
+  { card: string; head: string; icon: string; metric: string; count: string }
+> = {
+  green: {
+    card: "border-green-500/30 bg-green-500/10",
+    head: "text-green-400",
+    icon: "#4ADE80",
+    metric: "text-green-400",
+    count: "text-green-400",
+  },
+  neutral: {
+    card: "border-border bg-white/5",
+    head: "text-foreground",
+    icon: "#94A3B8",
+    metric: "text-amber-400",
+    count: "text-foreground",
+  },
+  amber: {
+    card: "border-amber-500/30 bg-amber-500/10",
+    head: "text-amber-400",
+    icon: "#FBBF24",
+    metric: "text-amber-400",
+    count: "text-amber-400",
+  },
+};
+
+const CPC_TONE: Record<NormRow["cpcTone"], string> = {
+  green: "text-green-500",
+  muted: "text-muted-foreground",
+  red: "text-red-500",
+};
+
+function TerritoryTab() {
+  const colors = useThemeColors();
+  return (
+    <View className="gap-4">
+      {/* Market maturity tiers */}
+      {MARKET_TIERS.map((tier) => (
+        <TierCard key={tier.name} tier={tier} />
+      ))}
+
+      {/* Territory-Normalized Performance */}
+      <View className="gap-1 pt-1">
+        <View className="flex-row items-center gap-2">
+          <Activity color={colors.foreground} size={20} />
+          <Text className="text-xl font-bold">
+            Territory-Normalized Performance
+          </Text>
+        </View>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          Scores adjusted for market maturity — emerging markets get higher
+          multipliers
+        </Text>
+      </View>
+
+      <View className="gap-5 rounded-2xl border border-border bg-card p-4">
+        {/* BDM / Market / Territory Score */}
+        <View>
+          <View className="flex-row border-b border-border pb-2">
+            <Text style={{ flex: 1.5 }} className="text-xs font-medium text-muted-foreground">
+              BDM
+            </Text>
+            <Text style={{ flex: 1 }} className="text-xs font-medium text-muted-foreground">
+              Market
+            </Text>
+            <Text style={{ flex: 1.4 }} className="text-right text-xs font-medium text-muted-foreground">
+              Territory Score
+            </Text>
+          </View>
+          {NORM_ROWS.map((r) => (
+            <View
+              key={r.name}
+              className="flex-row items-center border-b border-border/50 py-3"
+            >
+              <Text style={{ flex: 1.5 }} className="text-sm font-medium" numberOfLines={1}>
+                {r.name}
+              </Text>
+              <View style={{ flex: 1 }}>
+                <MarketBadge market={r.market} />
+              </View>
+              <View
+                style={{ flex: 1.4 }}
+                className="flex-row items-center justify-end gap-2"
+              >
+                <Progress value={r.score / 100} className="h-2 w-14" />
+                <Text className="w-6 text-right text-sm font-bold">
+                  {r.score}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Velocity / CPC / Fulfilment */}
+        <View>
+          <View className="flex-row border-b border-border pb-2">
+            <Text style={{ flex: 1.7 }} className="text-xs font-medium text-muted-foreground">
+              Velocity
+            </Text>
+            <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+              CPC
+            </Text>
+            <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+              Fulfilment
+            </Text>
+          </View>
+          {NORM_ROWS.map((r) => (
+            <View
+              key={r.name}
+              className="flex-row items-center border-b border-border/50 py-3"
+            >
+              <View style={{ flex: 1.7 }} className="flex-row items-center gap-1.5">
+                <TrendingDown color="#EF4444" size={12} />
+                <Text className="text-xs font-medium text-red-500">
+                  {r.velocity} c/a/w
+                </Text>
+                <Sparkline />
+              </View>
+              <Text
+                style={{ flex: 1 }}
+                className={cn("text-right text-sm font-medium", CPC_TONE[r.cpcTone])}
+              >
+                {r.cpc}
+              </Text>
+              <Text style={{ flex: 1 }} className="text-right text-sm">
+                {r.fulfilment}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function TierCard({ tier }: { tier: MarketTier }) {
+  const s = TIER[tier.tone];
+  return (
+    <View className={cn("gap-3 rounded-2xl border p-4", s.card)}>
+      <View className="flex-row items-start justify-between">
+        <View className="flex-row items-center gap-1.5">
+          <MapPin color={s.icon} size={16} />
+          <Text className={cn("text-base font-semibold", s.head)}>
+            {tier.name}
+          </Text>
+        </View>
+        <Text className="text-xs text-muted-foreground">{tier.bdms}</Text>
+      </View>
+      <Text className="text-sm text-muted-foreground">{tier.desc}</Text>
+      <View className="gap-3">
+        <View className="flex-row">
+          <TierMetric label="Avg CPC" value={tier.avgCpc} color={s.metric} />
+          <TierMetric label="Avg Efficiency" value={tier.avgEff} color={s.metric} />
+        </View>
+        <View className="flex-row">
+          <TierMetric label="Venues" value={tier.venues} color={s.count} />
+          <TierMetric label="Cases" value={tier.cases} color={s.count} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function TierMetric({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <View className="flex-1 gap-0.5">
+      <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Text>
+      <Text className={cn("text-base font-semibold", color)}>{value}</Text>
+    </View>
+  );
+}
+
+function MarketBadge({ market }: { market: Maturity }) {
+  const m = MATURITY[market];
+  return (
+    <View className={cn("self-start rounded px-2 py-0.5", m.bg)}>
+      <Text className={cn("text-[11px] font-medium", m.text)}>
+        {market.toLowerCase()}
+      </Text>
+    </View>
+  );
+}
+
+function Sparkline() {
+  return (
+    <Svg width={30} height={14}>
+      <Polyline
+        points="0,10 6,4 12,8 18,3 24,9 30,5"
+        fill="none"
+        stroke="#EF4444"
+        strokeWidth={1.5}
+      />
+    </Svg>
   );
 }
 
