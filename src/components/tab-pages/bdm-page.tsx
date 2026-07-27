@@ -46,6 +46,7 @@ import {
   CPC_TREND,
   CPC_X_LABELS,
   CPC_Y_TICKS,
+  COSTS_TABLE,
   BDM_PERFORMANCE,
   EFFICIENCY_TREND,
   SCATTER_AXIS_MAX,
@@ -185,6 +186,8 @@ export function BdmPage() {
               <ChannelsTab />
             ) : inner === "Trends" ? (
               <TrendsTab />
+            ) : inner === "Costs" ? (
+              <CostsTab />
             ) : (
               <Stub name={inner} />
             )}
@@ -304,6 +307,54 @@ function TerritoryCard({ territory: t }: { territory: Territory }) {
           </Metric>
         </View>
       </View>
+    </View>
+  );
+}
+
+// ── Costs inner tab ──────────────────────────────────────────────────────────
+
+function CostsTab() {
+  return (
+    <View>
+      <View className="flex-row border-b border-border pb-2">
+        <Text style={{ flex: 1.3 }} className="text-xs font-medium text-muted-foreground">
+          BDM
+        </Text>
+        <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+          Cost/Case
+        </Text>
+        <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+          Cost/Venue
+        </Text>
+        <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+          Cost/Menu
+        </Text>
+      </View>
+      {COSTS_TABLE.map((r) => (
+        <View
+          key={r.bdm}
+          className="flex-row items-center border-b border-border/50 py-3"
+        >
+          <Text style={{ flex: 1.3 }} className="text-sm font-medium" numberOfLines={1}>
+            {r.bdm}
+          </Text>
+          <Text
+            style={{ flex: 1 }}
+            className={cn(
+              "text-right text-sm font-medium",
+              r.cpcTone === "green" ? "text-green-500" : "text-red-500",
+            )}
+          >
+            {r.cpc}
+          </Text>
+          <Text style={{ flex: 1 }} className="text-right text-sm">
+            {r.venue}
+          </Text>
+          <Text style={{ flex: 1 }} className="text-right text-sm">
+            {r.menu}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }

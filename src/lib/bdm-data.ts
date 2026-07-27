@@ -26,8 +26,21 @@ export const BDM_INNER_TABS = [
   "Channels",
   "Trends",
   "Costs",
-  "Activity",
 ] as const;
+
+export interface CostRow {
+  bdm: string;
+  cpc: string;
+  cpcTone: "green" | "red";
+  venue: string;
+  menu: string;
+}
+export const COSTS_TABLE: CostRow[] = [
+  { bdm: "Territory Alpha", cpc: "$14.20", cpcTone: "green", venue: "$420", menu: "$680" },
+  { bdm: "Territory Beta", cpc: "$18.50", cpcTone: "red", venue: "$510", menu: "$750" },
+  { bdm: "Territory Gamma", cpc: "$22.40", cpcTone: "red", venue: "$620", menu: "$920" },
+  { bdm: "Territory Delta", cpc: "$16.80", cpcTone: "green", venue: "$480", menu: "$710" },
+];
 
 export const BDM_PERIODS = [
   "This Month",
