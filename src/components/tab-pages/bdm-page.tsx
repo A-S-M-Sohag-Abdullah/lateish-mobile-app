@@ -1573,78 +1573,65 @@ function ChannelChart() {
   );
 }
 
-const CH_COL = {
-  channel: 100,
-  accounts: 70,
-  cases: 60,
-  volume: 60,
-  cpc: 80,
-  cac: 60,
+// Full-width flex table — no inner horizontal scroll, so it never fights the
+// vertical page scroll or the pager on Android.
+const CH_FLEX = {
+  channel: 1.7,
+  accounts: 1,
+  cases: 0.85,
+  volume: 0.85,
+  cpc: 1.05,
+  cac: 0.85,
 } as const;
 
 function ChannelTable() {
-  const setLocked = usePagerLock((s) => s.setLocked);
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      className="rounded-2xl border border-border bg-card"
-      contentContainerStyle={{ padding: 16 }}
-      onTouchStart={() => setLocked(true)}
-      onTouchEnd={() => setLocked(false)}
-      onTouchCancel={() => setLocked(false)}
-      onMomentumScrollEnd={() => setLocked(false)}
-    >
-      <View>
-        <View className="flex-row border-b border-border pb-2">
-          <BrHead w={CH_COL.channel}>Channel</BrHead>
-          <BrHead w={CH_COL.accounts} right>Accounts</BrHead>
-          <BrHead w={CH_COL.cases} right>Cases</BrHead>
-          <BrHead w={CH_COL.volume} right>Cases</BrHead>
-          <BrHead w={CH_COL.cpc} right>CPC</BrHead>
-          <BrHead w={CH_COL.cac} right>CAC</BrHead>
-        </View>
-        {CHANNEL_TABLE.map((r) => (
-          <View
-            key={r.channel}
-            className="flex-row items-center border-b border-border/50 py-3"
-          >
-            <Text style={{ width: CH_COL.channel }} className="text-sm font-medium">
-              {r.channel}
-            </Text>
-            <Text style={{ width: CH_COL.accounts }} className="text-right text-sm">
-              {r.accounts}
-            </Text>
-            <Text style={{ width: CH_COL.cases }} className="text-right text-sm">
-              {r.cases}
-            </Text>
-            <Text style={{ width: CH_COL.volume }} className="text-right text-sm">
-              {r.volume}
-            </Text>
-            <View style={{ width: CH_COL.cpc }} className="flex-row justify-end">
-              <View
-                className={cn(
-                  "rounded-md px-2 py-0.5",
-                  r.cpcHighlight ? "bg-white" : "bg-secondary",
-                )}
-              >
-                <Text
-                  className={cn(
-                    "text-xs font-medium",
-                    r.cpcHighlight && "text-black",
-                  )}
-                >
-                  {r.cpc}
-                </Text>
-              </View>
-            </View>
-            <Text style={{ width: CH_COL.cac }} className="text-right text-sm">
-              {r.cac}
-            </Text>
-          </View>
-        ))}
+    <View className="rounded-2xl border border-border bg-card p-4">
+      <View className="flex-row border-b border-border pb-2">
+        <BrHead flex={CH_FLEX.channel}>Channel</BrHead>
+        <BrHead flex={CH_FLEX.accounts} right>Accounts</BrHead>
+        <BrHead flex={CH_FLEX.cases} right>Cases</BrHead>
+        <BrHead flex={CH_FLEX.volume} right>Cases</BrHead>
+        <BrHead flex={CH_FLEX.cpc} right>CPC</BrHead>
+        <BrHead flex={CH_FLEX.cac} right>CAC</BrHead>
       </View>
-    </ScrollView>
+      {CHANNEL_TABLE.map((r) => (
+        <View
+          key={r.channel}
+          className="flex-row items-center border-b border-border/50 py-3"
+        >
+          <Text style={{ flex: CH_FLEX.channel }} className="pr-1 text-xs font-medium">
+            {r.channel}
+          </Text>
+          <Text style={{ flex: CH_FLEX.accounts }} className="text-right text-xs">
+            {r.accounts}
+          </Text>
+          <Text style={{ flex: CH_FLEX.cases }} className="text-right text-xs">
+            {r.cases}
+          </Text>
+          <Text style={{ flex: CH_FLEX.volume }} className="text-right text-xs">
+            {r.volume}
+          </Text>
+          <View style={{ flex: CH_FLEX.cpc }} className="flex-row justify-end">
+            <View
+              className={cn(
+                "rounded-md px-2 py-0.5",
+                r.cpcHighlight ? "bg-white" : "bg-secondary",
+              )}
+            >
+              <Text
+                className={cn("text-xs font-medium", r.cpcHighlight && "text-black")}
+              >
+                {r.cpc}
+              </Text>
+            </View>
+          </View>
+          <Text style={{ flex: CH_FLEX.cac }} className="text-right text-xs">
+            {r.cac}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -1686,86 +1673,73 @@ function AttributionTab() {
   );
 }
 
-const BR_COL = {
-  activity: 130,
-  count: 60,
-  orders: 60,
-  revenue: 90,
-  revAct: 95,
-  avgDays: 70,
+// Full-width flex column weights — see ChannelTable note.
+const BR_FLEX = {
+  activity: 1.7,
+  count: 0.75,
+  orders: 0.8,
+  revenue: 1.1,
+  revAct: 1.05,
+  avgDays: 0.9,
 } as const;
 
 function BreakdownTable() {
-  const setLocked = usePagerLock((s) => s.setLocked);
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      // Freeze the pager while dragging so this scrolls instead of the screen.
-      onTouchStart={() => setLocked(true)}
-      onTouchEnd={() => setLocked(false)}
-      onTouchCancel={() => setLocked(false)}
-      onMomentumScrollEnd={() => setLocked(false)}
-    >
-      <View>
-        {/* header */}
-        <View className="flex-row border-b border-border pb-2">
-          <BrHead w={BR_COL.activity}>Activity</BrHead>
-          <BrHead w={BR_COL.count} right>Count</BrHead>
-          <BrHead w={BR_COL.orders} right>Orders</BrHead>
-          <BrHead w={BR_COL.revenue} right>Revenue</BrHead>
-          <BrHead w={BR_COL.revAct} right>Rev/Activity</BrHead>
-          <BrHead w={BR_COL.avgDays} right>Avg Days</BrHead>
-        </View>
-        {ATTR_BREAKDOWN.map((r) => (
-          <View
-            key={r.activity}
-            className="flex-row items-center border-b border-border/50 py-3"
-          >
-            <Text style={{ width: BR_COL.activity }} className="text-sm font-medium">
-              {r.activity}
-            </Text>
-            <Text style={{ width: BR_COL.count }} className="text-right text-sm">
-              {r.count}
-            </Text>
-            <Text style={{ width: BR_COL.orders }} className="text-right text-sm">
-              {r.orders}
-            </Text>
-            <Text style={{ width: BR_COL.revenue }} className="text-right text-sm">
-              {r.revenue}
-            </Text>
-            <View
-              style={{ width: BR_COL.revAct }}
-              className="flex-row justify-end"
-            >
-              <View className="rounded-md bg-secondary px-2 py-0.5">
-                <Text className="text-xs font-medium">{r.revActivity}</Text>
-              </View>
-            </View>
-            <Text style={{ width: BR_COL.avgDays }} className="text-right text-sm">
-              {r.avgDays}
-            </Text>
-          </View>
-        ))}
+    <View>
+      {/* header */}
+      <View className="flex-row border-b border-border pb-2">
+        <BrHead flex={BR_FLEX.activity}>Activity</BrHead>
+        <BrHead flex={BR_FLEX.count} right>Count</BrHead>
+        <BrHead flex={BR_FLEX.orders} right>Orders</BrHead>
+        <BrHead flex={BR_FLEX.revenue} right>Revenue</BrHead>
+        <BrHead flex={BR_FLEX.revAct} right>Rev/Act</BrHead>
+        <BrHead flex={BR_FLEX.avgDays} right>Avg Days</BrHead>
       </View>
-    </ScrollView>
+      {ATTR_BREAKDOWN.map((r) => (
+        <View
+          key={r.activity}
+          className="flex-row items-center border-b border-border/50 py-3"
+        >
+          <Text style={{ flex: BR_FLEX.activity }} className="pr-1 text-xs font-medium">
+            {r.activity}
+          </Text>
+          <Text style={{ flex: BR_FLEX.count }} className="text-right text-xs">
+            {r.count}
+          </Text>
+          <Text style={{ flex: BR_FLEX.orders }} className="text-right text-xs">
+            {r.orders}
+          </Text>
+          <Text style={{ flex: BR_FLEX.revenue }} className="text-right text-xs">
+            {r.revenue}
+          </Text>
+          <View style={{ flex: BR_FLEX.revAct }} className="flex-row justify-end">
+            <View className="rounded-md bg-secondary px-1.5 py-0.5">
+              <Text className="text-xs font-medium">{r.revActivity}</Text>
+            </View>
+          </View>
+          <Text style={{ flex: BR_FLEX.avgDays }} className="text-right text-xs">
+            {r.avgDays}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
 function BrHead({
-  w,
+  flex,
   right,
   children,
 }: {
-  w: number;
+  flex: number;
   right?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Text
-      style={{ width: w }}
+      style={{ flex }}
       className={cn(
-        "text-xs font-medium text-muted-foreground",
+        "text-[10px] font-medium text-muted-foreground",
         right && "text-right",
       )}
     >
