@@ -5,6 +5,7 @@ import {
   Bell,
   Calendar,
   ChartColumn,
+  Check,
   CircleCheck,
   MapPin,
   Target as TargetIcon,
@@ -54,9 +55,15 @@ import {
   COSTS_TABLE,
   BDM_PERFORMANCE,
   BENCHMARKING_TABS,
+  COMPARE_BDMS,
+  COMPARE_TABLE,
   CONVERGENCE,
   COST_ACCT_TABS,
   CURRENT_CPC,
+  RADAR_ALPHA,
+  RADAR_AXES,
+  RADAR_BETA,
+  RADAR_TOP25,
   FORECAST_AXIS_MAX,
   FORECAST_LINE,
   FORECAST_PERIODS,
@@ -221,10 +228,231 @@ export function BdmPage() {
           <CostAccountabilityTab inner={costInner} onChange={setCostInner} />
         ) : outer === "Forecasting" ? (
           <ForecastingTab period={forecastPeriod} onPeriod={setForecastPeriod} />
+        ) : outer === "Portfolio" ? (
+          <PortfolioTab />
         ) : (
           <Stub name={outer} />
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Portfolio outer tab ──────────────────────────────────────────────────────
+
+function PortfolioTab() {
+  const [selected, setSelected] = useState(() =>
+    COMPARE_BDMS.map((b) => b.checked),
+  );
+
+  return (
+    <View className="gap-5">
+      <Text className="text-xl font-bold">Select BDMs to compare (max4)</Text>
+      <View className="gap-3">
+        {[
+          COMPARE_BDMS.slice(0, 2),
+          COMPARE_BDMS.slice(2, 4),
+        ].map((row, ri) => (
+          <View key={ri} className="flex-row gap-3">
+            {row.map((b, ci) => {
+              const idx = ri * 2 + ci;
+              const on = selected[idx];
+              const m = MATURITY[b.maturity];
+              return (
+                <Pressable
+                  key={b.name}
+                  onPress={() =>
+                    setSelected((s) =>
+                      s.map((v, i) => (i === idx ? !v : v)),
+                    )
+                  }
+                  className="flex-1 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3 py-3"
+                >
+                  <View
+                    className={cn(
+                      "h-5 w-5 items-center justify-center rounded border",
+                      on ? "border-brand-maroon bg-brand-maroon" : "border-border",
+                    )}
+                  >
+                    {on ? <Check color="#FFFFFF" size={14} /> : null}
+                  </View>
+                  <Text className="flex-shrink text-sm font-medium" numberOfLines={1}>
+                    {b.name}
+                  </Text>
+                  <View className={cn("rounded px-1.5 py-0.5", m.bg)}>
+                    <Text className={cn("text-[10px] font-medium", m.text)}>
+                      {b.maturity.toLowerCase()}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+
+      <Text className="text-xl font-bold">Multi-Dimensional Comparison</Text>
+      <RadarChart />
+      <View className="flex-row items-center justify-center gap-4">
+        <Text className="text-sm">Territory Alpha</Text>
+        <Text className="text-sm">Territory Beta</Text>
+        <View className="flex-row items-center gap-1.5">
+          <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: "#22C55E" }} />
+          <Text className="text-sm text-green-500">Top 25%</Text>
+        </View>
+      </View>
+
+      {/* Comparison table */}
+      <View className="pt-2">
+        <View className="flex-row border-b border-border pb-2">
+          <Text style={{ flex: 1.4 }} className="text-xs font-medium text-muted-foreground">
+            Metric
+          </Text>
+          <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+            Territory Alpha
+          </Text>
+          <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+            Territory Beta
+          </Text>
+        </View>
+        {COMPARE_TABLE.map((r) => (
+          <View
+            key={r.metric}
+            className="flex-row items-center border-b border-border/50 py-3"
+          >
+            <Text style={{ flex: 1.4 }} className="text-sm font-medium">
+              {r.metric}
+            </Text>
+            <Text style={{ flex: 1 }} className="text-right text-sm">
+              {r.a}
+            </Text>
+            <Text style={{ flex: 1 }} className="text-right text-sm">
+              {r.b}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const RADAR_RINGS = [0.25, 0.5, 0.75, 1];
+
+function RadarChart() {
+  const [w, setW] = useState(0);
+  const size = w;
+  const cx = size / 2;
+  const cy = size / 2;
+  const R = size / 2 - 46;
+  const n = RADAR_AXES.length;
+
+  const ang = (i: number) => ((-90 + i * (360 / n)) * Math.PI) / 180;
+  const pt = (r: number, i: number) => ({
+    x: cx + r * Math.cos(ang(i)),
+    y: cy + r * Math.sin(ang(i)),
+  });
+  const poly = (vals: number[]) =>
+    vals
+      .map((v, i) => {
+        const p = pt((v / 100) * R, i);
+        return `${p.x},${p.y}`;
+      })
+      .join(" ");
+  const ringPoly = (level: number) =>
+    RADAR_AXES.map((_, i) => {
+      const p = pt(level * R, i);
+      return `${p.x},${p.y}`;
+    }).join(" ");
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={size} height={size}>
+          {/* rings */}
+          {RADAR_RINGS.map((L) => (
+            <Polygon
+              key={`ring${L}`}
+              points={ringPoly(L)}
+              fill="none"
+              stroke="rgba(255,255,255,0.12)"
+              strokeWidth={1}
+            />
+          ))}
+          {/* axis lines */}
+          {RADAR_AXES.map((_, i) => {
+            const p = pt(R, i);
+            return (
+              <Line
+                key={`ax${i}`}
+                x1={cx}
+                y1={cy}
+                x2={p.x}
+                y2={p.y}
+                stroke="rgba(255,255,255,0.12)"
+                strokeWidth={1}
+              />
+            );
+          })}
+          {/* scale numbers on axis 1 */}
+          {RADAR_RINGS.map((L) => {
+            const p = pt(L * R, 1);
+            return (
+              <SvgText
+                key={`sc${L}`}
+                x={p.x + 4}
+                y={p.y}
+                fontSize={9}
+                fill="#64748B"
+              >
+                {String(L * 100)}
+              </SvgText>
+            );
+          })}
+          {/* Top 25% (green dashed) */}
+          <Polygon
+            points={poly(RADAR_TOP25)}
+            fill="none"
+            stroke="#22C55E"
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
+          />
+          {/* Beta */}
+          <Polygon
+            points={poly(RADAR_BETA)}
+            fill="rgba(56,189,248,0.08)"
+            stroke="#38BDF8"
+            strokeWidth={1.5}
+          />
+          {/* Alpha */}
+          <Polygon
+            points={poly(RADAR_ALPHA)}
+            fill="rgba(255,255,255,0.06)"
+            stroke="#FFFFFF"
+            strokeWidth={2}
+          />
+          {/* axis labels */}
+          {RADAR_AXES.map((label, i) => {
+            const p = pt(R + 16, i);
+            const c = Math.cos(ang(i));
+            const anchor =
+              Math.abs(c) < 0.3 ? "middle" : c > 0 ? "start" : "end";
+            return (
+              <SvgText
+                key={label}
+                x={p.x}
+                y={p.y + 3}
+                fontSize={10}
+                fill="#94A3B8"
+                textAnchor={anchor}
+              >
+                {label}
+              </SvgText>
+            );
+          })}
+        </Svg>
+      ) : (
+        <View style={{ height: 300 }} />
+      )}
     </View>
   );
 }

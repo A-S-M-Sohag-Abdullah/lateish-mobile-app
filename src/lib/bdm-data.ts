@@ -21,6 +21,48 @@ export const BDM_OUTER_TABS = [
   "Cohorts",
 ] as const;
 
+// ── Portfolio outer tab ──────────────────────────────────────────────────────
+
+export interface CompareBdm {
+  name: string;
+  maturity: Maturity;
+  checked: boolean;
+}
+export const COMPARE_BDMS: CompareBdm[] = [
+  { name: "Territory Alpha", maturity: "Mature", checked: true },
+  { name: "Territory Beta", maturity: "Growth", checked: true },
+  { name: "Territory Gamma", maturity: "Emerging", checked: false },
+  { name: "Territory Delta", maturity: "Growth", checked: false },
+];
+
+export const RADAR_AXES = [
+  "Cost Efficiency",
+  "Conversion",
+  "Fulfilment",
+  "Activity",
+  "Coverage",
+  "Orders/Week",
+];
+export const RADAR_ALPHA = [88, 72, 94, 80, 84, 76];
+export const RADAR_BETA = [60, 62, 88, 68, 66, 52];
+export const RADAR_TOP25 = [90, 88, 90, 86, 88, 86];
+
+export interface CompareRow {
+  metric: string;
+  a: string;
+  b: string;
+}
+export const COMPARE_TABLE: CompareRow[] = [
+  { metric: "Cost/Case", a: "$14.20", b: "$18.50" },
+  { metric: "Efficiency", a: "88%", b: "74%" },
+  { metric: "Conversion", a: "22.6%", b: "19.7%" },
+  { metric: "Fulfilment", a: "94%", b: "88%" },
+  { metric: "Orders/Week", a: "3.2", b: "2.1" },
+  { metric: "Venues", a: "12", b: "9" },
+  { metric: "Menu Placements", a: "8", b: "6" },
+  { metric: "Market", a: "mature", b: "growth" },
+];
+
 export const FORECAST_PERIODS = ["3mo", "6mo", "12mo"] as const;
 export const FORECAST_LINE = [
   26, 26.8, 27, 26.5, 24.5, 22.5, 22, 23, 24, 23.5, 22, 21, 20,
