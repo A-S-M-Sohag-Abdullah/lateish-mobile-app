@@ -59,34 +59,36 @@ Link stays live ~30 days and works for anyone you send it to.
 
 ## 2. iOS → build & distribute via TestFlight
 
-iOS needs a **paid Apple Developer account** ($99/yr). To use the **client's** account
-without dealing with their password + 2FA on every build, use an
-**App Store Connect API Key**.
+iOS needs a **paid Apple Developer account** ($99/yr). We sign in with the client's
+**Apple ID email + password**. Every Apple account has **2-factor auth**, so on login
+Apple sends a **6-digit code to the client's trusted device** — you need that code.
 
-### 2a. Client generates an App Store Connect API Key (one-time)
-In [appstoreconnect.apple.com](https://appstoreconnect.apple.com):
-1. **Users and Access → Integrations → App Store Connect API (Team Keys) → “+”**
-2. Name `EAS`, Access = **Admin**, Generate.
-3. **Download the `.p8` file** (downloadable only once) and copy the **Key ID** + **Issuer ID**.
-4. Get the **Team ID** from [developer.apple.com](https://developer.apple.com) → **Membership** (10-char code).
-5. Client also logs into developer.apple.com once and **accepts any pending agreements**
-   (a stale license agreement is the #1 cause of iOS build/submit failures).
-
-They send you: `.p8` file + Key ID + Issuer ID + Team ID.
+### 2a. Before you start
+- You have the client's **Apple ID email + password**.
+- The client is **reachable to relay the 2FA code** when you run the build (the code goes
+  to *their* device, not yours).
+- The client has logged into [developer.apple.com](https://developer.apple.com) once and
+  **accepted any pending agreements** (a stale license agreement is the #1 cause of
+  iOS build/submit failures).
 
 ### 2b. Build
 ```bash
 eas build --platform ios --profile production
 ```
-- Authenticate with the **App Store Connect API Key** (or run `eas credentials` first to store it).
+- When asked *"Log in to your Apple account?"* → **Yes**.
+- Enter the client's **Apple ID email** and **password**.
+- Apple pushes a **6-digit 2FA code to the client's device** → client sends it to you → type it in.
 - Say **Yes** to auto-create the App ID (`com.lateish.app`), Distribution Certificate, and Provisioning Profile.
-- Cloud build ~20–30 min → `.ipa`. (First build sets up credentials; later builds reuse them.)
+- Cloud build ~20–30 min → `.ipa`.
+- EAS **caches the Apple session (~2 weeks)**, so builds within that window won't re-prompt for 2FA.
+  First build sets up credentials; later builds reuse them.
 
 ### 2c. Upload to TestFlight
 ```bash
 eas submit --platform ios --profile production
 ```
-- Uses the same API key. If the app doesn't exist yet, let EAS create it, or create it manually
+- Sign in with the same Apple ID (may ask for a 2FA code again if the session expired).
+- If the app doesn't exist yet, let EAS create it, or create it manually
   in **App Store Connect → Apps → “+”** (Name `LATE(ish)`, Bundle ID `com.lateish.app`, SKU `lateish`).
 - Apple "processes" the build ~5–15 min.
 
