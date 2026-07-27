@@ -6,6 +6,8 @@ import {
   Activity,
   ArrowRight,
   DollarSign,
+  Layers,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react-native";
 
@@ -77,6 +79,43 @@ export const ATTR_BREAKDOWN: AttrBreakdown[] = [
   { activity: "Training", count: 22, orders: "4.3", revenue: "$6,880", revActivity: "$313", avgDays: "12d" },
   { activity: "Menu Placements", count: 16, orders: "4.8", revenue: "$7,680", revActivity: "$480", avgDays: "6d" },
   { activity: "Staff Sampling", count: 28, orders: "5.6", revenue: "$8,960", revActivity: "$320", avgDays: "9d" },
+];
+
+// ── Channels inner tab ───────────────────────────────────────────────────────
+
+export const CHANNEL_SUMMARY: AttrSummary[] = [
+  { label: "Channels Active", value: "4", icon: Layers, green: false },
+  { label: "Total BDM Cost", value: "$8,000", icon: DollarSign, green: false },
+  { label: "Total Revenue", value: "$59,520", icon: TrendingUp, green: false },
+];
+
+export interface ChannelBar {
+  label: string;
+  cost: number; // green
+  revenue: number; // white
+}
+export const CHANNEL_BARS: ChannelBar[] = [
+  { label: "On trade", cost: 18, revenue: 18 },
+  { label: "Off trade", cost: 27, revenue: 27 },
+  { label: "Distributor", cost: 13, revenue: 11 },
+];
+export const CHANNEL_AXIS_MAX = 30;
+export const CHANNEL_TICKS = ["$30k", "$23k", "$15k", "$8k", "$0k"];
+
+export interface ChannelRow {
+  channel: string;
+  accounts: number;
+  cases: number;
+  volume: number;
+  cpc: string;
+  cpcHighlight: boolean;
+  cac: string;
+}
+export const CHANNEL_TABLE: ChannelRow[] = [
+  { channel: "On-Trade", accounts: 12, cases: 185, volume: 185, cpc: "$22.70", cpcHighlight: false, cac: "$350" },
+  { channel: "Off-Trade", accounts: 4, cases: 120, volume: 120, cpc: "$15.00", cpcHighlight: true, cac: "$450" },
+  { channel: "Distributor", accounts: 2, cases: 45, volume: 45, cpc: "$26.67", cpcHighlight: false, cac: "$600" },
+  { channel: "Hospitality", accounts: 3, cases: 22, volume: 22, cpc: "$36.36", cpcHighlight: false, cac: "$267" },
 ];
 
 export interface BdmStat {

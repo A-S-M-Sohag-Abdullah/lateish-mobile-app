@@ -21,6 +21,11 @@ import {
   ATTR_BARS,
   ATTR_BREAKDOWN,
   ATTR_SUMMARY,
+  CHANNEL_AXIS_MAX,
+  CHANNEL_BARS,
+  CHANNEL_SUMMARY,
+  CHANNEL_TABLE,
+  CHANNEL_TICKS,
   MARKET_TIERS,
   NORM_ROWS,
   type AttrSummary,
@@ -150,6 +155,8 @@ export function BdmPage() {
               <TerritoryTab />
             ) : inner === "Attribution" ? (
               <AttributionTab />
+            ) : inner === "Channels" ? (
+              <ChannelsTab />
             ) : (
               <Stub name={inner} />
             )}
@@ -270,6 +277,207 @@ function TerritoryCard({ territory: t }: { territory: Territory }) {
         </View>
       </View>
     </View>
+  );
+}
+
+// ── Channels inner tab ───────────────────────────────────────────────────────
+
+function ChannelsTab() {
+  const colors = useThemeColors();
+  return (
+    <View className="gap-4">
+      {CHANNEL_SUMMARY.map((s) => (
+        <SummaryCard key={s.label} item={s} />
+      ))}
+
+      <View className="gap-1 pt-1">
+        <View className="flex-row items-center gap-2">
+          <Activity color={colors.foreground} size={20} />
+          <Text className="text-xl font-bold">Cost vs Revenue by Channel</Text>
+        </View>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          BDM cost allocated proportionally by activity volume
+        </Text>
+      </View>
+
+      <View className="gap-3">
+        <Text className="text-sm font-semibold">
+          Expected vs Realized NSV by Market
+        </Text>
+        <ChannelChart />
+      </View>
+
+      <ChannelTable />
+    </View>
+  );
+}
+
+const CH_H = 200;
+const CH_PAD_T = 10;
+const CH_PAD_B = 26;
+const CH_PAD_L = 40;
+const CH_BAR_W = 20;
+const CH_BAR_GAP = 6;
+const CH_AXIS = "rgba(255,255,255,0.3)";
+
+function ChannelChart() {
+  const [w, setW] = useState(0);
+  const plotH = CH_H - CH_PAD_T - CH_PAD_B;
+  const y0 = CH_PAD_T + plotH;
+  const y = (v: number) => CH_PAD_T + (1 - v / CHANNEL_AXIS_MAX) * plotH;
+  const groupW = (w - CH_PAD_L) / CHANNEL_BARS.length;
+  const fractions = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={w} height={CH_H}>
+          {fractions.map((g) => (
+            <Line
+              key={`g${g}`}
+              x1={CH_PAD_L}
+              x2={w}
+              y1={CH_PAD_T + g * plotH}
+              y2={CH_PAD_T + g * plotH}
+              stroke="rgba(255,255,255,0.08)"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+            />
+          ))}
+          <Line x1={CH_PAD_L} x2={CH_PAD_L} y1={CH_PAD_T} y2={y0} stroke={CH_AXIS} strokeWidth={1.5} />
+          {fractions.map((g, i) => (
+            <SvgText
+              key={`yl${g}`}
+              x={CH_PAD_L - 6}
+              y={CH_PAD_T + g * plotH + 3}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="end"
+            >
+              {CHANNEL_TICKS[i]}
+            </SvgText>
+          ))}
+
+          {CHANNEL_BARS.map((b, i) => {
+            const cx = CH_PAD_L + groupW * i + groupW / 2;
+            return (
+              <Rect
+                key={`c${i}`}
+                x={cx - CH_BAR_W - CH_BAR_GAP / 2}
+                y={y(b.cost)}
+                width={CH_BAR_W}
+                height={y0 - y(b.cost)}
+                rx={3}
+                fill="#22C55E"
+              />
+            );
+          })}
+          {CHANNEL_BARS.map((b, i) => {
+            const cx = CH_PAD_L + groupW * i + groupW / 2;
+            return (
+              <Rect
+                key={`r${i}`}
+                x={cx + CH_BAR_GAP / 2}
+                y={y(b.revenue)}
+                width={CH_BAR_W}
+                height={y0 - y(b.revenue)}
+                rx={3}
+                fill="#FFFFFF"
+              />
+            );
+          })}
+          {CHANNEL_BARS.map((b, i) => (
+            <SvgText
+              key={`l${i}`}
+              x={CH_PAD_L + groupW * i + groupW / 2}
+              y={CH_H - 8}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="middle"
+            >
+              {b.label}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height: CH_H }} />
+      )}
+    </View>
+  );
+}
+
+const CH_COL = {
+  channel: 100,
+  accounts: 70,
+  cases: 60,
+  volume: 60,
+  cpc: 80,
+  cac: 60,
+} as const;
+
+function ChannelTable() {
+  const setLocked = usePagerLock((s) => s.setLocked);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className="rounded-2xl border border-border bg-card"
+      contentContainerStyle={{ padding: 16 }}
+      onTouchStart={() => setLocked(true)}
+      onTouchEnd={() => setLocked(false)}
+      onTouchCancel={() => setLocked(false)}
+      onMomentumScrollEnd={() => setLocked(false)}
+    >
+      <View>
+        <View className="flex-row border-b border-border pb-2">
+          <BrHead w={CH_COL.channel}>Channel</BrHead>
+          <BrHead w={CH_COL.accounts} right>Accounts</BrHead>
+          <BrHead w={CH_COL.cases} right>Cases</BrHead>
+          <BrHead w={CH_COL.volume} right>Cases</BrHead>
+          <BrHead w={CH_COL.cpc} right>CPC</BrHead>
+          <BrHead w={CH_COL.cac} right>CAC</BrHead>
+        </View>
+        {CHANNEL_TABLE.map((r) => (
+          <View
+            key={r.channel}
+            className="flex-row items-center border-b border-border/50 py-3"
+          >
+            <Text style={{ width: CH_COL.channel }} className="text-sm font-medium">
+              {r.channel}
+            </Text>
+            <Text style={{ width: CH_COL.accounts }} className="text-right text-sm">
+              {r.accounts}
+            </Text>
+            <Text style={{ width: CH_COL.cases }} className="text-right text-sm">
+              {r.cases}
+            </Text>
+            <Text style={{ width: CH_COL.volume }} className="text-right text-sm">
+              {r.volume}
+            </Text>
+            <View style={{ width: CH_COL.cpc }} className="flex-row justify-end">
+              <View
+                className={cn(
+                  "rounded-md px-2 py-0.5",
+                  r.cpcHighlight ? "bg-white" : "bg-secondary",
+                )}
+              >
+                <Text
+                  className={cn(
+                    "text-xs font-medium",
+                    r.cpcHighlight && "text-black",
+                  )}
+                >
+                  {r.cpc}
+                </Text>
+              </View>
+            </View>
+            <Text style={{ width: CH_COL.cac }} className="text-right text-sm">
+              {r.cac}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
