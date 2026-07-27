@@ -42,6 +42,17 @@ export const COSTS_TABLE: CostRow[] = [
   { bdm: "Territory Delta", cpc: "$16.80", cpcTone: "green", venue: "$480", menu: "$710" },
 ];
 
+export const BENCHMARKING_TABS = [
+  "Benchmarks",
+  "What works",
+  "Goal Settings",
+] as const;
+
+export const WHAT_GOOD_LOOKS_LIKE = [
+  "Territory A is in the 92nd percentile with a composite index of 128. Key differentiator: superior cost efficiency — 35% above company average with the lowest CPC in the network.",
+  "Territory B is in the 78th percentile with a composite index of 109. Key differentiator: consistent velocity growth — reorder intervals declining 12% month-over-month.",
+];
+
 export const BDM_PERIODS = [
   "This Month",
   "Last Month",

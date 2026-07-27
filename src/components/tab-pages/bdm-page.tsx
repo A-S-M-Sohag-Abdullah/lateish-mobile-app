@@ -48,6 +48,8 @@ import {
   CPC_Y_TICKS,
   COSTS_TABLE,
   BDM_PERFORMANCE,
+  BENCHMARKING_TABS,
+  WHAT_GOOD_LOOKS_LIKE,
   EFFICIENCY_TREND,
   SCATTER_AXIS_MAX,
   SCATTER_X_LABELS,
@@ -75,6 +77,7 @@ export function BdmPage() {
   const colors = useThemeColors();
   const [outer, setOuter] = useState<string>("Efficiency ROI");
   const [inner, setInner] = useState<string>("Efficiency");
+  const [benchInner, setBenchInner] = useState<string>("Benchmarks");
   const [period, setPeriod] = useState<string>("This Month");
   const [anon, setAnon] = useState(true);
 
@@ -100,39 +103,39 @@ export function BdmPage() {
         {/* Outer tabs */}
         <TabRow tabs={BDM_OUTER_TABS} value={outer} onChange={setOuter} />
 
+        {/* Privacy card (shared) */}
+        <View className="gap-1.5 rounded-2xl border border-border bg-white/5 p-4">
+          <Text className="text-base font-semibold text-info">
+            Privacy Protected Analytics
+          </Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            BDM identities are anonymised by default. Performance is shown in
+            aggregate to prevent micromanagement while maintaining ROI
+          </Text>
+        </View>
+
+        {/* Controls (shared) */}
+        <View className="flex-row items-center justify-between gap-3">
+          <Dropdown
+            options={BDM_PERIODS}
+            value={period}
+            onChange={setPeriod}
+            size="sm"
+          />
+          <View className="flex-row items-center gap-3">
+            <View className="flex-row items-center gap-1.5">
+              <Bell color={colors.foreground} size={16} />
+              <Text className="text-sm">Alerts</Text>
+            </View>
+            <View className="flex-row items-center gap-1.5">
+              <Toggle value={anon} onToggle={() => setAnon((v) => !v)} />
+              <Text className="text-sm">Anonymise</Text>
+            </View>
+          </View>
+        </View>
+
         {outer === "Efficiency ROI" ? (
           <>
-            {/* Privacy card */}
-            <View className="gap-1.5 rounded-2xl border border-border bg-white/5 p-4">
-              <Text className="text-base font-semibold text-info">
-                Privacy Protected Analytics
-              </Text>
-              <Text className="text-sm leading-5 text-muted-foreground">
-                BDM identities are anonymised by default. Performance is shown in
-                aggregate to prevent micromanagement while maintaining ROI
-              </Text>
-            </View>
-
-            {/* Controls */}
-            <View className="flex-row items-center justify-between gap-3">
-              <Dropdown
-                options={BDM_PERIODS}
-                value={period}
-                onChange={setPeriod}
-                size="sm"
-              />
-              <View className="flex-row items-center gap-3">
-                <View className="flex-row items-center gap-1.5">
-                  <Bell color={colors.foreground} size={16} />
-                  <Text className="text-sm">Alerts</Text>
-                </View>
-                <View className="flex-row items-center gap-1.5">
-                  <Toggle value={anon} onToggle={() => setAnon((v) => !v)} />
-                  <Text className="text-sm">Anonymise</Text>
-                </View>
-              </View>
-            </View>
-
             {/* Stat tiles */}
             <View className="gap-3">
               {statRows.map((row, i) => (
@@ -192,10 +195,43 @@ export function BdmPage() {
               <Stub name={inner} />
             )}
           </>
+        ) : outer === "Benchmarking" ? (
+          <BenchmarkingTab inner={benchInner} onChange={setBenchInner} />
         ) : (
           <Stub name={outer} />
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Benchmarking outer tab ───────────────────────────────────────────────────
+
+function BenchmarkingTab({
+  inner,
+  onChange,
+}: {
+  inner: string;
+  onChange: (t: string) => void;
+}) {
+  return (
+    <View className="gap-5">
+      <TabRow tabs={BENCHMARKING_TABS} value={inner} onChange={onChange} />
+
+      {inner === "Benchmarks" ? (
+        <View className="gap-4 rounded-2xl border border-border bg-card p-4">
+          <Text className="text-lg font-bold text-amber-400">
+            What Good Looks Like
+          </Text>
+          {WHAT_GOOD_LOOKS_LIKE.map((p, i) => (
+            <Text key={i} className="text-base leading-6">
+              {p}
+            </Text>
+          ))}
+        </View>
+      ) : (
+        <Stub name={inner} />
+      )}
     </View>
   );
 }
