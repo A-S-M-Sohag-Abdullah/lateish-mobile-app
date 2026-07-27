@@ -240,8 +240,45 @@ function CostAccountabilityTab({
           </View>
         </View>
       ) : (
-        <Stub name={inner} />
+        <CostEmptyState name={inner} />
       )}
+    </View>
+  );
+}
+
+const COST_EMPTY: Record<
+  string,
+  { lines: string[]; emphasis?: boolean }
+> = {
+  "Log Cost": { lines: ["Select a specific BDM to log costs"], emphasis: true },
+  Trends: {
+    lines: [
+      "No historical data available yet",
+      "Start tracking BDM costs to see trends",
+    ],
+  },
+  Compare: { lines: ["Select a specific BDM to compare"] },
+  Milestone: { lines: ["Select a specific BDM to manage milestones"] },
+  Reports: { lines: ["Select a specific BDM to manage reports"] },
+};
+
+function CostEmptyState({ name }: { name: string }) {
+  const cfg = COST_EMPTY[name] ?? { lines: [`No ${name} data yet`] };
+  return (
+    <View className="items-center gap-1 py-32">
+      {cfg.lines.map((line, i) => (
+        <Text
+          key={i}
+          className={cn(
+            "text-center",
+            cfg.emphasis
+              ? "text-2xl font-bold"
+              : "text-base text-muted-foreground",
+          )}
+        >
+          {line}
+        </Text>
+      ))}
     </View>
   );
 }
