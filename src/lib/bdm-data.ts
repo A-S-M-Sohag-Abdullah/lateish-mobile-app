@@ -53,6 +53,33 @@ export const WHAT_GOOD_LOOKS_LIKE = [
   "Territory B is in the 78th percentile with a composite index of 109. Key differentiator: consistent velocity growth — reorder intervals declining 12% month-over-month.",
 ];
 
+export interface GoalCard {
+  label: string;
+  current: string;
+  target: string;
+  best: string;
+  unit: string;
+  note: string;
+}
+export const GOAL_SETTINGS: GoalCard[] = [
+  {
+    label: "Weekly Activities",
+    current: "0",
+    target: "0",
+    best: "0",
+    unit: "activities/week",
+    note: "Ramp phase (0 months). Target based on 25th percentile of peers. 18% uplift target.",
+  },
+  {
+    label: "Weekly Activities",
+    current: "0",
+    target: "0",
+    best: "0",
+    unit: "activities/week",
+    note: "Ramp phase (0 months). Target based on 25th percentile of peers. 18% uplift target.",
+  },
+];
+
 export interface WhatWorksRow {
   activity: string;
   uplift: string;

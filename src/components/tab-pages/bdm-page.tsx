@@ -1,5 +1,6 @@
 import {
   Activity,
+  ArrowRight,
   ArrowUpRight,
   Bell,
   ChartColumn,
@@ -49,6 +50,7 @@ import {
   COSTS_TABLE,
   BDM_PERFORMANCE,
   BENCHMARKING_TABS,
+  GOAL_SETTINGS,
   WHAT_GOOD_LOOKS_LIKE,
   WHAT_WORKS_ROWS,
   EFFICIENCY_TREND,
@@ -233,9 +235,73 @@ function BenchmarkingTab({
         </View>
       ) : inner === "What Works" ? (
         <WhatWorks />
+      ) : inner === "Goal Settings" ? (
+        <GoalSettingsView />
       ) : (
         <Stub name={inner} />
       )}
+    </View>
+  );
+}
+
+function GoalSettingsView() {
+  const colors = useThemeColors();
+  return (
+    <View className="gap-4">
+      <View className="gap-1">
+        <View className="flex-row items-center gap-2">
+          <Activity color="#38BDF8" size={20} />
+          <Text className="text-xl font-bold">
+            Activity → Velocity Correlation
+          </Text>
+        </View>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          Which BDM activities drive the highest velocity improvements? Based on
+          platform-wide analysis.
+        </Text>
+      </View>
+
+      {GOAL_SETTINGS.map((g, i) => (
+        <View
+          key={i}
+          className="gap-3 rounded-2xl border border-border bg-card p-4"
+        >
+          <Text className="text-sm font-bold">{g.label}</Text>
+          <View className="flex-row items-center">
+            <GoalMetric label="Current" value={g.current} unit={g.unit} align="items-start" />
+            <ArrowRight color={colors.mutedForeground} size={16} />
+            <GoalMetric label="Suggested Target" value={g.target} unit={g.unit} align="items-center" />
+            <GoalMetric label="Best" value={g.best} unit={g.unit} align="items-end" dim />
+          </View>
+          <Text className="text-xs leading-5 text-muted-foreground">
+            {g.note}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function GoalMetric({
+  label,
+  value,
+  unit,
+  align,
+  dim,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  align: string;
+  dim?: boolean;
+}) {
+  return (
+    <View className={cn("flex-1 gap-0.5", align)}>
+      <Text className="text-[10px] text-muted-foreground">{label}</Text>
+      <Text className={cn("text-lg font-bold", dim && "text-muted-foreground")}>
+        {value}
+      </Text>
+      <Text className="text-[10px] text-muted-foreground">{unit}</Text>
     </View>
   );
 }
