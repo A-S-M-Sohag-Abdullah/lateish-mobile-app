@@ -65,14 +65,18 @@ export const ATTR_BAR_TICKS = [80, 120, 160, 200];
 export interface AttrBreakdown {
   activity: string;
   count: number;
+  orders: string;
+  revenue: string;
+  revActivity: string;
+  avgDays: string;
 }
 export const ATTR_BREAKDOWN: AttrBreakdown[] = [
-  { activity: "Venue Visits", count: 142 },
-  { activity: "Tastings", count: 38 },
-  { activity: "Calls", count: 210 },
-  { activity: "Training", count: 22 },
-  { activity: "Menu Placements", count: 16 },
-  { activity: "Staff Sampling", count: 28 },
+  { activity: "Venue Visits", count: 142, orders: "15.4", revenue: "$24,640", revActivity: "$174", avgDays: "8d" },
+  { activity: "Tastings", count: 38, orders: "11.2", revenue: "$17,920", revActivity: "$472", avgDays: "5d" },
+  { activity: "Calls", count: 210, orders: "7.1", revenue: "$11,360", revActivity: "$54", avgDays: "3d" },
+  { activity: "Training", count: 22, orders: "4.3", revenue: "$6,880", revActivity: "$313", avgDays: "12d" },
+  { activity: "Menu Placements", count: 16, orders: "4.8", revenue: "$7,680", revActivity: "$480", avgDays: "6d" },
+  { activity: "Staff Sampling", count: 28, orders: "5.6", revenue: "$8,960", revActivity: "$320", avgDays: "9d" },
 ];
 
 export interface BdmStat {

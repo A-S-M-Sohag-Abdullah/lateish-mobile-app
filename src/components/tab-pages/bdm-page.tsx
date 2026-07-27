@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
 import { Text } from "@/components/ui/text";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { usePagerLock } from "@/store/pager-lock.store";
 import { cn } from "@/lib/utils";
 import {
   BDM_INNER_TABS,
@@ -294,8 +295,8 @@ function AttributionTab() {
         </Text>
       </View>
 
-      <View className="gap-3 rounded-2xl border border-border bg-card p-4">
-        <Text className="text-base font-semibold">Revenue by Activity</Text>
+      <View className="gap-3 rounded-lg bg-white/[0.08] p-4">
+        <Text className="text-base font-semibold">Cases by Distributor</Text>
         <AttributionBarChart />
       </View>
 
@@ -304,27 +305,97 @@ function AttributionTab() {
         <Text className="text-base font-semibold">
           Detailed Attribution Breakdown
         </Text>
+        <BreakdownTable />
+      </View>
+    </View>
+  );
+}
+
+const BR_COL = {
+  activity: 130,
+  count: 60,
+  orders: 60,
+  revenue: 90,
+  revAct: 95,
+  avgDays: 70,
+} as const;
+
+function BreakdownTable() {
+  const setLocked = usePagerLock((s) => s.setLocked);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      // Freeze the pager while dragging so this scrolls instead of the screen.
+      onTouchStart={() => setLocked(true)}
+      onTouchEnd={() => setLocked(false)}
+      onTouchCancel={() => setLocked(false)}
+      onMomentumScrollEnd={() => setLocked(false)}
+    >
+      <View>
+        {/* header */}
         <View className="flex-row border-b border-border pb-2">
-          <Text style={{ flex: 1 }} className="text-xs font-medium text-muted-foreground">
-            Activity
-          </Text>
-          <Text className="text-right text-xs font-medium text-muted-foreground">
-            Count
-          </Text>
+          <BrHead w={BR_COL.activity}>Activity</BrHead>
+          <BrHead w={BR_COL.count} right>Count</BrHead>
+          <BrHead w={BR_COL.orders} right>Orders</BrHead>
+          <BrHead w={BR_COL.revenue} right>Revenue</BrHead>
+          <BrHead w={BR_COL.revAct} right>Rev/Activity</BrHead>
+          <BrHead w={BR_COL.avgDays} right>Avg Days</BrHead>
         </View>
         {ATTR_BREAKDOWN.map((r) => (
           <View
             key={r.activity}
             className="flex-row items-center border-b border-border/50 py-3"
           >
-            <Text style={{ flex: 1 }} className="text-sm font-medium">
+            <Text style={{ width: BR_COL.activity }} className="text-sm font-medium">
               {r.activity}
             </Text>
-            <Text className="text-sm">{r.count}</Text>
+            <Text style={{ width: BR_COL.count }} className="text-right text-sm">
+              {r.count}
+            </Text>
+            <Text style={{ width: BR_COL.orders }} className="text-right text-sm">
+              {r.orders}
+            </Text>
+            <Text style={{ width: BR_COL.revenue }} className="text-right text-sm">
+              {r.revenue}
+            </Text>
+            <View
+              style={{ width: BR_COL.revAct }}
+              className="flex-row justify-end"
+            >
+              <View className="rounded-md bg-secondary px-2 py-0.5">
+                <Text className="text-xs font-medium">{r.revActivity}</Text>
+              </View>
+            </View>
+            <Text style={{ width: BR_COL.avgDays }} className="text-right text-sm">
+              {r.avgDays}
+            </Text>
           </View>
         ))}
       </View>
-    </View>
+    </ScrollView>
+  );
+}
+
+function BrHead({
+  w,
+  right,
+  children,
+}: {
+  w: number;
+  right?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Text
+      style={{ width: w }}
+      className={cn(
+        "text-xs font-medium text-muted-foreground",
+        right && "text-right",
+      )}
+    >
+      {children}
+    </Text>
   );
 }
 
@@ -353,11 +424,13 @@ const ABAR_PAD_T = 6;
 function AttributionBarChart() {
   const [w, setW] = useState(0);
   const rows = ATTR_BARS.length;
-  const height = ABAR_PAD_T + rows * (ABAR_H + ABAR_GAP) + 8;
   const plotX0 = ABAR_LABEL_W;
   const plotW = Math.max(0, w - plotX0 - 10);
   const x = (v: number) => plotX0 + (v / ABAR_AXIS_MAX) * plotW;
-  const axisY = ABAR_PAD_T + rows * (ABAR_H + ABAR_GAP) - ABAR_GAP + ABAR_H + 2;
+  // Axis sits below the last bar; the SVG must be tall enough for the tick
+  // labels underneath it (they were being clipped before).
+  const axisY = ABAR_PAD_T + (rows - 1) * (ABAR_H + ABAR_GAP) + ABAR_H + 12;
+  const height = axisY + 22;
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>

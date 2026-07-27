@@ -795,11 +795,12 @@ const BAR_PAD_T = 6;
 function DistributorBarChart() {
   const [w, setW] = useState(0);
   const rows = VIP_DISTRIBUTOR_BARS.length;
-  const height = BAR_PAD_T + rows * (BAR_H + BAR_GAP) + 8;
   const plotX0 = BAR_LABEL_W;
   const plotW = Math.max(0, w - plotX0 - 10);
   const x = (v: number) => plotX0 + (v / BAR_AXIS_MAX) * plotW;
-  const axisY = BAR_PAD_T + rows * (BAR_H + BAR_GAP) - BAR_GAP + BAR_H + 2;
+  // Tall enough for the axis tick labels below the baseline.
+  const axisY = BAR_PAD_T + (rows - 1) * (BAR_H + BAR_GAP) + BAR_H + 12;
+  const height = axisY + 22;
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
