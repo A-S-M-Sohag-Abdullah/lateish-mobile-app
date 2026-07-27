@@ -3,9 +3,11 @@ import {
   ArrowRight,
   ArrowUpRight,
   Bell,
+  Calendar,
   ChartColumn,
   CircleCheck,
   MapPin,
+  Target as TargetIcon,
   TrendingDown,
 } from "lucide-react-native";
 import { useState } from "react";
@@ -52,8 +54,17 @@ import {
   COSTS_TABLE,
   BDM_PERFORMANCE,
   BENCHMARKING_TABS,
+  CONVERGENCE,
   COST_ACCT_TABS,
+  CURRENT_CPC,
+  FORECAST_AXIS_MAX,
+  FORECAST_LINE,
+  FORECAST_PERIODS,
+  FORECAST_TARGET,
+  FORECAST_X_LABELS,
+  FORECAST_Y_VALUES,
   GOAL_SETTINGS,
+  TARGET_CPC,
   WHAT_GOOD_LOOKS_LIKE,
   WHAT_WORKS_ROWS,
   EFFICIENCY_TREND,
@@ -86,6 +97,7 @@ export function BdmPage() {
   const [inner, setInner] = useState<string>("Efficiency");
   const [benchInner, setBenchInner] = useState<string>("Benchmarks");
   const [costInner, setCostInner] = useState<string>("Overview");
+  const [forecastPeriod, setForecastPeriod] = useState<string>("6mo");
   const [period, setPeriod] = useState<string>("This Month");
   const [anon, setAnon] = useState(true);
 
@@ -207,10 +219,195 @@ export function BdmPage() {
           <BenchmarkingTab inner={benchInner} onChange={setBenchInner} />
         ) : outer === "Cost Accountability" ? (
           <CostAccountabilityTab inner={costInner} onChange={setCostInner} />
+        ) : outer === "Forecasting" ? (
+          <ForecastingTab period={forecastPeriod} onPeriod={setForecastPeriod} />
         ) : (
           <Stub name={outer} />
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Forecasting outer tab ────────────────────────────────────────────────────
+
+function ForecastingTab({
+  period,
+  onPeriod,
+}: {
+  period: string;
+  onPeriod: (p: string) => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View className="gap-5">
+      {/* period selector */}
+      <View className="flex-row gap-2">
+        {FORECAST_PERIODS.map((p) => {
+          const active = p === period;
+          return (
+            <Pressable
+              key={p}
+              onPress={() => onPeriod(p)}
+              className={cn(
+                "rounded-md px-3.5 py-1.5",
+                active ? "bg-white" : "bg-secondary",
+              )}
+            >
+              <Text
+                className={cn(
+                  "text-xs font-medium",
+                  active ? "text-black" : "text-foreground",
+                )}
+              >
+                {p}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* header */}
+      <View className="gap-1">
+        <Text className="text-xl font-bold">CPC Forecast — 3 Scenarios</Text>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          Weighted moving average with seasonal decomposition
+        </Text>
+      </View>
+
+      <ForecastChart />
+
+      {/* summary cards */}
+      <View className="gap-3">
+        <View className="flex-row gap-3">
+          <View className="flex-1 gap-1 rounded-2xl border border-border bg-card p-4">
+            <Text className="text-sm text-muted-foreground">Current CPC</Text>
+            <Text className="text-2xl font-bold">{CURRENT_CPC.value}</Text>
+            <Text className="text-xs text-muted-foreground">
+              {CURRENT_CPC.note}
+            </Text>
+          </View>
+          <View className="flex-1 gap-1 rounded-2xl border border-border bg-card p-4">
+            <View className="flex-row items-center gap-1.5">
+              <Calendar color={colors.mutedForeground} size={14} />
+              <Text className="text-sm text-muted-foreground">Convergence</Text>
+            </View>
+            <Text className="text-base font-bold">{CONVERGENCE}</Text>
+          </View>
+        </View>
+        <View className="flex-row gap-3">
+          <View className="flex-1 gap-1 rounded-2xl border border-border bg-card p-4">
+            <View className="flex-row items-center gap-1.5">
+              <TargetIcon color={colors.mutedForeground} size={14} />
+              <Text className="text-sm text-muted-foreground">Target CPC</Text>
+            </View>
+            <Text className="text-2xl font-bold text-green-500">
+              {TARGET_CPC.value}
+            </Text>
+            <View className="self-start rounded-md bg-secondary px-2 py-0.5">
+              <Text className="text-xs text-muted-foreground">
+                {TARGET_CPC.gap}
+              </Text>
+            </View>
+          </View>
+          <View className="flex-1" />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const FC_H = 250;
+const FC_PAD_T = 10;
+const FC_PAD_B = 30;
+const FC_PAD_L = 34;
+
+function ForecastChart() {
+  const [w, setW] = useState(0);
+  const plotH = FC_H - FC_PAD_T - FC_PAD_B;
+  const n = FORECAST_LINE.length;
+  const innerW = Math.max(0, w - FC_PAD_L - 8);
+  const x = (i: number) => FC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
+  const y = (v: number) => FC_PAD_T + (1 - v / FORECAST_AXIS_MAX) * plotH;
+  const y0 = FC_PAD_T + plotH;
+  const months = FORECAST_X_LABELS.length;
+  const mx = (m: number) =>
+    FC_PAD_L + (months <= 1 ? 0 : (m * innerW) / (months - 1));
+
+  const linePts = FORECAST_LINE.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const areaPts = `${x(0)},${y0} ${linePts} ${x(n - 1)},${y0}`;
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={w} height={FC_H}>
+          {/* horizontal gridlines + y labels */}
+          {FORECAST_Y_VALUES.map((v) => (
+            <Line
+              key={`g${v}`}
+              x1={FC_PAD_L}
+              x2={w}
+              y1={y(v)}
+              y2={y(v)}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={1}
+            />
+          ))}
+          {FORECAST_Y_VALUES.map((v) => (
+            <SvgText
+              key={`yl${v}`}
+              x={FC_PAD_L - 6}
+              y={y(v) + 3}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="end"
+            >
+              {`$${v}`}
+            </SvgText>
+          ))}
+          {/* vertical dashed gridlines */}
+          {FORECAST_X_LABELS.map((_, m) => (
+            <Line
+              key={`v${m}`}
+              x1={mx(m)}
+              x2={mx(m)}
+              y1={FC_PAD_T}
+              y2={y0}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+            />
+          ))}
+          {/* area + line */}
+          <Polygon points={areaPts} fill="rgba(255,255,255,0.08)" />
+          <Polyline points={linePts} fill="none" stroke="#FFFFFF" strokeWidth={2.5} />
+          {/* target */}
+          <Line
+            x1={FC_PAD_L}
+            x2={w}
+            y1={y(FORECAST_TARGET)}
+            y2={y(FORECAST_TARGET)}
+            stroke="#22C55E"
+            strokeWidth={1.5}
+            strokeDasharray="6 4"
+          />
+          {/* x month labels */}
+          {FORECAST_X_LABELS.map((lbl, m) => (
+            <SvgText
+              key={lbl}
+              x={mx(m)}
+              y={FC_H - 6}
+              fontSize={9}
+              fill="#94A3B8"
+              textAnchor={m === 0 ? "start" : m === months - 1 ? "end" : "middle"}
+            >
+              {lbl}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height: FC_H }} />
+      )}
     </View>
   );
 }

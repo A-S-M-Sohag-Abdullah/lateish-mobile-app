@@ -21,6 +21,26 @@ export const BDM_OUTER_TABS = [
   "Cohorts",
 ] as const;
 
+export const FORECAST_PERIODS = ["3mo", "6mo", "12mo"] as const;
+export const FORECAST_LINE = [
+  26, 26.8, 27, 26.5, 24.5, 22.5, 22, 23, 24, 23.5, 22, 21, 20,
+];
+export const FORECAST_TARGET = 12;
+export const FORECAST_AXIS_MAX = 30;
+export const FORECAST_Y_VALUES = [24, 16, 8, 0];
+export const FORECAST_X_LABELS = [
+  "Jul 25",
+  "Aug 25",
+  "Sep 25",
+  "Oct 25",
+  "Nov 25",
+  "Dec 25",
+  "Jan",
+];
+export const CURRENT_CPC = { value: "$13.44", note: "Improvement: $1.40/mo" };
+export const CONVERGENCE = "Target by Aug 2026";
+export const TARGET_CPC = { value: "$12.00", gap: "$1.44 gap" };
+
 export const COST_ACCT_TABS = [
   "Overview",
   "Log Cost",
