@@ -256,6 +256,8 @@ function InvestmentTab() {
   const [values, setValues] = useState(() =>
     INVEST_SLIDERS.map((s) => s.value),
   );
+  // Freeze the pager while dragging a slider so the screen doesn't swipe.
+  const setLocked = usePagerLock((s) => s.setLocked);
 
   return (
     <View className="gap-5">
@@ -265,16 +267,24 @@ function InvestmentTab() {
       {/* Sliders */}
       <View className="gap-5">
         {INVEST_SLIDERS.map((s, idx) => (
-          <View key={s.label} className="gap-1">
+          <View
+            key={s.label}
+            className="gap-1"
+            onTouchStart={() => setLocked(true)}
+            onTouchEnd={() => setLocked(false)}
+            onTouchCancel={() => setLocked(false)}
+          >
             <Text className="text-sm text-muted-foreground">{s.label}</Text>
             <Slider
               minimumValue={s.min}
               maximumValue={s.max}
               step={s.step}
               value={values[idx]}
+              onSlidingStart={() => setLocked(true)}
               onValueChange={(v) =>
                 setValues((arr) => arr.map((x, i) => (i === idx ? v : x)))
               }
+              onSlidingComplete={() => setLocked(false)}
               minimumTrackTintColor="#FFFFFF"
               maximumTrackTintColor="rgba(255,255,255,0.15)"
               thumbTintColor="#FFFFFF"

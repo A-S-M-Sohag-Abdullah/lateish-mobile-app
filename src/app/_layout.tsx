@@ -12,7 +12,7 @@ import { Stack, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, Text as RNText, View } from "react-native";
+import { LogBox, Pressable, ScrollView, Text as RNText, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -23,6 +23,10 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider, useTheme } from "@/contexts/theme-context";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useAuthStore } from "@/store/auth.store";
+
+// Benign react-native-web responder warning fired when an interactive control
+// (e.g. a Slider) competes with a parent ScrollView on the web preview only.
+LogBox.ignoreLogs(["ScrollView doesn't take rejection well"]);
 
 // The native splash stays up until <BrandSplash> has painted over it.
 void SplashScreen.preventAutoHideAsync();
