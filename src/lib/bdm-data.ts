@@ -2,6 +2,12 @@
  * UI-preview data for the BDM Efficiency & ROI page (the BDM pager tab).
  * Mock data only — no API.
  */
+import {
+  Activity,
+  ArrowRight,
+  DollarSign,
+  type LucideIcon,
+} from "lucide-react-native";
 
 export const BDM_OUTER_TABS = [
   "Efficiency ROI",
@@ -27,6 +33,47 @@ export const BDM_PERIODS = [
   "This Quarter",
   "This Year",
 ] as const;
+
+// ── Attribution inner tab ────────────────────────────────────────────────────
+
+export interface AttrSummary {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+  green: boolean;
+}
+export const ATTR_SUMMARY: AttrSummary[] = [
+  { label: "Total Activities", value: "456", icon: Activity, green: false },
+  { label: "Attributed Orders", value: "48", icon: ArrowRight, green: true },
+  { label: "Attributed Revenue", value: "$77,440", icon: DollarSign, green: false },
+];
+
+export interface AttrBar {
+  label: string;
+  value: number;
+  highlight: boolean;
+}
+export const ATTR_BARS: AttrBar[] = [
+  { label: "Venue Visits", value: 145, highlight: false },
+  { label: "Tastings", value: 90, highlight: false },
+  { label: "Calls", value: 215, highlight: true },
+  { label: "Training", value: 85, highlight: false },
+  { label: "Menu Placement", value: 200, highlight: false },
+];
+export const ATTR_BAR_TICKS = [80, 120, 160, 200];
+
+export interface AttrBreakdown {
+  activity: string;
+  count: number;
+}
+export const ATTR_BREAKDOWN: AttrBreakdown[] = [
+  { activity: "Venue Visits", count: 142 },
+  { activity: "Tastings", count: 38 },
+  { activity: "Calls", count: 210 },
+  { activity: "Training", count: 22 },
+  { activity: "Menu Placements", count: 16 },
+  { activity: "Staff Sampling", count: 28 },
+];
 
 export interface BdmStat {
   label: string;

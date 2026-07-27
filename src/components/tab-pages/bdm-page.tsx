@@ -1,7 +1,7 @@
 import { Activity, Bell, MapPin, TrendingDown } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import Svg, { Polyline } from "react-native-svg";
+import Svg, { Line, Polyline, Rect, Text as SvgText } from "react-native-svg";
 
 import { Dropdown } from "@/components/ui/dropdown";
 import { Progress } from "@/components/ui/progress";
@@ -16,8 +16,13 @@ import {
   BDM_SCORE_MAX,
   BDM_STATS,
   BDM_TERRITORIES,
+  ATTR_BAR_TICKS,
+  ATTR_BARS,
+  ATTR_BREAKDOWN,
+  ATTR_SUMMARY,
   MARKET_TIERS,
   NORM_ROWS,
+  type AttrSummary,
   type Maturity,
   type MarketTier,
   type NormRow,
@@ -142,6 +147,8 @@ export function BdmPage() {
               </View>
             ) : inner === "Territory" ? (
               <TerritoryTab />
+            ) : inner === "Attribution" ? (
+              <AttributionTab />
             ) : (
               <Stub name={inner} />
             )}
@@ -261,6 +268,147 @@ function TerritoryCard({ territory: t }: { territory: Territory }) {
           </Metric>
         </View>
       </View>
+    </View>
+  );
+}
+
+// ── Attribution inner tab ────────────────────────────────────────────────────
+
+function AttributionTab() {
+  const colors = useThemeColors();
+  return (
+    <View className="gap-4">
+      {/* Summary cards */}
+      {ATTR_SUMMARY.map((s) => (
+        <SummaryCard key={s.label} item={s} />
+      ))}
+
+      {/* Activity → Revenue Flow */}
+      <View className="gap-1 pt-1">
+        <View className="flex-row items-center gap-2">
+          <Activity color={colors.foreground} size={20} />
+          <Text className="text-xl font-bold">Activity → Revenue Flow</Text>
+        </View>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          Revenue attributed to each activity type (Time-Decay (Recommended))
+        </Text>
+      </View>
+
+      <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+        <Text className="text-base font-semibold">Revenue by Activity</Text>
+        <AttributionBarChart />
+      </View>
+
+      {/* Detailed breakdown */}
+      <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+        <Text className="text-base font-semibold">
+          Detailed Attribution Breakdown
+        </Text>
+        <View className="flex-row border-b border-border pb-2">
+          <Text style={{ flex: 1 }} className="text-xs font-medium text-muted-foreground">
+            Activity
+          </Text>
+          <Text className="text-right text-xs font-medium text-muted-foreground">
+            Count
+          </Text>
+        </View>
+        {ATTR_BREAKDOWN.map((r) => (
+          <View
+            key={r.activity}
+            className="flex-row items-center border-b border-border/50 py-3"
+          >
+            <Text style={{ flex: 1 }} className="text-sm font-medium">
+              {r.activity}
+            </Text>
+            <Text className="text-sm">{r.count}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function SummaryCard({ item }: { item: AttrSummary }) {
+  const colors = useThemeColors();
+  const Icon = item.icon;
+  return (
+    <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-4">
+      <View className="h-11 w-11 items-center justify-center rounded-full bg-muted">
+        <Icon color={item.green ? "#22C55E" : colors.foreground} size={20} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-sm text-muted-foreground">{item.label}</Text>
+        <Text className="text-2xl font-bold">{item.value}</Text>
+      </View>
+    </View>
+  );
+}
+
+const ABAR_LABEL_W = 68;
+const ABAR_H = 22;
+const ABAR_GAP = 20;
+const ABAR_AXIS_MAX = 230;
+const ABAR_PAD_T = 6;
+
+function AttributionBarChart() {
+  const [w, setW] = useState(0);
+  const rows = ATTR_BARS.length;
+  const height = ABAR_PAD_T + rows * (ABAR_H + ABAR_GAP) + 8;
+  const plotX0 = ABAR_LABEL_W;
+  const plotW = Math.max(0, w - plotX0 - 10);
+  const x = (v: number) => plotX0 + (v / ABAR_AXIS_MAX) * plotW;
+  const axisY = ABAR_PAD_T + rows * (ABAR_H + ABAR_GAP) - ABAR_GAP + ABAR_H + 2;
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={w} height={height}>
+          {ATTR_BARS.map((b, i) => {
+            const y = ABAR_PAD_T + i * (ABAR_H + ABAR_GAP);
+            return (
+              <SvgText key={`l${i}`} x={0} y={y + ABAR_H / 2 + 3} fontSize={9} fill="#94A3B8">
+                {b.label}
+              </SvgText>
+            );
+          })}
+          {ATTR_BARS.map((b, i) => {
+            const y = ABAR_PAD_T + i * (ABAR_H + ABAR_GAP);
+            return (
+              <Rect
+                key={`b${i}`}
+                x={plotX0}
+                y={y}
+                width={Math.max(0, x(b.value) - plotX0)}
+                height={ABAR_H}
+                rx={3}
+                fill={b.highlight ? "#FFFFFF" : "#22C55E"}
+              />
+            );
+          })}
+          <Line
+            x1={plotX0}
+            x2={w - 10}
+            y1={axisY}
+            y2={axisY}
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth={1}
+          />
+          {ATTR_BAR_TICKS.map((t) => (
+            <SvgText
+              key={`t${t}`}
+              x={x(t)}
+              y={axisY + 14}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="middle"
+            >
+              {String(t)}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height }} />
+      )}
     </View>
   );
 }
