@@ -18,8 +18,45 @@ export const BDM_OUTER_TABS = [
   "Forecasting",
   "Portfolio",
   "Investment",
-  "Cohorts",
 ] as const;
+
+// ── Investment (simulator) outer tab ─────────────────────────────────────────
+
+export interface InvestSlider {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  prefix: string;
+  suffix: string;
+}
+export const INVEST_SLIDERS: InvestSlider[] = [
+  { label: "Monthly Retainer ($)", min: 0, max: 10000, step: 100, value: 2500, prefix: "$", suffix: "" },
+  { label: "Starting Cases/Month", min: 0, max: 500, step: 5, value: 80, prefix: "", suffix: " cases" },
+  { label: "Commission per Case ($)", min: 0, max: 30, step: 1, value: 5, prefix: "$", suffix: "" },
+  { label: "Monthly Case Growth (%)", min: 0, max: 25, step: 1, value: 5, prefix: "", suffix: "%" },
+  { label: "Travel Allocation ($)", min: 0, max: 2500, step: 50, value: 500, prefix: "$", suffix: "" },
+  { label: "Case NSV ($)", min: 0, max: 600, step: 10, value: 160, prefix: "$", suffix: "" },
+];
+
+export interface InvestOutput {
+  label: string;
+  value: string;
+  green?: boolean;
+}
+export const INVEST_OUTPUTS: InvestOutput[] = [
+  { label: "Break even month", value: "Month 1" },
+  { label: "CPC at Month 6", value: "34.11" },
+  { label: "12-Month Margin", value: "$133,136", green: true },
+  { label: "Marginal Return", value: "7x" },
+];
+
+export const INVEST_CPC = [42, 40, 39, 37.5, 37];
+export const INVEST_MARGIN = [2, 7, 10, 14, 15];
+export const INVEST_AXIS_MAX = 60;
+export const INVEST_Y_VALUES = [60, 45, 30, 15, 0];
+export const INVEST_X_LABELS = ["M1", "M2", "M3", "M4", "M5"];
 
 // ── Portfolio outer tab ──────────────────────────────────────────────────────
 

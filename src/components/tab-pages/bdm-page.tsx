@@ -22,6 +22,8 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import Slider from "@react-native-community/slider";
+
 import { CustomKpisTab } from "@/components/performance/custom-kpis-tab";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Progress } from "@/components/ui/progress";
@@ -71,6 +73,13 @@ import {
   FORECAST_X_LABELS,
   FORECAST_Y_VALUES,
   GOAL_SETTINGS,
+  INVEST_AXIS_MAX,
+  INVEST_CPC,
+  INVEST_MARGIN,
+  INVEST_OUTPUTS,
+  INVEST_SLIDERS,
+  INVEST_X_LABELS,
+  INVEST_Y_VALUES,
   TARGET_CPC,
   WHAT_GOOD_LOOKS_LIKE,
   WHAT_WORKS_ROWS,
@@ -230,10 +239,173 @@ export function BdmPage() {
           <ForecastingTab period={forecastPeriod} onPeriod={setForecastPeriod} />
         ) : outer === "Portfolio" ? (
           <PortfolioTab />
+        ) : outer === "Investment" ? (
+          <InvestmentTab />
         ) : (
           <Stub name={outer} />
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Investment (simulator) outer tab ─────────────────────────────────────────
+
+function InvestmentTab() {
+  const outRows = [INVEST_OUTPUTS.slice(0, 2), INVEST_OUTPUTS.slice(2, 4)];
+  const [values, setValues] = useState(() =>
+    INVEST_SLIDERS.map((s) => s.value),
+  );
+
+  return (
+    <View className="gap-5">
+      {/* Header (leftover label in the mockup) */}
+      <Text className="text-xl font-bold">Multi-Dimensional Comparison</Text>
+
+      {/* Sliders */}
+      <View className="gap-5">
+        {INVEST_SLIDERS.map((s, idx) => (
+          <View key={s.label} className="gap-1">
+            <Text className="text-sm text-muted-foreground">{s.label}</Text>
+            <Slider
+              minimumValue={s.min}
+              maximumValue={s.max}
+              step={s.step}
+              value={values[idx]}
+              onValueChange={(v) =>
+                setValues((arr) => arr.map((x, i) => (i === idx ? v : x)))
+              }
+              minimumTrackTintColor="#FFFFFF"
+              maximumTrackTintColor="rgba(255,255,255,0.15)"
+              thumbTintColor="#FFFFFF"
+              style={{ height: 32, marginHorizontal: -4 }}
+            />
+            <Text className="text-sm font-medium">
+              {s.prefix}
+              {values[idx].toLocaleString("en-US")}
+              {s.suffix}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Output tiles */}
+      <View className="gap-3">
+        {outRows.map((row, i) => (
+          <View key={i} className="flex-row gap-3">
+            {row.map((o) => (
+              <StatCard
+                key={o.label}
+                label={o.label}
+                value={o.value}
+                colors={NAVY}
+                className="h-24"
+                valueClassName={o.green ? "text-green-400" : undefined}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+
+      {/* Projection */}
+      <Text className="text-xl font-bold">12-Month CPC & Margin Projection</Text>
+      <InvestmentChart />
+    </View>
+  );
+}
+
+const IC_H = 230;
+const IC_PAD_T = 10;
+const IC_PAD_B = 26;
+const IC_PAD_L = 34;
+
+function InvestmentChart() {
+  const [w, setW] = useState(0);
+  const plotH = IC_H - IC_PAD_T - IC_PAD_B;
+  const n = INVEST_CPC.length;
+  const innerW = Math.max(0, w - IC_PAD_L - 8);
+  const x = (i: number) => IC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
+  const y = (v: number) => IC_PAD_T + (1 - v / INVEST_AXIS_MAX) * plotH;
+  const y0 = IC_PAD_T + plotH;
+
+  const cpcPts = INVEST_CPC.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const marginPts = INVEST_MARGIN.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={w} height={IC_H}>
+          {INVEST_Y_VALUES.map((v) => (
+            <Line
+              key={`g${v}`}
+              x1={IC_PAD_L}
+              x2={w}
+              y1={y(v)}
+              y2={y(v)}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={1}
+            />
+          ))}
+          {INVEST_Y_VALUES.map((v) => (
+            <SvgText
+              key={`yl${v}`}
+              x={IC_PAD_L - 6}
+              y={y(v) + 3}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="end"
+            >
+              {`$${v}`}
+            </SvgText>
+          ))}
+          {INVEST_X_LABELS.map((_, i) => (
+            <Line
+              key={`v${i}`}
+              x1={x(i)}
+              x2={x(i)}
+              y1={IC_PAD_T}
+              y2={y0}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+            />
+          ))}
+          {/* red baseline at 0 */}
+          <Line
+            x1={IC_PAD_L}
+            x2={w}
+            y1={y(0)}
+            y2={y(0)}
+            stroke="#EF4444"
+            strokeWidth={1}
+            strokeDasharray="5 4"
+          />
+          {/* CPC (white) */}
+          <Polyline points={cpcPts} fill="none" stroke="#FFFFFF" strokeWidth={2.5} />
+          {INVEST_CPC.map((v, i) => (
+            <Circle key={`c${i}`} cx={x(i)} cy={y(v)} r={3.5} fill="#FFFFFF" />
+          ))}
+          {/* Margin (green) */}
+          <Polyline points={marginPts} fill="none" stroke="#22C55E" strokeWidth={2.5} />
+          {INVEST_MARGIN.map((v, i) => (
+            <Circle key={`m${i}`} cx={x(i)} cy={y(v)} r={3.5} fill="#22C55E" />
+          ))}
+          {INVEST_X_LABELS.map((lbl, i) => (
+            <SvgText
+              key={lbl}
+              x={x(i)}
+              y={IC_H - 6}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+            >
+              {lbl}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height: IC_H }} />
+      )}
     </View>
   );
 }
