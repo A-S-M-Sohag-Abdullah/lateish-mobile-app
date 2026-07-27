@@ -1,7 +1,21 @@
-import { Activity, Bell, MapPin, TrendingDown } from "lucide-react-native";
+import {
+  Activity,
+  ArrowUpRight,
+  Bell,
+  ChartColumn,
+  MapPin,
+  TrendingDown,
+} from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import Svg, { Line, Polyline, Rect, Text as SvgText } from "react-native-svg";
+import Svg, {
+  Circle,
+  Line,
+  Polygon,
+  Polyline,
+  Rect,
+  Text as SvgText,
+} from "react-native-svg";
 
 import { Dropdown } from "@/components/ui/dropdown";
 import { Progress } from "@/components/ui/progress";
@@ -26,6 +40,18 @@ import {
   CHANNEL_SUMMARY,
   CHANNEL_TABLE,
   CHANNEL_TICKS,
+  CPC_AXIS_MAX,
+  CPC_TARGET,
+  CPC_TRAJECTORY,
+  CPC_TREND,
+  CPC_X_LABELS,
+  CPC_Y_TICKS,
+  BDM_PERFORMANCE,
+  EFFICIENCY_TREND,
+  SCATTER_AXIS_MAX,
+  SCATTER_X_LABELS,
+  SCATTER_Y_TICKS,
+  TREND_SCATTER,
   MARKET_TIERS,
   NORM_ROWS,
   type AttrSummary,
@@ -157,6 +183,8 @@ export function BdmPage() {
               <AttributionTab />
             ) : inner === "Channels" ? (
               <ChannelsTab />
+            ) : inner === "Trends" ? (
+              <TrendsTab />
             ) : (
               <Stub name={inner} />
             )}
@@ -276,6 +304,242 @@ function TerritoryCard({ territory: t }: { territory: Territory }) {
           </Metric>
         </View>
       </View>
+    </View>
+  );
+}
+
+// ── Trends inner tab ─────────────────────────────────────────────────────────
+
+function TrendsTab() {
+  const colors = useThemeColors();
+  return (
+    <View className="gap-4">
+      {/* CPC Trend */}
+      <View className="gap-2 rounded-2xl border border-border bg-card p-4">
+        <View className="flex-row items-start justify-between">
+          <Text className="text-sm text-muted-foreground">CPC Trend</Text>
+          <ArrowUpRight color="#22C55E" size={18} />
+        </View>
+        <View className="flex-row items-baseline gap-2">
+          <Text className="text-2xl font-bold">{CPC_TREND.value}</Text>
+          <Text className="text-sm text-muted-foreground">
+            → {CPC_TREND.target} target
+          </Text>
+        </View>
+        <Text className="text-xs text-muted-foreground">
+          {CPC_TREND.subtitle}
+        </Text>
+      </View>
+
+      {/* Efficiency Trend */}
+      <View className="gap-2 rounded-2xl border border-border bg-card p-4">
+        <View className="flex-row items-start justify-between">
+          <Text className="text-sm text-muted-foreground">Efficiency Trend</Text>
+          <ArrowUpRight color="#22C55E" size={18} />
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-2xl font-bold">{EFFICIENCY_TREND.value}</Text>
+          <View className="rounded-md bg-green-500/15 px-2 py-0.5">
+            <Text className="text-xs font-medium text-green-400">
+              {EFFICIENCY_TREND.change}
+            </Text>
+          </View>
+        </View>
+        <Text className="text-xs text-muted-foreground">
+          {EFFICIENCY_TREND.subtitle}
+        </Text>
+      </View>
+
+      {/* BDM Performance */}
+      <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-sm text-muted-foreground">BDM Performance</Text>
+          <ChartColumn color={colors.mutedForeground} size={18} />
+        </View>
+        <View className="flex-row">
+          <PerfStat value={BDM_PERFORMANCE.improving} label="Improving" color="text-green-400" />
+          <PerfStat value={BDM_PERFORMANCE.declining} label="Declining" color="text-red-400" />
+          <PerfStat value={BDM_PERFORMANCE.stable} label="Stable" color="text-muted-foreground" />
+        </View>
+      </View>
+
+      {/* Cost Per Case Trajectory */}
+      <View className="gap-1 pt-1">
+        <View className="flex-row items-center gap-2">
+          <Activity color={colors.foreground} size={20} />
+          <Text className="text-xl font-bold">Cost Per Case Trajectory</Text>
+        </View>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          Historical trend with 3-month projection
+        </Text>
+      </View>
+
+      <View className="rounded-2xl border border-border bg-card p-4">
+        <TrajectoryChart />
+      </View>
+      <View className="rounded-2xl border border-border bg-card p-4">
+        <ScatterChart />
+      </View>
+    </View>
+  );
+}
+
+function PerfStat({
+  value,
+  label,
+  color,
+}: {
+  value: number;
+  label: string;
+  color: string;
+}) {
+  return (
+    <View className="flex-1 gap-0.5">
+      <Text className={cn("text-2xl font-bold", color)}>{value}</Text>
+      <Text className="text-xs text-muted-foreground">{label}</Text>
+    </View>
+  );
+}
+
+const LC_H = 200;
+const LC_PAD_T = 10;
+const LC_PAD_B = 22;
+const LC_PAD_L = 36;
+
+function TrajectoryChart() {
+  const [w, setW] = useState(0);
+  const plotH = LC_H - LC_PAD_T - LC_PAD_B;
+  const n = CPC_TRAJECTORY.length;
+  const innerW = Math.max(0, w - LC_PAD_L - 8);
+  const x = (i: number) => LC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
+  const y = (v: number) => LC_PAD_T + (1 - v / CPC_AXIS_MAX) * plotH;
+  const y0 = LC_PAD_T + plotH;
+  const fractions = [0, 0.25, 0.5, 0.75, 1];
+
+  const linePts = CPC_TRAJECTORY.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const areaPts = `${x(0)},${y0} ${linePts} ${x(n - 1)},${y0}`;
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={w} height={LC_H}>
+          {fractions.map((g, i) => (
+            <Line
+              key={`g${g}`}
+              x1={LC_PAD_L}
+              x2={w}
+              y1={LC_PAD_T + g * plotH}
+              y2={LC_PAD_T + g * plotH}
+              stroke="rgba(255,255,255,0.07)"
+              strokeWidth={1}
+            />
+          ))}
+          {fractions.map((g, i) => (
+            <SvgText
+              key={`yl${g}`}
+              x={LC_PAD_L - 6}
+              y={LC_PAD_T + g * plotH + 3}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="end"
+            >
+              {CPC_Y_TICKS[i]}
+            </SvgText>
+          ))}
+          {/* area + line */}
+          <Polygon points={areaPts} fill="rgba(255,255,255,0.05)" />
+          <Polyline points={linePts} fill="none" stroke="#FFFFFF" strokeWidth={2.5} />
+          {/* green dashed target */}
+          <Line
+            x1={LC_PAD_L}
+            x2={w}
+            y1={y(CPC_TARGET)}
+            y2={y(CPC_TARGET)}
+            stroke="#22C55E"
+            strokeWidth={1.5}
+            strokeDasharray="6 4"
+          />
+          {/* x labels */}
+          {CPC_X_LABELS.map((lbl, i) => (
+            <SvgText
+              key={lbl}
+              x={LC_PAD_L + (i / (CPC_X_LABELS.length - 1)) * innerW}
+              y={LC_H - 6}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor={i === 0 ? "start" : i === CPC_X_LABELS.length - 1 ? "end" : "middle"}
+            >
+              {lbl}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height: LC_H }} />
+      )}
+    </View>
+  );
+}
+
+const SC_H = 180;
+const SC_PAD_T = 10;
+const SC_PAD_B = 22;
+const SC_PAD_L = 32;
+
+function ScatterChart() {
+  const [w, setW] = useState(0);
+  const plotH = SC_H - SC_PAD_T - SC_PAD_B;
+  const months = SCATTER_X_LABELS.length;
+  const innerW = Math.max(0, w - SC_PAD_L - 8);
+  const x = (m: number) => SC_PAD_L + ((m + 0.5) / months) * innerW;
+  const y = (v: number) => SC_PAD_T + (1 - v / SCATTER_AXIS_MAX) * plotH;
+  const fractions = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <Svg width={w} height={SC_H}>
+          {fractions.map((g, i) => (
+            <Line
+              key={`g${g}`}
+              x1={SC_PAD_L}
+              x2={w}
+              y1={SC_PAD_T + g * plotH}
+              y2={SC_PAD_T + g * plotH}
+              stroke="rgba(255,255,255,0.07)"
+              strokeWidth={1}
+            />
+          ))}
+          {fractions.map((g, i) => (
+            <SvgText
+              key={`yl${g}`}
+              x={SC_PAD_L - 6}
+              y={SC_PAD_T + g * plotH + 3}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="end"
+            >
+              {SCATTER_Y_TICKS[i]}
+            </SvgText>
+          ))}
+          {TREND_SCATTER.map((p, i) => (
+            <Circle key={i} cx={x(p.m)} cy={y(p.y)} r={4} fill="#FFFFFF" />
+          ))}
+          {SCATTER_X_LABELS.map((lbl, m) => (
+            <SvgText
+              key={lbl}
+              x={x(m)}
+              y={SC_H - 6}
+              fontSize={10}
+              fill="#94A3B8"
+              textAnchor="middle"
+            >
+              {lbl}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height: SC_H }} />
+      )}
     </View>
   );
 }

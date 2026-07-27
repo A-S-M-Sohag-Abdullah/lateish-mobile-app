@@ -118,6 +118,41 @@ export const CHANNEL_TABLE: ChannelRow[] = [
   { channel: "Hospitality", accounts: 3, cases: 22, volume: 22, cpc: "$36.36", cpcHighlight: false, cac: "$267" },
 ];
 
+// ── Trends inner tab ─────────────────────────────────────────────────────────
+
+export const CPC_TREND = {
+  value: "$17.98",
+  target: "$12",
+  subtitle: "~4 months to target",
+};
+export const EFFICIENCY_TREND = {
+  value: "78%",
+  change: "+5% this period",
+  subtitle: "Team-wide normalized score",
+};
+export const BDM_PERFORMANCE = { improving: 4, declining: 0, stable: 0 };
+
+export const CPC_TRAJECTORY = [18, 18, 17.6, 16, 14.4, 14, 14, 14];
+export const CPC_TARGET = 15;
+export const CPC_AXIS_MAX = 20;
+export const CPC_Y_TICKS = ["$20", "$15", "$10", "$5", "$0"];
+export const CPC_X_LABELS = ["Jan", "Feb", "Mar", "Apr"];
+
+export interface ScatterPoint {
+  m: number; // month index
+  y: number;
+}
+export const TREND_SCATTER: ScatterPoint[] = [
+  { m: 0, y: 155 },
+  { m: 0, y: 120 },
+  { m: 1, y: 110 },
+  { m: 2, y: 150 },
+  { m: 2, y: 125 },
+];
+export const SCATTER_AXIS_MAX = 200;
+export const SCATTER_Y_TICKS = ["200", "150", "100", "50", "0"];
+export const SCATTER_X_LABELS = ["Jan", "Feb", "Mar"];
+
 export interface BdmStat {
   label: string;
   value: string;
