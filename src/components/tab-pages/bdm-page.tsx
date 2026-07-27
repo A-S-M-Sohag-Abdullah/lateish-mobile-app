@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Bell,
   ChartColumn,
+  CircleCheck,
   MapPin,
   TrendingDown,
 } from "lucide-react-native";
@@ -18,6 +19,7 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import { CustomKpisTab } from "@/components/performance/custom-kpis-tab";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Progress } from "@/components/ui/progress";
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
@@ -50,6 +52,7 @@ import {
   COSTS_TABLE,
   BDM_PERFORMANCE,
   BENCHMARKING_TABS,
+  COST_ACCT_TABS,
   GOAL_SETTINGS,
   WHAT_GOOD_LOOKS_LIKE,
   WHAT_WORKS_ROWS,
@@ -82,6 +85,7 @@ export function BdmPage() {
   const [outer, setOuter] = useState<string>("Efficiency ROI");
   const [inner, setInner] = useState<string>("Efficiency");
   const [benchInner, setBenchInner] = useState<string>("Benchmarks");
+  const [costInner, setCostInner] = useState<string>("Overview");
   const [period, setPeriod] = useState<string>("This Month");
   const [anon, setAnon] = useState(true);
 
@@ -201,10 +205,43 @@ export function BdmPage() {
           </>
         ) : outer === "Benchmarking" ? (
           <BenchmarkingTab inner={benchInner} onChange={setBenchInner} />
+        ) : outer === "Cost Accountability" ? (
+          <CostAccountabilityTab inner={costInner} onChange={setCostInner} />
         ) : (
           <Stub name={outer} />
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Cost Accountability outer tab ────────────────────────────────────────────
+
+function CostAccountabilityTab({
+  inner,
+  onChange,
+}: {
+  inner: string;
+  onChange: (t: string) => void;
+}) {
+  return (
+    <View className="gap-5">
+      <TabRow tabs={COST_ACCT_TABS} value={inner} onChange={onChange} />
+
+      {inner === "Overview" ? (
+        <View className="gap-4">
+          {/* Reuses the Custom KPI Tracker from the Activity Log page. */}
+          <CustomKpisTab />
+          <View className="items-center gap-3 rounded-2xl border border-border bg-card p-6">
+            <CircleCheck color="#22C55E" size={40} />
+            <Text className="text-sm text-muted-foreground">
+              No alerts - all BDM costs are on track!
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <Stub name={inner} />
+      )}
     </View>
   );
 }

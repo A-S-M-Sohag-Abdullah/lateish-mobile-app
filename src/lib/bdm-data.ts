@@ -15,8 +15,19 @@ export const BDM_OUTER_TABS = [
   "Efficiency ROI",
   "Benchmarking",
   "Cost Accountability",
+  "Forecasting",
+  "Portfolio",
   "Investment",
   "Cohorts",
+] as const;
+
+export const COST_ACCT_TABS = [
+  "Overview",
+  "Log Cost",
+  "Trends",
+  "Compare",
+  "Milestone",
+  "Reports",
 ] as const;
 
 export const BDM_INNER_TABS = [
