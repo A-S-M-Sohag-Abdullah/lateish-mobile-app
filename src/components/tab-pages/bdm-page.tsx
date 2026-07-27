@@ -249,10 +249,7 @@ const UPLIFT_TONE: Record<
   grey: { box: "border border-border bg-secondary", text: "text-muted-foreground" },
 };
 
-const WW_COL = { activity: 160, uplift: 120, days: 100 } as const;
-
 function WhatWorks() {
-  const setLocked = usePagerLock((s) => s.setLocked);
   return (
     <View className="gap-4">
       <View className="gap-1">
@@ -268,45 +265,42 @@ function WhatWorks() {
         </Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        onTouchStart={() => setLocked(true)}
-        onTouchEnd={() => setLocked(false)}
-        onTouchCancel={() => setLocked(false)}
-        onMomentumScrollEnd={() => setLocked(false)}
-      >
-        <View>
-          <View className="flex-row border-b border-border pb-2">
-            <BrHead w={WW_COL.activity}>Activity</BrHead>
-            <BrHead w={WW_COL.uplift}>Velocity Uplift</BrHead>
-            <BrHead w={WW_COL.days} right>Days to Impact</BrHead>
-          </View>
-          {WHAT_WORKS_ROWS.map((r) => {
-            const t = UPLIFT_TONE[r.tone];
-            return (
-              <View
-                key={r.activity}
-                className="flex-row items-center border-b border-border/50 py-3.5"
-              >
-                <Text style={{ width: WW_COL.activity }} className="text-sm font-medium">
-                  {r.activity}
-                </Text>
-                <View style={{ width: WW_COL.uplift }}>
-                  <View className={cn("self-start rounded-md px-2 py-0.5", t.box)}>
-                    <Text className={cn("text-xs font-medium", t.text)}>
-                      {r.uplift}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={{ width: WW_COL.days }} className="text-right text-sm">
-                  {r.days}
-                </Text>
-              </View>
-            );
-          })}
+      <View>
+        <View className="flex-row border-b border-border pb-2">
+          <Text style={{ flex: 1.5 }} className="text-xs font-medium text-muted-foreground">
+            Activity
+          </Text>
+          <Text style={{ flex: 1 }} className="text-xs font-medium text-muted-foreground">
+            Velocity Uplift
+          </Text>
+          <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
+            Days to Impact
+          </Text>
         </View>
-      </ScrollView>
+        {WHAT_WORKS_ROWS.map((r) => {
+          const t = UPLIFT_TONE[r.tone];
+          return (
+            <View
+              key={r.activity}
+              className="flex-row items-center border-b border-border/50 py-3.5"
+            >
+              <Text style={{ flex: 1.5 }} className="text-sm font-medium">
+                {r.activity}
+              </Text>
+              <View style={{ flex: 1 }}>
+                <View className={cn("self-start rounded-md px-2 py-0.5", t.box)}>
+                  <Text className={cn("text-xs font-medium", t.text)}>
+                    {r.uplift}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ flex: 1 }} className="text-right text-sm">
+                {r.days}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
