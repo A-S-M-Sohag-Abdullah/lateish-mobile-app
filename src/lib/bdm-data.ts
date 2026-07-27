@@ -44,13 +44,28 @@ export const COSTS_TABLE: CostRow[] = [
 
 export const BENCHMARKING_TABS = [
   "Benchmarks",
-  "What works",
+  "What Works",
   "Goal Settings",
 ] as const;
 
 export const WHAT_GOOD_LOOKS_LIKE = [
   "Territory A is in the 92nd percentile with a composite index of 128. Key differentiator: superior cost efficiency — 35% above company average with the lowest CPC in the network.",
   "Territory B is in the 78th percentile with a composite index of 109. Key differentiator: consistent velocity growth — reorder intervals declining 12% month-over-month.",
+];
+
+export interface WhatWorksRow {
+  activity: string;
+  uplift: string;
+  tone: "green" | "amber" | "grey";
+  days: string;
+}
+export const WHAT_WORKS_ROWS: WhatWorksRow[] = [
+  { activity: "Tasting Events", uplift: "+42%", tone: "green", days: "5d" },
+  { activity: "Menu Placements", uplift: "+38%", tone: "green", days: "6d" },
+  { activity: "Venue Visits", uplift: "+28%", tone: "green", days: "8d" },
+  { activity: "Staff Sampling", uplift: "+35%", tone: "green", days: "9d" },
+  { activity: "Staff Sampling / Training", uplift: "+22%", tone: "amber", days: "12d" },
+  { activity: "Calls", uplift: "+12%", tone: "grey", days: "3d" },
 ];
 
 export const BDM_PERIODS = [

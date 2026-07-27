@@ -50,6 +50,7 @@ import {
   BDM_PERFORMANCE,
   BENCHMARKING_TABS,
   WHAT_GOOD_LOOKS_LIKE,
+  WHAT_WORKS_ROWS,
   EFFICIENCY_TREND,
   SCATTER_AXIS_MAX,
   SCATTER_X_LABELS,
@@ -63,6 +64,7 @@ import {
   type NormRow,
   type Territory,
   type TierTone,
+  type WhatWorksRow,
 } from "@/lib/bdm-data";
 
 const NAVY: GradientColors = ["#132B5C", "#0B1833"];
@@ -229,9 +231,82 @@ function BenchmarkingTab({
             </Text>
           ))}
         </View>
+      ) : inner === "What Works" ? (
+        <WhatWorks />
       ) : (
         <Stub name={inner} />
       )}
+    </View>
+  );
+}
+
+const UPLIFT_TONE: Record<
+  WhatWorksRow["tone"],
+  { box: string; text: string }
+> = {
+  green: { box: "border border-green-500/30 bg-green-500/15", text: "text-green-400" },
+  amber: { box: "border border-amber-500/30 bg-amber-500/15", text: "text-amber-400" },
+  grey: { box: "border border-border bg-secondary", text: "text-muted-foreground" },
+};
+
+const WW_COL = { activity: 160, uplift: 120, days: 100 } as const;
+
+function WhatWorks() {
+  const setLocked = usePagerLock((s) => s.setLocked);
+  return (
+    <View className="gap-4">
+      <View className="gap-1">
+        <View className="flex-row items-center gap-2">
+          <Activity color="#38BDF8" size={20} />
+          <Text className="text-xl font-bold">
+            Activity → Velocity Correlation
+          </Text>
+        </View>
+        <Text className="text-sm leading-5 text-muted-foreground">
+          Which BDM activities drive the highest velocity improvements? Based on
+          platform-wide analysis.
+        </Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        onTouchStart={() => setLocked(true)}
+        onTouchEnd={() => setLocked(false)}
+        onTouchCancel={() => setLocked(false)}
+        onMomentumScrollEnd={() => setLocked(false)}
+      >
+        <View>
+          <View className="flex-row border-b border-border pb-2">
+            <BrHead w={WW_COL.activity}>Activity</BrHead>
+            <BrHead w={WW_COL.uplift}>Velocity Uplift</BrHead>
+            <BrHead w={WW_COL.days} right>Days to Impact</BrHead>
+          </View>
+          {WHAT_WORKS_ROWS.map((r) => {
+            const t = UPLIFT_TONE[r.tone];
+            return (
+              <View
+                key={r.activity}
+                className="flex-row items-center border-b border-border/50 py-3.5"
+              >
+                <Text style={{ width: WW_COL.activity }} className="text-sm font-medium">
+                  {r.activity}
+                </Text>
+                <View style={{ width: WW_COL.uplift }}>
+                  <View className={cn("self-start rounded-md px-2 py-0.5", t.box)}>
+                    <Text className={cn("text-xs font-medium", t.text)}>
+                      {r.uplift}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ width: WW_COL.days }} className="text-right text-sm">
+                  {r.days}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
     </View>
   );
 }
