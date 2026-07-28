@@ -133,7 +133,10 @@ export function ProfilePage() {
               <Text className="text-lg font-bold">{name}</Text>
               <Text className="text-sm text-muted-foreground">{email}</Text>
             </View>
-            <Pressable className="rounded-lg bg-secondary px-5 py-2.5 active:opacity-80">
+            <Pressable
+              onPress={() => router.push("/profile-settings")}
+              className="rounded-lg bg-secondary px-5 py-2.5 active:opacity-80"
+            >
               <Text className="font-medium">Edit</Text>
             </Pressable>
           </View>
