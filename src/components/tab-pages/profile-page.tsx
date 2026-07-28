@@ -1,26 +1,93 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
+import {
+  Bell,
+  Building2,
+  ChevronRight,
+  Clock,
+  Database,
+  HelpCircle,
+  Languages,
+  Lock,
+  Mail,
+  Users,
+  type LucideIcon,
+} from "lucide-react-native";
+import { Fragment } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 
-import { Screen } from "@/components/layout/screen";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
-import { useTheme } from "@/contexts/theme-context";
 import { PREVIEW_MODE, usePreviewStore } from "@/lib/preview";
-import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 
-const THEME_OPTIONS = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
-] as const;
+interface Row {
+  icon: LucideIcon;
+  label: string;
+}
+
+const SECTIONS: { title: string; rows: Row[] }[] = [
+  {
+    title: "Account",
+    rows: [
+      { icon: Building2, label: "Organization and Brand" },
+      { icon: Users, label: "User Management" },
+      { icon: Bell, label: "Notifications" },
+    ],
+  },
+  {
+    title: "Preference",
+    rows: [
+      { icon: Languages, label: "Language" },
+      { icon: Clock, label: "Time Zone" },
+      { icon: Bell, label: "Notifications" },
+    ],
+  },
+  {
+    title: "Data And Security",
+    rows: [
+      { icon: Lock, label: "Security" },
+      { icon: Database, label: "Data Management" },
+    ],
+  },
+  {
+    title: "Support",
+    rows: [
+      { icon: HelpCircle, label: "Help Center" },
+      { icon: Mail, label: "Contact Support" },
+    ],
+  },
+];
+
+function SettingsRow({ icon: Icon, label }: Row) {
+  return (
+    <Pressable className="flex-row items-center gap-3 px-4 py-4 active:bg-white/5">
+      <Icon color="#FFFFFF" size={20} />
+      <Text className="flex-1 text-base">{label}</Text>
+      <ChevronRight color="#64748B" size={20} />
+    </Pressable>
+  );
+}
+
+function SettingsSection({ title, rows }: { title: string; rows: Row[] }) {
+  return (
+    <View className="gap-2">
+      <Text className="text-sm text-muted-foreground">{title}</Text>
+      <View className="overflow-hidden rounded-2xl border border-border bg-white/[0.03]">
+        {rows.map((row, i) => (
+          <Fragment key={row.label}>
+            {i > 0 ? <View className="ml-4 h-px bg-border/50" /> : null}
+            <SettingsRow {...row} />
+          </Fragment>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export function ProfilePage() {
   const profile = useAuthStore((s) => s.profile);
   const logout = useAuthStore((s) => s.logout);
-  const { theme, setTheme } = useTheme();
 
   const router = useRouter();
   const setPreviewSignedIn = usePreviewStore((s) => s.setSignedIn);
@@ -36,48 +103,54 @@ export function ProfilePage() {
     },
   });
 
+  const name = profile?.full_name || "John Doe";
+  const email = profile?.email || "johndoe@mail.com";
+  const initials =
+    name
+      .split(" ")
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "JD";
+
   return (
-    <Screen embedded title="Profile">
-      <Card>
-        <CardContent className="gap-1 p-4">
-          <Text className="text-base font-semibold">
-            {profile?.full_name || "—"}
-          </Text>
-          <Text variant="muted">{profile?.email || "—"}</Text>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="gap-3 p-4">
-          <Text className="text-sm font-medium">Appearance</Text>
-          <View className="flex-row gap-2">
-            {THEME_OPTIONS.map((option) => {
-              const selected = theme === option.value;
-              return (
-                <Button
-                  key={option.value}
-                  variant={selected ? "secondary" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onPress={() => setTheme(option.value)}
-                >
-                  <Text className={cn(selected && "font-semibold")}>
-                    {option.label}
-                  </Text>
-                </Button>
-              );
-            })}
-          </View>
-        </CardContent>
-      </Card>
-
-      <Button
-        variant="destructive"
-        onPress={() => signOut.mutate()}
-        loading={signOut.isPending}
+    <View className="flex-1 bg-background">
+      <ScrollView
+        contentContainerClassName="px-4 pb-28 pt-2 gap-6"
+        showsVerticalScrollIndicator={false}
       >
-        <Text>Sign out</Text>
-      </Button>
-    </Screen>
+        <Text className="text-3xl font-bold">Settings</Text>
+
+        {/* Profile Settings */}
+        <View className="gap-2">
+          <Text className="text-sm text-muted-foreground">Profile Settings</Text>
+          <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-white/[0.03] p-4">
+            <View className="h-14 w-14 items-center justify-center rounded-full bg-[#1C3A69]">
+              <Text className="text-lg font-semibold text-white">{initials}</Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-lg font-bold">{name}</Text>
+              <Text className="text-sm text-muted-foreground">{email}</Text>
+            </View>
+            <Pressable className="rounded-lg bg-secondary px-5 py-2.5 active:opacity-80">
+              <Text className="font-medium">Edit</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {SECTIONS.map((section) => (
+          <SettingsSection key={section.title} title={section.title} rows={section.rows} />
+        ))}
+
+        <Button
+          variant="destructive"
+          onPress={() => signOut.mutate()}
+          loading={signOut.isPending}
+        >
+          <Text>Sign out</Text>
+        </Button>
+      </ScrollView>
+    </View>
   );
 }
