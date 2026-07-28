@@ -132,11 +132,13 @@ function TH({
   w,
   right,
   center,
+  className,
   children,
 }: {
   w: number;
   right?: boolean;
   center?: boolean;
+  className?: string;
   children: string;
 }) {
   return (
@@ -146,6 +148,7 @@ function TH({
         "text-xs font-medium text-muted-foreground",
         right && "text-right",
         center && "text-center",
+        className,
       )}
     >
       {children}
@@ -162,7 +165,7 @@ const O_COL = {
   distributor: 120,
   expected: 72,
   actual: 66,
-  status: 92,
+  status: 104,
   days: 52,
 } as const;
 
@@ -202,7 +205,7 @@ function OrdersPanel() {
             <TH w={O_COL.distributor}>Distributor</TH>
             <TH w={O_COL.expected} right>Expected</TH>
             <TH w={O_COL.actual} right>Actual</TH>
-            <TH w={O_COL.status}>Status</TH>
+            <TH w={O_COL.status} className="pl-4">Status</TH>
             <TH w={O_COL.days} right>Days</TH>
           </View>
           {ORDERS.map((o) => (
@@ -228,7 +231,7 @@ function OrdersPanel() {
               <Text style={{ width: O_COL.actual }} className="text-right text-sm">
                 {o.actual !== null ? `${o.actual} cs` : "-"}
               </Text>
-              <View style={{ width: O_COL.status }}>
+              <View style={{ width: O_COL.status }} className="pl-4">
                 <StatusBadge status={o.status} />
               </View>
               <Text
