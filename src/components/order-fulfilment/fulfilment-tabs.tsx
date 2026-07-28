@@ -95,10 +95,15 @@ function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
       onPress={onToggle}
       className={cn(
         "h-6 w-11 justify-center rounded-full px-0.5 active:opacity-90",
-        value ? "items-end bg-brand-maroon" : "items-start bg-white/20",
+        value ? "items-end bg-white" : "items-start bg-white/20",
       )}
     >
-      <View className="h-5 w-5 rounded-full bg-white" />
+      <View
+        className={cn(
+          "h-5 w-5 rounded-full",
+          value ? "bg-[#0B1220]" : "bg-white",
+        )}
+      />
     </Pressable>
   );
 }
