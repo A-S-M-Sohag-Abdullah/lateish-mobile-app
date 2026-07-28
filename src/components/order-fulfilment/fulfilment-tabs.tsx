@@ -5,8 +5,9 @@ import {
   ShoppingCart,
   TriangleAlert,
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import Slider from "@react-native-community/slider";
 import Svg, {
   Circle,
   Line as SvgLine,
@@ -116,11 +117,14 @@ function PanelCard({
   title,
   description,
   badges,
+  bare,
   children,
 }: {
   title: string;
   description: string;
   badges?: React.ReactNode;
+  /** Skip the bordered card wrapper and lay content straight on the page. */
+  bare?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -134,9 +138,13 @@ function PanelCard({
           <View className="mt-0.5 flex-row flex-wrap gap-2">{badges}</View>
         ) : null}
       </View>
-      <View className="rounded-2xl border border-border bg-card p-4">
-        {children}
-      </View>
+      {bare ? (
+        <View className="gap-4">{children}</View>
+      ) : (
+        <View className="rounded-2xl border border-border bg-card p-4">
+          {children}
+        </View>
+      )}
     </View>
   );
 }
@@ -814,21 +822,10 @@ function ReorderRow({
 
 // ── Financial Impact ─────────────────────────────────────────────────────────
 
-const F_COL = {
-  order: 130,
-  account: 150,
-  delay: 66,
-  cases: 60,
-  rev: 84,
-  lost: 108,
-  margin: 112,
-  status: 92,
-} as const;
-
 const FIN_STATUS: Record<FinancialImpactOrder["status"], { box: string; text: string }> = {
-  Failed: { box: "border-red-500/20 bg-red-500/10", text: "text-red-500" },
-  Partial: { box: "border-amber-500/20 bg-amber-500/10", text: "text-amber-500" },
-  Delayed: { box: "border-blue-500/20 bg-blue-500/10", text: "text-blue-500" },
+  Failed: { box: "bg-red-600", text: "text-white" },
+  Partial: { box: "bg-amber-700", text: "text-amber-50" },
+  Delayed: { box: "bg-orange-500", text: "text-white" },
 };
 
 function FinancialPanel() {
@@ -840,12 +837,11 @@ function FinancialPanel() {
     FINANCIAL_ORDERS.reduce((s, o) => s + o.delayDays, 0) / FINANCIAL_ORDERS.length
   ).toFixed(1);
 
-  const stops = useMemo(() => [10, 20, 30, 40, 50, 60], []);
-
   return (
     <PanelCard
       title="Financial Impact of Delays"
       description="Revenue and margin impact from delayed, partial, and failed orders"
+      bare
       badges={
         <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
           Sample Data
@@ -853,105 +849,98 @@ function FinancialPanel() {
       }
     >
       {/* Summary tiles */}
-      <View className="flex-row flex-wrap gap-3">
-        <View className="flex-1 items-center gap-1 rounded-lg border border-red-500/10 bg-red-500/[0.06] p-3">
-          <Text className="text-xs text-muted-foreground">Lost Revenue</Text>
-          <Text className="text-xl font-bold text-red-500">${totalLost.toLocaleString()}</Text>
+      <View className="gap-3">
+        <View className="flex-row gap-3">
+          <View className="flex-1 items-center gap-1 rounded-lg border border-red-500/15 bg-red-500/10 p-3">
+            <Text className="text-xs text-muted-foreground">Lost Revenue</Text>
+            <Text className="text-xl font-bold text-red-500">${totalLost.toLocaleString()}</Text>
+          </View>
+          <View className="flex-1 items-center gap-1 rounded-lg border border-amber-500/15 bg-amber-500/10 p-3">
+            <Text className="text-xs text-muted-foreground">Margin Impact</Text>
+            <Text className="text-xl font-bold text-amber-500">${totalMargin.toLocaleString()}</Text>
+          </View>
         </View>
-        <View className="flex-1 items-center gap-1 rounded-lg border border-amber-500/10 bg-amber-500/[0.06] p-3">
-          <Text className="text-xs text-muted-foreground">Margin Impact</Text>
-          <Text className="text-xl font-bold text-amber-500">${totalMargin.toLocaleString()}</Text>
-        </View>
-      </View>
-      <View className="flex-row flex-wrap gap-3">
-        <View className="flex-1 items-center gap-1 rounded-lg bg-white/[0.06] p-3">
-          <Text className="text-xs text-muted-foreground">Avg Delay</Text>
-          <Text className="text-xl font-bold">{avgDelay} days</Text>
-        </View>
-        <View className="flex-1 items-center gap-1 rounded-lg bg-white/[0.06] p-3">
-          <Text className="text-xs text-muted-foreground">Affected Orders</Text>
-          <Text className="text-xl font-bold">{FINANCIAL_ORDERS.length}</Text>
+        <View className="flex-row gap-3">
+          <View className="flex-1 items-center gap-1 rounded-lg bg-white/[0.06] p-3">
+            <Text className="text-xs text-muted-foreground">Avg Delay</Text>
+            <Text className="text-xl font-bold">{avgDelay} days</Text>
+          </View>
+          <View className="flex-1 items-center gap-1 rounded-lg bg-white/[0.06] p-3">
+            <Text className="text-xs text-muted-foreground">Affected Orders</Text>
+            <Text className="text-xl font-bold">{FINANCIAL_ORDERS.length}</Text>
+          </View>
         </View>
       </View>
 
-      {/* Margin selector (stepped — no native slider dependency) */}
-      <View className="gap-2 rounded-lg bg-white/[0.04] p-3">
+      {/* Margin slider */}
+      <View className="gap-1">
         <View className="flex-row items-center justify-between">
           <Text className="text-sm font-medium">Assumed Margin %</Text>
-          <Text className="text-sm font-medium">{marginPct}%</Text>
+          <Text className="text-base font-bold">{marginPct}%</Text>
         </View>
-        <View className="flex-row gap-1.5">
-          {stops.map((s) => (
-            <Pressable
-              key={s}
-              onPress={() => setMarginPct(s)}
-              className={cn(
-                "flex-1 items-center rounded-md border py-1.5",
-                s === marginPct ? "border-transparent bg-brand-maroon" : "border-border bg-secondary",
-              )}
-            >
-              <Text className={cn("text-xs font-medium", s === marginPct && "text-white")}>
-                {s}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Slider
+          minimumValue={10}
+          maximumValue={60}
+          step={1}
+          value={marginPct}
+          onValueChange={setMarginPct}
+          minimumTrackTintColor="#22D3EE"
+          maximumTrackTintColor="rgba(255,255,255,0.15)"
+          thumbTintColor="#FFFFFF"
+          style={{ height: 36, marginHorizontal: -2 }}
+        />
         <Text className="text-xs text-muted-foreground">
           Adjust margin assumption to recalculate impact
         </Text>
       </View>
 
-      {/* Table */}
-      <ScrollView horizontal showsHorizontalScrollIndicator>
-        <View>
-          <View className="flex-row border-b border-border pb-2">
-            <TH w={F_COL.order}>Order</TH>
-            <TH w={F_COL.account}>Account</TH>
-            <TH w={F_COL.delay} right>Delay</TH>
-            <TH w={F_COL.cases} right>Cases</TH>
-            <TH w={F_COL.rev} right>Rev/Case</TH>
-            <TH w={F_COL.lost} right>Lost Revenue</TH>
-            <TH w={F_COL.margin} right>Margin Impact</TH>
-            <TH w={F_COL.status}>Status</TH>
+      {/* Order cards */}
+      {FINANCIAL_ORDERS.map((o) => (
+        <View key={o.id} className="gap-3 rounded-xl bg-white/[0.04] p-4">
+          <View className="flex-row items-start justify-between">
+            <View>
+              <Text className="text-base font-bold">{o.id}</Text>
+              <Text className="text-sm text-muted-foreground">{o.account}</Text>
+            </View>
+            <View className={cn("rounded-md px-2.5 py-1", FIN_STATUS[o.status].box)}>
+              <Text className={cn("text-xs font-semibold", FIN_STATUS[o.status].text)}>
+                {o.status}
+              </Text>
+            </View>
           </View>
-          {FINANCIAL_ORDERS.map((o) => (
-            <View
-              key={o.id}
-              className="flex-row items-center border-b border-border/50 py-3"
-            >
-              <Text style={{ width: F_COL.order }} className="font-mono text-xs">
-                {o.id}
-              </Text>
-              <Text style={{ width: F_COL.account }} className="pr-2 text-sm">
-                {o.account}
-              </Text>
-              <Text style={{ width: F_COL.delay }} className="text-right text-sm">
-                {o.delayDays}d
-              </Text>
-              <Text style={{ width: F_COL.cases }} className="text-right text-sm">
-                {o.cases}
-              </Text>
-              <Text style={{ width: F_COL.rev }} className="text-right text-sm">
-                ${o.revPerCase}
-              </Text>
-              <Text style={{ width: F_COL.lost }} className="text-right text-sm font-medium text-red-500">
+
+          <View className="flex-row">
+            <FinMetric label="DELAY" value={`${o.delayDays}d`} />
+            <FinMetric label="CASES" value={`${o.cases}`} />
+            <FinMetric label="REV/CASE" value={`$${o.revPerCase}`} />
+          </View>
+
+          <View className="flex-row items-end justify-between border-t border-border/50 pt-3">
+            <View>
+              <Text className="text-xs text-muted-foreground">Lost Revenue</Text>
+              <Text className="text-lg font-bold text-red-500">
                 ${o.lostRevenue.toLocaleString()}
               </Text>
-              <Text style={{ width: F_COL.margin }} className="text-right text-sm text-amber-500">
+            </View>
+            <View className="items-end">
+              <Text className="text-xs text-muted-foreground">Margin Impact</Text>
+              <Text className="text-lg font-bold text-amber-500">
                 ${Math.round((o.lostRevenue * marginPct) / 100).toLocaleString()}
               </Text>
-              <View style={{ width: F_COL.status }}>
-                <View className={cn("self-start rounded-md border px-2 py-0.5", FIN_STATUS[o.status].box)}>
-                  <Text className={cn("text-xs font-medium", FIN_STATUS[o.status].text)}>
-                    {o.status}
-                  </Text>
-                </View>
-              </View>
             </View>
-          ))}
+          </View>
         </View>
-      </ScrollView>
+      ))}
     </PanelCard>
+  );
+}
+
+function FinMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-1 gap-1">
+      <Text className="text-xs text-muted-foreground">{label}</Text>
+      <Text className="text-base font-semibold">{value}</Text>
+    </View>
   );
 }
 
