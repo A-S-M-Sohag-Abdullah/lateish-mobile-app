@@ -72,7 +72,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "BDM Efficiency", icon: Gauge, page: 3 },
   { label: "Order Fulfilment", icon: Package, href: "/orders" },
   { label: "SKU Performance", icon: ChartColumn, href: "/sku-performance" },
-  { label: "Activity Hub", icon: Clock },
+  { label: "Activity Hub", icon: Clock, href: "/activity-hub" },
   { label: "Settings", icon: Settings, page: 4 },
 ];
 
