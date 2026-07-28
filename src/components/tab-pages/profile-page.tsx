@@ -33,7 +33,7 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       { icon: Building2, label: "Organization and Brand", href: "/organization-brand" },
       { icon: Users, label: "User Management", href: "/user-management" },
-      { icon: Bell, label: "Notifications" },
+      { icon: Bell, label: "Notifications", href: "/notification-settings" },
     ],
   },
   {
@@ -41,7 +41,7 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       { icon: Languages, label: "Language" },
       { icon: Clock, label: "Time Zone" },
-      { icon: Bell, label: "Notifications" },
+      { icon: Bell, label: "Notifications", href: "/notification-settings" },
     ],
   },
   {
