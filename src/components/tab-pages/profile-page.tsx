@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import {
   Bell,
   Building2,
@@ -24,13 +24,14 @@ import { useAuthStore } from "@/store/auth.store";
 interface Row {
   icon: LucideIcon;
   label: string;
+  href?: Href;
 }
 
 const SECTIONS: { title: string; rows: Row[] }[] = [
   {
     title: "Account",
     rows: [
-      { icon: Building2, label: "Organization and Brand" },
+      { icon: Building2, label: "Organization and Brand", href: "/organization-brand" },
       { icon: Users, label: "User Management" },
       { icon: Bell, label: "Notifications" },
     ],
@@ -59,9 +60,13 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
   },
 ];
 
-function SettingsRow({ icon: Icon, label }: Row) {
+function SettingsRow({ icon: Icon, label, href }: Row) {
+  const router = useRouter();
   return (
-    <Pressable className="flex-row items-center gap-3 px-4 py-4 active:bg-white/5">
+    <Pressable
+      onPress={href ? () => router.push(href) : undefined}
+      className="flex-row items-center gap-3 px-4 py-4 active:bg-white/5"
+    >
       <Icon color="#FFFFFF" size={20} />
       <Text className="flex-1 text-base">{label}</Text>
       <ChevronRight color="#64748B" size={20} />
