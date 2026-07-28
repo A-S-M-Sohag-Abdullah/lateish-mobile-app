@@ -710,7 +710,7 @@ function AutoReorderPanel() {
             <TH w={R_COL.stock} right>Est. Stock</TH>
             <TH w={R_COL.cover} right>Weeks Cover</TH>
             <TH w={R_COL.point} right>Reorder Pt</TH>
-            <TH w={R_COL.status}>Status</TH>
+            <TH w={R_COL.status} className="pl-4">Status</TH>
             <TH w={R_COL.active} center>Active</TH>
             <TH w={R_COL.action}> </TH>
           </View>
@@ -763,7 +763,7 @@ function ReorderRow({
       <Text style={{ width: R_COL.point }} className="text-right text-sm">
         {r.reorderPoint}w
       </Text>
-      <View style={{ width: R_COL.status }} className="flex-row">
+      <View style={{ width: R_COL.status }} className="flex-row pl-4">
         {below ? (
           <View className="rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5">
             <Text className="text-xs font-medium text-red-500">Below Threshold</Text>
