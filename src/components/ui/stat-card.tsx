@@ -17,6 +17,8 @@ interface StatCardProps {
   end?: { x: number; y: number };
   /** Rendered to the right of the value, e.g. a trend icon. */
   trailing?: React.ReactNode;
+  /** Small muted line beneath the value, e.g. "From order to delivery". */
+  caption?: string;
   /** Height/width utilities for the card. */
   className?: string;
   valueClassName?: string;
@@ -35,6 +37,7 @@ export function StatCard({
   start = { x: 0, y: 0 },
   end = { x: 1, y: 1 },
   trailing,
+  caption,
   className,
   valueClassName,
 }: StatCardProps) {
@@ -53,14 +56,21 @@ export function StatCard({
         <Text className="text-sm text-white/70" numberOfLines={1}>
           {label}
         </Text>
-        <View className="flex-row items-center gap-1.5">
-          <Text
-            className={cn("text-2xl font-bold text-white", valueClassName)}
-            numberOfLines={1}
-          >
-            {value}
-          </Text>
-          {trailing}
+        <View className="gap-0.5">
+          <View className="flex-row items-center gap-1.5">
+            <Text
+              className={cn("text-2xl font-bold text-white", valueClassName)}
+              numberOfLines={1}
+            >
+              {value}
+            </Text>
+            {trailing}
+          </View>
+          {caption ? (
+            <Text className="text-xs text-white/60" numberOfLines={1}>
+              {caption}
+            </Text>
+          ) : null}
         </View>
       </View>
     </View>
