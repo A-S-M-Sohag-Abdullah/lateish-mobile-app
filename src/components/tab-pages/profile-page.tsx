@@ -39,15 +39,14 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
   {
     title: "Preference",
     rows: [
-      { icon: Languages, label: "Language" },
-      { icon: Clock, label: "Time Zone" },
-      { icon: Bell, label: "Notifications", href: "/notification-settings" },
+      { icon: Languages, label: "Language", href: "/language" },
+      { icon: Clock, label: "Time Zone", href: "/time-zone" },
     ],
   },
   {
     title: "Data And Security",
     rows: [
-      { icon: Lock, label: "Security" },
+      { icon: Lock, label: "Security", href: "/security" },
       { icon: Database, label: "Data Management" },
     ],
   },
