@@ -12,7 +12,7 @@ import { Stack, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
-import { LogBox, Pressable, ScrollView, Text as RNText, View } from "react-native";
+import { LogBox, Platform, Pressable, ScrollView, Text as RNText, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -26,7 +26,22 @@ import { useAuthStore } from "@/store/auth.store";
 
 // Benign react-native-web responder warning fired when an interactive control
 // (e.g. a Slider) competes with a parent ScrollView on the web preview only.
+// Native LogBox suppression handles device builds; on web the warning is
+// emitted via console.error (intercepted by @expo/log-box before LogBox sees
+// it), so filter that one message out there too.
 LogBox.ignoreLogs(["ScrollView doesn't take rejection well"]);
+if (Platform.OS === "web") {
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes("ScrollView doesn't take rejection well")
+    ) {
+      return;
+    }
+    originalError(...args);
+  };
+}
 
 // The native splash stays up until <BrandSplash> has painted over it.
 void SplashScreen.preventAutoHideAsync();
