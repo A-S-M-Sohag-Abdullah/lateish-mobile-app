@@ -78,7 +78,25 @@ eas build --platform ios --profile production
 - When asked *"Log in to your Apple account?"* → **Yes**.
 - Enter the client's **Apple ID email** and **password**.
 - Apple pushes a **6-digit 2FA code to the client's device** → client sends it to you → type it in.
-- Say **Yes** to auto-create the App ID (`com.lateish.app`), Distribution Certificate, and Provisioning Profile.
+
+Then a series of interactive prompts (in order):
+
+1. **`⚠️ Detected that your app uses Expo Go for development…`** — harmless warning
+   for a preview build. Ignore it (or `export EAS_BUILD_NO_EXPO_GO_WARNING=true`).
+2. **`iOS app only uses standard/exempt encryption? (Y/n)`** → **Y**. The app uses only
+   standard HTTPS/TLS/system crypto — no custom encryption — so it's **export-exempt**
+   (`ITSAppUsesNonExemptEncryption = false`) and skips the export-compliance paperwork.
+   `app.json` already declares this under `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`,
+   so App Store Connect won't ask again after upload — but eas-cli may still prompt here; answer **Y**.
+3. **`Select a Team »`** — the Apple **Developer Team** that will *own* the app. The client's
+   Apple ID belongs to several teams; **the client chose `ARTHUR PLAT - Individual`
+   (team id `3UCFPF9QLM`)**. This is a client decision — see Troubleshooting.
+4. **`Select a Provider »`** — the App Store Connect org for distribution. **Must match the
+   team → also `ARTHUR PLAT`.** Never mix team and provider entities.
+5. **`Generate a new Apple Distribution Certificate? (Y/n)`** → **Y** to let EAS create &
+   manage it — *unless* the account is at Apple's 3-cert limit (see Troubleshooting).
+6. Say **Yes** to auto-create the App ID (`com.lateish.app`) and Provisioning Profile.
+
 - Cloud build ~20–30 min → `.ipa`.
 - EAS **caches the Apple session (~2 weeks)**, so builds within that window won't re-prompt for 2FA.
   First build sets up credentials; later builds reuse them.
@@ -161,6 +179,33 @@ in the repo excludes `node_modules`, `.expo`, `android`, `ios`, etc. → uploads
 ### `npm warn EBADENGINE … required node 22.13+, current 22.12`
 **Harmless** local npm warnings. EAS builds in the cloud with a compatible Node. Ignore
 (or bump local Node to 22.13+ via nvm).
+
+### iOS: "Select a Team" / "Select a Provider" — which one?
+The client's Apple ID is a member of **many** teams/providers (personal + several LLCs),
+so EAS can't guess. **This is the client's decision — always ask them**, because the team
+you pick *permanently owns* the app (bundle-id registration, App Store/TestFlight listing,
+billing) and is painful to move later. None of the entities is named "Lateish".
+
+- **The client chose `ARTHUR PLAT - Individual` (team id `3UCFPF9QLM`).**
+- **Provider must match the team → also `ARTHUR PLAT`.** Never mix (e.g. team = ARTHUR PLAT,
+  provider = SCHEJ) — keep the entity identical across both prompts.
+- To skip these prompts on later builds, pin `"appleTeamId": "3UCFPF9QLM"` in `eas.json`.
+
+### iOS: `Maximum number of Distribution Certificates generated` (only 3 allowed)
+Apple caps an account at **3 distribution certificates**, and they are **account-wide, not
+app-specific** — so all 3 usually belong to the client's *other* apps. `ARTHUR PLAT` was
+already at the limit, so "generate new" failed and EAS offered to **revoke** one.
+
+**Do NOT revoke blindly — ask the client first.** Revoking is safe for apps *already shipped*
+to the App Store, but it **breaks any other build pipeline / local setup that relies on that
+cert's private key**. You can't tell which of the three that is; only the client can.
+
+Two safe resolutions (client picks):
+1. **Reuse (best, no revocation):** client sends a `.p12` distribution cert + password from an
+   existing app → re-run the build and choose **"Use an existing certificate"** instead of
+   generating one.
+2. **Revoke only the cert the client names:** select *just* that one in the revoke prompt,
+   then EAS generates a fresh cert for Lateish.
 
 ### Android keystore
 EAS generated and stores it. Before a real Play Store launch, **back it up**:
