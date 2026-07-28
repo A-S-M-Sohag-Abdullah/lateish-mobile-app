@@ -1,15 +1,9 @@
 import {
-  ChartColumn,
   CircleCheck,
   Database,
-  DollarSign,
   FileSpreadsheet,
-  Ghost,
-  RefreshCw,
   ShoppingCart,
-  TrendingUp,
   TriangleAlert,
-  Truck,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Switch, View } from "react-native";
@@ -82,7 +76,7 @@ function Pill({
   return (
     <View
       className={cn(
-        "flex-row items-center gap-1.5 rounded-md border px-2 py-0.5",
+        "flex-row items-center gap-1.5 rounded-md border px-2.5 py-1",
         className,
       )}
     >
@@ -92,37 +86,35 @@ function Pill({
   );
 }
 
-/** Card shell shared by every panel. */
+/**
+ * A panel = a header block (title, description, badges) that sits *outside* the
+ * card, above a bordered card holding just the table/content.
+ */
 function PanelCard({
   title,
-  icon,
   description,
   badges,
   children,
 }: {
   title: string;
-  icon: React.ReactNode;
   description: string;
   badges?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <View className="gap-4 rounded-2xl border border-border bg-card p-4">
+    <View className="gap-3">
       <View className="gap-2">
-        <View className="flex-row items-start justify-between gap-2">
-          <View className="flex-1 flex-row items-center gap-2">
-            {icon}
-            <Text className="flex-1 text-base font-semibold">{title}</Text>
-          </View>
-          {badges ? (
-            <View className="flex-row flex-wrap justify-end gap-1.5">{badges}</View>
-          ) : null}
-        </View>
+        <Text className="text-xl font-bold">{title}</Text>
         <Text className="text-sm leading-5 text-muted-foreground">
           {description}
         </Text>
+        {badges ? (
+          <View className="mt-0.5 flex-row flex-wrap gap-2">{badges}</View>
+        ) : null}
       </View>
-      {children}
+      <View className="rounded-2xl border border-border bg-card p-4">
+        {children}
+      </View>
     </View>
   );
 }
@@ -173,7 +165,6 @@ function OrdersPanel() {
   return (
     <PanelCard
       title="Order Fulfilment Status"
-      icon={<Truck color="#FFFFFF" size={20} />}
       description="Track orders from placement to delivery with depletion matching"
       badges={
         <>
@@ -265,7 +256,6 @@ function DistributorsPanel() {
   return (
     <PanelCard
       title="Distributor Fulfilment Performance"
-      icon={<TrendingUp color="#FFFFFF" size={20} />}
       description="Compare fulfilment rates and delivery times across distributors"
       badges={
         <Pill
@@ -329,7 +319,6 @@ function ChannelsPanel() {
   return (
     <PanelCard
       title="Fulfilment by Channel"
-      icon={<ChartColumn color="#FFFFFF" size={20} />}
       description="Compare fulfilment performance across sales channels"
       badges={
         <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
@@ -500,7 +489,6 @@ function ForecastPanel() {
   return (
     <PanelCard
       title="Fulfilment Forecast"
-      icon={<TrendingUp color="#FFFFFF" size={20} />}
       description="Weekly order volume — actuals and 8-week projection with confidence bands"
       badges={
         <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
@@ -581,7 +569,6 @@ function GhostPanel() {
   return (
     <PanelCard
       title="Ghost Order Detection"
-      icon={<Ghost color="#FFFFFF" size={20} />}
       description="Shipments without matching depletions — possible inventory sitting in distributor warehouses"
       badges={
         <>
@@ -699,7 +686,6 @@ function AutoReorderPanel() {
   return (
     <PanelCard
       title="Auto-Reorder Configuration"
-      icon={<RefreshCw color="#FFFFFF" size={20} />}
       description="Velocity-based reorder points. Orders trigger when stock falls below configured weeks of cover."
       badges={
         <>
@@ -842,7 +828,6 @@ function FinancialPanel() {
   return (
     <PanelCard
       title="Financial Impact of Delays"
-      icon={<DollarSign color="#FFFFFF" size={20} />}
       description="Revenue and margin impact from delayed, partial, and failed orders"
       badges={
         <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
