@@ -272,7 +272,7 @@ function DistributorsPanel() {
             <TH w={D_COL.name}>Distributor</TH>
             <TH w={D_COL.orders} right>Total Orders</TH>
             <TH w={D_COL.fulfilled} right>Fulfilled</TH>
-            <TH w={D_COL.rate}>Fulfilment Rate</TH>
+            <TH w={D_COL.rate} className="pl-4">Fulfilment Rate</TH>
             <TH w={D_COL.avg} right>Avg Days</TH>
           </View>
           {DISTRIBUTORS.map((d) => (
@@ -289,8 +289,8 @@ function DistributorsPanel() {
               <Text style={{ width: D_COL.fulfilled }} className="text-right text-sm">
                 {d.fulfilled}
               </Text>
-              <View style={{ width: D_COL.rate }} className="flex-row items-center gap-2">
-                <Progress value={d.fulfilmentRate / 100} className="w-20" />
+              <View style={{ width: D_COL.rate }} className="flex-row items-center gap-2 pl-4">
+                <Progress value={d.fulfilmentRate / 100} className="w-16" />
                 <Text className="text-sm font-medium">{d.fulfilmentRate}%</Text>
               </View>
               <Text style={{ width: D_COL.avg }} className="text-right text-sm">
@@ -332,7 +332,7 @@ function ChannelsPanel() {
             <TH w={C_COL.channel}>Channel</TH>
             <TH w={C_COL.orders} right>Orders</TH>
             <TH w={C_COL.cases} right>Cases</TH>
-            <TH w={C_COL.rate}>Fulfilment Rate</TH>
+            <TH w={C_COL.rate} className="pl-4">Fulfilment Rate</TH>
             <TH w={C_COL.avg} right>Avg Days</TH>
             <TH w={C_COL.fp} right>Failed/Partial</TH>
           </View>
@@ -350,8 +350,8 @@ function ChannelsPanel() {
               <Text style={{ width: C_COL.cases }} className="text-right text-sm">
                 {ch.cases} cs
               </Text>
-              <View style={{ width: C_COL.rate }} className="flex-row items-center gap-2">
-                <Progress value={ch.fulfilmentRate / 100} className="w-20" />
+              <View style={{ width: C_COL.rate }} className="flex-row items-center gap-2 pl-4">
+                <Progress value={ch.fulfilmentRate / 100} className="w-16" />
                 <Text className="text-sm font-medium">{ch.fulfilmentRate}%</Text>
               </View>
               <Text
