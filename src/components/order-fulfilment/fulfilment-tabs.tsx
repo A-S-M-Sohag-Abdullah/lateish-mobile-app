@@ -6,7 +6,7 @@ import {
   TriangleAlert,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import Svg, {
   Circle,
   Line as SvgLine,
@@ -83,6 +83,23 @@ function Pill({
       {icon}
       <Text className={cn("text-xs font-medium", textClassName)}>{children}</Text>
     </View>
+  );
+}
+
+/** Custom on/off toggle — RN's <Switch> ignores track colours on some platforms. */
+function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      onPress={onToggle}
+      className={cn(
+        "h-6 w-11 justify-center rounded-full px-0.5 active:opacity-90",
+        value ? "items-end bg-brand-maroon" : "items-start bg-white/20",
+      )}
+    >
+      <View className="h-5 w-5 rounded-full bg-white" />
+    </Pressable>
   );
 }
 
@@ -776,12 +793,7 @@ function ReorderRow({
         )}
       </View>
       <View style={{ width: R_COL.active }} className="items-center">
-        <Switch
-          value={active}
-          onValueChange={onToggle}
-          trackColor={{ false: "#334155", true: "#8B2226" }}
-          thumbColor="#FFFFFF"
-        />
+        <Toggle value={active} onToggle={onToggle} />
       </View>
       <View style={{ width: R_COL.action }} className="flex-row">
         {r.reorderQty !== null ? (
