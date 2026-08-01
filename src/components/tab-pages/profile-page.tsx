@@ -10,6 +10,7 @@ import {
   Languages,
   Lock,
   Mail,
+  Tag,
   Users,
   type LucideIcon,
 } from "lucide-react-native";
@@ -31,7 +32,8 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
   {
     title: "Account",
     rows: [
-      { icon: Building2, label: "Organization and Brand", href: "/organization-brand" },
+      { icon: Building2, label: "Organizations", href: "/organizations" },
+      { icon: Tag, label: "Brands", href: "/brands" },
       { icon: Users, label: "User Management", href: "/user-management" },
       { icon: Bell, label: "Notifications", href: "/notification-settings" },
     ],

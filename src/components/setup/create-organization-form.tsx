@@ -22,35 +22,13 @@ import { Text } from "@/components/ui/text";
 import { MY_ORGS_QUERY_KEY } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
+import { INDUSTRIES, REGIONS } from "@/lib/org-options";
 import { useOrgStore } from "@/store/organization.store";
 import {
   slugify,
   type ApiCreatedOrg,
   type UserMembership,
 } from "@/types/organization";
-
-const INDUSTRIES = [
-  "Beverage & Spirits",
-  "Beer & Craft Brewing",
-  "Wine & Champagne",
-  "Non-Alcoholic Beverages",
-  "Hospitality & Hotels",
-  "Food & Beverage Distribution",
-  "Retail & Off-Trade",
-  "Other",
-];
-
-const REGIONS = [
-  "United States",
-  "United Kingdom",
-  "European Union",
-  "Australia & New Zealand",
-  "Canada",
-  "Asia Pacific",
-  "Latin America",
-  "Middle East & Africa",
-  "Global",
-];
 
 const STEPS: { icon: LucideIcon; title: string; description: string }[] = [
   { icon: Building2, title: "Organization Details", description: "Name and identify your organization" },
