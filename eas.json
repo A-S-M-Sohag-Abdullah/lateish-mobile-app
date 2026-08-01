@@ -11,6 +11,11 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.0.121:5000/api/v1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kwxdbljetrfqjvzbekde.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3eGRibGpldHJmcWp2emJla2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzM1MjAsImV4cCI6MjA5OTYwOTUyMH0.UdxKs16NUquMo_b4rfwUpnLACouVQjXckE0vmvVFA8U"
+      },
       "android": {
         "buildType": "apk"
       },
