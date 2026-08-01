@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
   ArrowUpDown,
@@ -15,34 +16,86 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
-  MANAGED_USERS,
-  USER_OVERVIEW,
-  type ManagedUser,
-  type UserRole,
-  type UserStatus,
-} from "@/lib/user-management-data";
+  type BackendRole,
+  type OrgInvitation,
+  type OrgMember,
+} from "@/types/organization";
 
-const ROLE_BADGE: Record<UserRole, string> = {
-  Admin: "border-blue-500/30 bg-blue-500/10 text-blue-400",
-  BDM: "border-blue-500/30 bg-blue-500/10 text-blue-400",
-  "Brand Manager": "border-purple-500/30 bg-purple-500/10 text-purple-400",
-  Analyst: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-  Finance: "border-green-500/30 bg-green-500/10 text-green-400",
-  Viewer: "border-border bg-secondary text-muted-foreground",
+// Backend roles → display label + badge style (keeps the existing badge look).
+const ROLE_LABEL: Record<BackendRole, string> = {
+  owner: "Owner",
+  org_admin: "Admin",
+  bdm: "BDM",
+  distributor: "Distributor",
+};
+const ROLE_BADGE: Record<BackendRole, string> = {
+  owner: "border-blue-500/30 bg-blue-500/10 text-blue-400",
+  org_admin: "border-purple-500/30 bg-purple-500/10 text-purple-400",
+  bdm: "border-blue-500/30 bg-blue-500/10 text-blue-400",
+  distributor: "border-orange-500/30 bg-orange-500/10 text-orange-400",
 };
 
-const STATUS_DOT: Record<UserStatus, string> = {
-  Active: "#22C55E",
-  Invited: "#F59E0B",
-  Inactive: "#EF4444",
-};
+// Status → dot colour + label.
+function statusMeta(status: string): { label: string; dot: string } {
+  const s = status.toLowerCase();
+  if (s === "active") return { label: "Active", dot: "#22C55E" };
+  if (s === "invited" || s === "pending") return { label: "Invited", dot: "#F59E0B" };
+  return { label: status.charAt(0).toUpperCase() + status.slice(1), dot: "#EF4444" };
+}
+
+// Deterministic avatar colour so initials circles stay varied (as in the design).
+const AVATAR_COLORS = [
+  "#2563EB", "#0D9488", "#B7791F", "#7C3AED",
+  "#059669", "#DB2777", "#DC2626", "#475569",
+];
+function avatarColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+function memberName(m: OrgMember): string {
+  const parts = [m.user.first_name, m.user.last_name].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : m.user.email;
+}
+function initialsFor(name: string): string {
+  return (
+    name
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join("") || "?"
+  );
+}
 
 export default function UserManagementScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
+
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ["organizations", orgId, "members"],
+    queryFn: () => api.get<OrgMember[]>(`/organizations/${orgId}/members`),
+    enabled: !!orgId,
+  });
+
+  const { data: invitations = [] } = useQuery({
+    queryKey: ["organizations", orgId, "invitations"],
+    queryFn: () => api.get<OrgInvitation[]>(`/organizations/${orgId}/invitations`),
+    enabled: !!orgId,
+  });
+
+  const activeUsers = members.filter((m) => m.status.toLowerCase() === "active").length;
+  const pendingInvites = invitations.filter(
+    (i) => i.status === "pending",
+  ).length;
+  const roleCount = new Set(members.map((m) => m.role)).size;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -69,13 +122,13 @@ export default function UserManagementScreen() {
             <Text className="text-lg font-bold">Overview</Text>
           </View>
           <View className="flex-row">
-            <OverviewStat value={`${USER_OVERVIEW.totalUsers}`} label="Total Users" color="#3B82F6" />
+            <OverviewStat value={`${members.length}`} label="Total Users" color="#3B82F6" />
             <StatDivider />
-            <OverviewStat value={`${USER_OVERVIEW.activeUsers}`} label="Active Users" color="#22C55E" />
+            <OverviewStat value={`${activeUsers}`} label="Active Users" color="#22C55E" />
             <StatDivider />
-            <OverviewStat value={`${USER_OVERVIEW.pendingInvites}`} label="Pending Invites" color="#F59E0B" />
+            <OverviewStat value={`${pendingInvites}`} label="Pending Invites" color="#F59E0B" />
             <StatDivider />
-            <OverviewStat value={`${USER_OVERVIEW.roles}`} label="Roles" color="#A855F7" />
+            <OverviewStat value={`${roleCount}`} label="Roles" color="#A855F7" />
           </View>
         </View>
 
@@ -112,14 +165,25 @@ export default function UserManagementScreen() {
         </View>
 
         {/* User list */}
-        <View className="overflow-hidden rounded-2xl border border-border bg-white/[0.03]">
-          {MANAGED_USERS.map((user, i) => (
-            <Fragment key={user.email}>
-              {i > 0 ? <View className="ml-4 h-px bg-border/50" /> : null}
-              <UserRow user={user} />
-            </Fragment>
-          ))}
-        </View>
+        {isLoading ? (
+          <Text className="py-8 text-center text-sm text-muted-foreground">Loading…</Text>
+        ) : members.length === 0 ? (
+          <View className="items-center gap-1 py-12">
+            <Text className="text-base font-semibold">No members yet</Text>
+            <Text className="text-center text-sm text-muted-foreground">
+              Invite teammates to your organization to see them here.
+            </Text>
+          </View>
+        ) : (
+          <View className="overflow-hidden rounded-2xl border border-border bg-white/[0.03]">
+            {members.map((member, i) => (
+              <Fragment key={member.user_id}>
+                {i > 0 ? <View className="ml-4 h-px bg-border/50" /> : null}
+                <UserRow member={member} />
+              </Fragment>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       <BottomTabBar />
@@ -150,34 +214,47 @@ function StatDivider() {
   return <View className="w-px self-stretch bg-border/60" />;
 }
 
-function UserRow({ user }: { user: ManagedUser }) {
+function UserRow({ member }: { member: OrgMember }) {
+  const name = memberName(member);
+  const status = statusMeta(member.status);
   return (
     <View className="flex-row items-center gap-2.5 px-4 py-3">
       <View
         className="h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: user.color }}
+        style={{ backgroundColor: avatarColor(member.user_id || member.user.email) }}
       >
-        <Text className="text-xs font-semibold text-white">{user.initials}</Text>
+        <Text className="text-xs font-semibold text-white">{initialsFor(name)}</Text>
       </View>
 
       <View className="flex-1">
         <Text className="text-sm font-semibold" numberOfLines={1}>
-          {user.name}
+          {name}
         </Text>
         <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-          {user.email}
+          {member.user.email}
         </Text>
       </View>
 
-      <View className={cn("rounded-full border px-2 py-0.5", ROLE_BADGE[user.role])}>
-        <Text className={cn("text-xs font-medium", ROLE_BADGE[user.role])} numberOfLines={1}>
-          {user.role}
+      <View
+        className={cn(
+          "rounded-full border px-2 py-0.5",
+          ROLE_BADGE[member.role] ?? "border-border bg-secondary",
+        )}
+      >
+        <Text
+          className={cn(
+            "text-xs font-medium",
+            ROLE_BADGE[member.role] ?? "text-muted-foreground",
+          )}
+          numberOfLines={1}
+        >
+          {ROLE_LABEL[member.role] ?? member.role}
         </Text>
       </View>
 
       <View className="flex-row items-center gap-1">
-        <View className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_DOT[user.status] }} />
-        <Text className="text-xs text-muted-foreground">{user.status}</Text>
+        <View className="h-2 w-2 rounded-full" style={{ backgroundColor: status.dot }} />
+        <Text className="text-xs text-muted-foreground">{status.label}</Text>
       </View>
 
       <Pressable hitSlop={6} className="active:opacity-70">

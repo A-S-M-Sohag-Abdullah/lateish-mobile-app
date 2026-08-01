@@ -82,6 +82,19 @@ export function membershipToOrganization(m: UserMembership): Organization {
   };
 }
 
+/** Shape returned by GET /api/v1/organizations/:orgId/members. */
+export interface OrgMember {
+  user_id: string;
+  role: BackendRole;
+  status: string; // "active" | "invited" | "inactive" | ...
+  user: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    avatar_url: string | null;
+  };
+}
+
 // ── Create / invitations ──────────────────────────────────────────────────────
 
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
