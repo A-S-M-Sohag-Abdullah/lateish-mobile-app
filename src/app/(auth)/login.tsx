@@ -11,25 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { PREVIEW_MODE, usePreviewStore } from "@/lib/preview";
 import { useAuthStore } from "@/store/auth.store";
-import { useTabsStore } from "@/store/tabs.store";
 
 export default function LoginScreen() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
-  // Always open the pager on Dashboard after auth, not wherever it last was
-  // (e.g. Settings, if the user signed out from there).
-  const setPage = useTabsStore((s) => s.setPage);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const signIn = useMutation({
     mutationFn: () => login(email.trim(), password),
-    onSuccess: () => {
-      setPage(0);
-      router.replace("/");
-    },
+    onSuccess: () => router.replace("/"),
   });
 
   const setPreviewSignedIn = usePreviewStore((s) => s.setSignedIn);
@@ -41,10 +34,7 @@ export default function LoginScreen() {
     router.replace("/");
   };
 
-  const google = useMutation({
-    mutationFn: signInWithGoogle,
-    onSuccess: () => setPage(0),
-  });
+  const google = useMutation({ mutationFn: signInWithGoogle });
 
   const canSubmit = email.trim().length > 0 && password.length > 0;
   const busy = signIn.isPending || google.isPending;

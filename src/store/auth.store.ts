@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { env } from "@/lib/env";
 import { signInWithGoogle } from "@/lib/oauth";
 import { supabase } from "@/lib/supabase";
+import { useTabsStore } from "@/store/tabs.store";
 import type { UserMembership } from "@/types/organization";
 
 const BASE_URL = env.apiUrl;
@@ -108,6 +109,10 @@ export const useAuthStore = create<AuthState>()((set) => {
   } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
       set({ session: null, user: null, profile: null, loading: false });
+      // Reset the pager so the next sign-in opens on Dashboard, not wherever
+      // the user last was (e.g. Settings). Done here — before the login screen
+      // shows — so the pager mounts already on page 0 with no visible jump.
+      useTabsStore.getState().setPage(0);
       return;
     }
 

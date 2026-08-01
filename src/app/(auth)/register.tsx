@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { PREVIEW_MODE, usePreviewStore } from "@/lib/preview";
 import { useAuthStore } from "@/store/auth.store";
-import { useTabsStore } from "@/store/tabs.store";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -19,24 +18,16 @@ export default function RegisterScreen() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
-  // Open the pager on Dashboard after auth (see login.tsx).
-  const setPage = useTabsStore((s) => s.setPage);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const signUp = useMutation({
     mutationFn: () => register({ email: email.trim(), password }),
-    onSuccess: () => {
-      setPage(0);
-      router.replace("/");
-    },
+    onSuccess: () => router.replace("/"),
   });
 
-  const google = useMutation({
-    mutationFn: signInWithGoogle,
-    onSuccess: () => setPage(0),
-  });
+  const google = useMutation({ mutationFn: signInWithGoogle });
 
   const setPreviewSignedIn = usePreviewStore((s) => s.setSignedIn);
 
