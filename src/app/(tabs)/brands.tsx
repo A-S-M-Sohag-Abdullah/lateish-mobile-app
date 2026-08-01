@@ -1,30 +1,24 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { ChevronLeft, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { FormError } from "@/components/auth/form-error";
+import { CreateBrandForm } from "@/components/brands/create-brand-form";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
-import { Input } from "@/components/ui/input";
-import { SelectField } from "@/components/ui/select-field";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
-import { slugify } from "@/types/organization";
+import { cn } from "@/lib/utils";
 import {
   BRAND_CATEGORY_BADGE,
   BRAND_CATEGORY_LABEL,
-  BRAND_CATEGORIES,
   brandInitials,
   toBrandCategory,
   type ApiBrand,
 } from "@/types/brand";
-import { cn } from "@/lib/utils";
-
-const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => BRAND_CATEGORY_LABEL[c]);
 
 export default function BrandsScreen() {
   const router = useRouter();
@@ -127,139 +121,6 @@ function BrandRow({ brand }: { brand: ApiBrand }) {
           <Text className="text-xs capitalize text-muted-foreground">{brand.status}</Text>
         </View>
       </View>
-    </View>
-  );
-}
-
-function CreateBrandForm({
-  orgId,
-  brandsKey,
-  onDone,
-}: {
-  orgId: string;
-  brandsKey: readonly unknown[];
-  onDone: () => void;
-}) {
-  const colors = useThemeColors();
-  const queryClient = useQueryClient();
-
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugManual, setSlugManual] = useState(false);
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<"active" | "inactive">("active");
-
-  const create = useMutation({
-    mutationFn: () =>
-      api.post<ApiBrand>(`/organizations/${orgId}/brands`, {
-        name: name.trim(),
-        slug,
-        category: category.toLowerCase(),
-        description: description.trim() || undefined,
-        status,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brandsKey });
-      onDone();
-    },
-  });
-
-  const canSubmit =
-    name.trim().length >= 2 && slug.trim().length >= 2 && category !== "";
-
-  return (
-    <View className="gap-5">
-      <Text className="text-lg font-bold">New Brand</Text>
-
-      <View className="gap-2">
-        <Text className="text-base text-muted-foreground">Brand name</Text>
-        <Input
-          value={name}
-          onChangeText={(v) => {
-            setName(v);
-            if (!slugManual) setSlug(slugify(v));
-          }}
-          placeholder="Broken Barrier"
-          placeholderTextColor={colors.mutedForeground}
-          className="h-12"
-        />
-      </View>
-
-      <View className="gap-2">
-        <Text className="text-base text-muted-foreground">Slug</Text>
-        <Input
-          value={slug}
-          onChangeText={(v) => {
-            setSlugManual(true);
-            setSlug(slugify(v));
-          }}
-          autoCapitalize="none"
-          placeholder="broken-barrier"
-          placeholderTextColor={colors.mutedForeground}
-          className="h-12"
-        />
-      </View>
-
-      <SelectField
-        label="Category"
-        value={category}
-        options={CATEGORY_OPTIONS}
-        onChange={setCategory}
-        placeholder="Select a category"
-      />
-
-      <View className="gap-2">
-        <Text className="text-base text-muted-foreground">Description (optional)</Text>
-        <Input
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          placeholder="A short description of the brand"
-          placeholderTextColor={colors.mutedForeground}
-          className="h-24 py-3"
-          style={{ textAlignVertical: "top" }}
-        />
-      </View>
-
-      <View className="gap-2">
-        <Text className="text-base text-muted-foreground">Status</Text>
-        <View className="flex-row gap-2">
-          {(["active", "inactive"] as const).map((s) => (
-            <Pressable
-              key={s}
-              onPress={() => setStatus(s)}
-              className={cn(
-                "flex-1 items-center rounded-lg border py-2.5",
-                status === s
-                  ? "border-transparent bg-primary"
-                  : "border-border bg-secondary",
-              )}
-            >
-              <Text
-                className={cn(
-                  "text-sm font-medium capitalize",
-                  status === s && "text-primary-foreground",
-                )}
-              >
-                {s}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <FormError error={create.error} />
-
-      <Pressable
-        onPress={() => create.mutate()}
-        disabled={!canSubmit || create.isPending}
-        className="h-14 items-center justify-center rounded-xl bg-primary active:opacity-90 disabled:opacity-50"
-      >
-        <Text className="text-base font-semibold text-primary-foreground">
-          {create.isPending ? "Creating…" : "Create brand"}
-        </Text>
-      </Pressable>
     </View>
   );
 }
