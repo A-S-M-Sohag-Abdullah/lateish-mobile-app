@@ -270,9 +270,9 @@ function MemberActionsSheet({
       navigationBarTranslucent
       onRequestClose={onClose}
     >
-      <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose}>
+      <View className="flex-1 justify-end">
+        <Pressable className="absolute inset-0 bg-black/60" onPress={onClose} />
         <View
-          onStartShouldSetResponder={() => true}
           style={{ paddingBottom: insets.bottom + 12 }}
           className="rounded-t-2xl border-t border-border bg-popover px-4 pt-4"
         >
@@ -338,7 +338,7 @@ function MemberActionsSheet({
             </Pressable>
           )}
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -382,14 +382,11 @@ function InviteModal({
       navigationBarTranslucent
       onRequestClose={onClose}
     >
-      <Pressable
-        onPress={onClose}
-        className="flex-1 items-center justify-center bg-black/60 px-6"
-      >
-        <View
-          onStartShouldSetResponder={() => true}
-          className="w-full gap-4 rounded-2xl border border-border bg-popover p-5"
-        >
+      <View className="flex-1 items-center justify-center px-6">
+        {/* Backdrop as a sibling layer behind the card — clicking the card does
+            not bubble to it (which on web would otherwise close the modal). */}
+        <Pressable className="absolute inset-0 bg-black/60" onPress={onClose} />
+        <View className="w-full gap-4 rounded-2xl border border-border bg-popover p-5">
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold">Invite a Member</Text>
             <Pressable onPress={onClose} hitSlop={8} className="active:opacity-70">
@@ -452,7 +449,7 @@ function InviteModal({
             </Text>
           </Pressable>
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
