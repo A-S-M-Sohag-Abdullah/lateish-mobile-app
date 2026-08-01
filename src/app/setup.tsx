@@ -27,13 +27,12 @@ export default function SetupScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="flex-row items-center gap-2.5 border-b border-border/60 px-5 py-4">
+      <View className="flex-row items-center border-b border-border/60 px-5 py-4">
         <Image
           source={logo}
-          style={{ height: 30, width: 30 * LOGO_ASPECT_RATIO }}
+          style={{ height: 34, width: 34 * LOGO_ASPECT_RATIO }}
           contentFit="contain"
         />
-        <Text className="text-lg font-semibold">Lateish</Text>
       </View>
 
       <ScrollView
