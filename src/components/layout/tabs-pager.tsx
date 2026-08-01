@@ -61,7 +61,7 @@ const PAGES: {
  * screens don't all render up front.
  */
 export function TabsPager() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
 
@@ -71,7 +71,11 @@ export function TabsPager() {
   const locked = usePagerLock((s) => s.locked);
 
   const scrollRef = useRef<ScrollView>(null);
-  const [pagerH, setPagerH] = useState(0);
+  // Seed with the window height so pages render on the very first frame instead
+  // of blanking until onLayout reports the real height (async on web → a visible
+  // blink). onLayout corrects it below; the overshoot is clipped (see overflow-
+  // hidden on the container) and content is top-aligned, so the fix is unseen.
+  const [pagerH, setPagerH] = useState(height);
   // Mount the first two immediately, then bring the rest in one shot after the
   // first paint. Once every page is mounted this set never changes again, so
   // `pageViews` stays referentially stable and no heavy screen ever re-renders
@@ -200,7 +204,7 @@ export function TabsPager() {
       </SafeAreaView>
 
       <View
-        className="flex-1"
+        className="flex-1 overflow-hidden"
         onLayout={(e) => setPagerH(e.nativeEvent.layout.height)}
       >
         <Animated.ScrollView
