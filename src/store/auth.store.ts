@@ -3,7 +3,9 @@ import { create } from "zustand";
 
 import { env } from "@/lib/env";
 import { signInWithGoogle } from "@/lib/oauth";
+import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
+import { useOrgStore } from "@/store/organization.store";
 import { useTabsStore } from "@/store/tabs.store";
 import type { UserMembership } from "@/types/organization";
 
@@ -113,6 +115,10 @@ export const useAuthStore = create<AuthState>()((set) => {
       // the user last was (e.g. Settings). Done here — before the login screen
       // shows — so the pager mounts already on page 0 with no visible jump.
       useTabsStore.getState().setPage(0);
+      // Wipe per-user state so the next account never sees the previous one's
+      // cached organizations/data (the shared query keys stay fresh otherwise).
+      useOrgStore.getState().setCurrentOrgId(null);
+      queryClient.clear();
       return;
     }
 

@@ -1,27 +1,18 @@
-import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { QueryClientProvider, focusManager } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
+
+import { queryClient } from "@/lib/query-client";
 
 /**
  * Mirrors front-end/src/components/providers/query-provider.tsx.
  *
- * The extra piece on mobile is focusManager: React Query's default focus
- * detection is a web `visibilitychange` listener, which never fires in RN, so
- * refetch-on-focus has to be wired to AppState instead.
+ * The client is a module singleton (see lib/query-client) so the auth store can
+ * clear it on logout. The extra piece on mobile is focusManager: React Query's
+ * default focus detection is a web `visibilitychange` listener, which never
+ * fires in RN, so refetch-on-focus has to be wired to AppState instead.
  */
 export function QueryProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000,
-            retry: 1,
-          },
-        },
-      }),
-  );
-
   useEffect(() => {
     const sub = AppState.addEventListener("change", (status: AppStateStatus) => {
       focusManager.setFocused(status === "active");

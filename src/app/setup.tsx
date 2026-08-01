@@ -1,15 +1,18 @@
+import { Image } from "expo-image";
 import { Redirect } from "expo-router";
 import { Building2, Users } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Wordmark } from "@/components/brand/wordmark";
 import { CreateOrganizationForm } from "@/components/setup/create-organization-form";
 import { JoinOrganizationFlow } from "@/components/setup/join-organization-flow";
 import { Text } from "@/components/ui/text";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { LOGO_ASPECT_RATIO } from "@/lib/brand";
 import { useAuthStore } from "@/store/auth.store";
+
+const logo = require("../../assets/logo.png");
 
 type SetupView = "choice" | "create" | "invite";
 
@@ -24,8 +27,13 @@ export default function SetupScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="flex-row items-center gap-2 border-b border-border/60 px-5 py-4">
-        <Wordmark />
+      <View className="flex-row items-center gap-2.5 border-b border-border/60 px-5 py-4">
+        <Image
+          source={logo}
+          style={{ height: 30, width: 30 * LOGO_ASPECT_RATIO }}
+          contentFit="contain"
+        />
+        <Text className="text-lg font-semibold">Lateish</Text>
       </View>
 
       <ScrollView
