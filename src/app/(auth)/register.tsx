@@ -20,16 +20,10 @@ export default function RegisterScreen() {
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
 
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
   const signUp = useMutation({
-    mutationFn: () =>
-      register({
-        email: email.trim(),
-        password,
-        phone: phone.trim() || undefined,
-      }),
+    mutationFn: () => register({ email: email.trim(), password }),
     onSuccess: () => router.replace("/"),
   });
 
@@ -64,15 +58,6 @@ export default function RegisterScreen() {
           autoComplete="email"
           keyboardType="email-address"
           textContentType="emailAddress"
-        />
-
-        <AuthField
-          label="Phone Number (optional)"
-          value={phone}
-          onChangeText={setPhone}
-          autoComplete="tel"
-          keyboardType="phone-pad"
-          textContentType="telephoneNumber"
         />
 
         <AuthField
