@@ -12,7 +12,7 @@ import { create } from "zustand";
  * **Set to false to restore real authentication** — every bypass in the app
  * checks this one flag, so nothing else needs changing.
  */
-export const PREVIEW_MODE = true;
+export const PREVIEW_MODE = false;
 
 interface PreviewState {
   /** Stands in for a Supabase session while PREVIEW_MODE is on. */
