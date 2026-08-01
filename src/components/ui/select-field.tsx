@@ -11,10 +11,17 @@ interface SelectFieldProps {
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  placeholder?: string;
 }
 
 /** Bordered select that expands its option list inline beneath the field. */
-export function SelectField({ label, value, options, onChange }: SelectFieldProps) {
+export function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder,
+}: SelectFieldProps) {
   const [open, setOpen] = useState(false);
   const colors = useThemeColors();
 
@@ -28,7 +35,9 @@ export function SelectField({ label, value, options, onChange }: SelectFieldProp
         onPress={() => setOpen((o) => !o)}
         className="h-14 flex-row items-center justify-between rounded-xl border border-border bg-white/[0.02] px-4 active:opacity-80"
       >
-        <Text className="text-base">{value}</Text>
+        <Text className={cn("text-base", !value && "text-muted-foreground")}>
+          {value || placeholder || ""}
+        </Text>
         {open ? (
           <ChevronUp color={colors.foreground} size={22} />
         ) : (

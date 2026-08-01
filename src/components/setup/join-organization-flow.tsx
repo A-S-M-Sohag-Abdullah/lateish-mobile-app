@@ -9,7 +9,8 @@ import { Text } from "@/components/ui/text";
 import { MY_ORGS_QUERY_KEY } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
-import { type OrgInvitation } from "@/types/organization";
+import { useOrgStore } from "@/store/organization.store";
+import { type OrgInvitation, type UserMembership } from "@/types/organization";
 
 /** Accept a full invite URL or a bare token/uuid. */
 function extractToken(value: string): string {
@@ -27,6 +28,7 @@ export function JoinOrganizationFlow({ onBack }: { onBack: () => void }) {
   const router = useRouter();
   const colors = useThemeColors();
   const queryClient = useQueryClient();
+  const setCurrentOrgId = useOrgStore((s) => s.setCurrentOrgId);
 
   const [token, setToken] = useState("");
   const [invitation, setInvitation] = useState<OrgInvitation | null>(null);
@@ -40,8 +42,37 @@ export function JoinOrganizationFlow({ onBack }: { onBack: () => void }) {
 
   const accept = useMutation({
     mutationFn: () => api.post(`/invitations/${invitation?.token}/accept`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: MY_ORGS_QUERY_KEY });
+    onSuccess: () => {
+      // Optimistically add the joined org so the gate doesn't bounce back to
+      // /setup before the membership shows up in the refetch (see create form).
+      if (invitation) {
+        const now = new Date().toISOString();
+        const org = invitation.organization;
+        const membership: UserMembership = {
+          user_id: "",
+          organization_id: invitation.organization_id,
+          role: invitation.role,
+          status: "active",
+          joined_at: now,
+          updated_at: now,
+          organization: {
+            id: org?.id ?? invitation.organization_id,
+            name: org?.name ?? "Organization",
+            slug: org?.slug ?? "",
+            plan: "starter",
+            status: "active",
+            settings: {},
+            created_at: now,
+            updated_at: now,
+          },
+        };
+        queryClient.setQueryData<UserMembership[]>(MY_ORGS_QUERY_KEY, (old = []) => [
+          membership,
+          ...old,
+        ]);
+        setCurrentOrgId(invitation.organization_id);
+      }
+      void queryClient.invalidateQueries({ queryKey: MY_ORGS_QUERY_KEY });
       router.replace("/");
     },
   });
