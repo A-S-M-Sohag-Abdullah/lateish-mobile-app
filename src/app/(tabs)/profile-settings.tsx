@@ -15,11 +15,14 @@ export default function ProfileSettingsScreen() {
   const colors = useThemeColors();
   const profile = useAuthStore((s) => s.profile);
 
-  const [name, setName] = useState(profile?.full_name || "John Doe");
+  const [name, setName] = useState(profile?.full_name || "");
   const [username, setUsername] = useState(
-    "@" + (profile?.full_name || "John Doe").toLowerCase().replace(/\s+/g, ""),
+    "@" +
+      (profile?.full_name || profile?.email?.split("@")[0] || "user")
+        .toLowerCase()
+        .replace(/\s+/g, ""),
   );
-  const email = profile?.email || "johndoe@mail.com";
+  const email = profile?.email || "";
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>

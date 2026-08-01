@@ -135,14 +135,18 @@ export const useAuthStore = create<AuthState>()((set) => {
     if (session?.access_token) {
       const token = session.access_token;
       setTimeout(() => {
-        void fetchProfile(token).then((profile) => {
-          if (!profile) return;
-          // Keep the Supabase-provided avatar if the backend has none stored.
-          const existingAvatar = useAuthStore.getState().profile?.avatar_url;
+        void fetchProfile(token).then((backend) => {
+          if (!backend) return;
+          // Keep the Supabase-provided name/avatar (e.g. from Google metadata)
+          // when the backend profile hasn't been populated with them yet —
+          // otherwise the freshly-synced empty backend row overwrites the good
+          // values and the UI shows nothing until a refetch.
+          const existing = useAuthStore.getState().profile;
           set({
             profile: {
-              ...profile,
-              avatar_url: profile.avatar_url ?? existingAvatar ?? null,
+              ...backend,
+              full_name: backend.full_name || existing?.full_name || "",
+              avatar_url: backend.avatar_url ?? existing?.avatar_url ?? null,
             },
           });
         });

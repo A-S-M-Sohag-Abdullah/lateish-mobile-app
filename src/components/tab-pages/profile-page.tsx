@@ -107,16 +107,16 @@ export function ProfilePage() {
     },
   });
 
-  const name = profile?.full_name || "John Doe";
-  const email = profile?.email || "johndoe@mail.com";
+  const name = profile?.full_name || "Unknown";
+  const email = profile?.email || "";
   const initials =
-    name
-      .split(" ")
+    (profile?.full_name || profile?.email || "?")
+      .split(/[\s@.]+/)
       .map((w) => w[0])
       .filter(Boolean)
       .slice(0, 2)
       .join("")
-      .toUpperCase() || "JD";
+      .toUpperCase() || "?";
 
   return (
     <View className="flex-1 bg-background">
