@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
-import { Building2, Users } from "lucide-react-native";
+import { Building2, LogOut, Users } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +19,7 @@ type SetupView = "choice" | "create" | "invite";
 export default function SetupScreen() {
   const session = useAuthStore((s) => s.session);
   const loading = useAuthStore((s) => s.loading);
+  const logout = useAuthStore((s) => s.logout);
   const colors = useThemeColors();
   const [view, setView] = useState<SetupView>("choice");
 
@@ -27,12 +28,20 @@ export default function SetupScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="flex-row items-center border-b border-border/60 px-5 py-4">
+      <View className="flex-row items-center justify-between border-b border-border/60 px-5 py-4">
         <Image
           source={logo}
           style={{ height: 34, width: 34 * LOGO_ASPECT_RATIO }}
           contentFit="contain"
         />
+        <Pressable
+          onPress={() => void logout()}
+          hitSlop={8}
+          className="flex-row items-center gap-1.5 active:opacity-70"
+        >
+          <LogOut color={colors.mutedForeground} size={16} />
+          <Text className="text-sm text-muted-foreground">Log out</Text>
+        </Pressable>
       </View>
 
       <ScrollView
