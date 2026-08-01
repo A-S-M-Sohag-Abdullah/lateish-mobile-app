@@ -81,3 +81,44 @@ export function membershipToOrganization(m: UserMembership): Organization {
     logoInitials: orgInitials(o.name),
   };
 }
+
+// ── Create / invitations ──────────────────────────────────────────────────────
+
+export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
+
+/** Shape returned by GET /api/v1/invitations/:token. */
+export interface OrgInvitation {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: BackendRole;
+  token: string;
+  status: InvitationStatus;
+  expires_at: string;
+  organization?: { id: string; name: string; slug: string };
+}
+
+/** Shape returned by POST /api/v1/organizations. */
+export interface ApiCreatedOrg {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+}
+
+export interface CreateOrganizationPayload {
+  name: string;
+  slug: string;
+  plan: OrgPlan;
+  settings: { industry?: string; region?: string };
+}
+
+/** Turn a name (or full invite URL) into just the org slug / invite token. */
+export function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 48);
+}

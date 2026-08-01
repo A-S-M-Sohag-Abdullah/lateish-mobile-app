@@ -1,17 +1,16 @@
 import { useRouter } from "expo-router";
-import { Bell, Menu, Search, Settings } from "lucide-react-native";
-import { Pressable, TextInput, View } from "react-native";
+import { Bell, Menu, Settings } from "lucide-react-native";
+import { Pressable, View } from "react-native";
 
+import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useNotificationsStore } from "@/store/notifications.store";
 import { useSidebarStore } from "@/store/sidebar.store";
 import { useTabsStore } from "@/store/tabs.store";
 
 /**
- * The app's single top bar: menu, search, notifications, settings. Used on every
- * screen so the header is identical throughout.
- *
- * Search and the menu are inert in the UI preview; the gear opens Settings.
+ * The app's single top bar: menu, organization switcher, notifications,
+ * settings. Used on every screen so the header is identical throughout.
  */
 export function DashboardHeader() {
   const router = useRouter();
@@ -31,17 +30,10 @@ export function DashboardHeader() {
         <Menu color={colors.foreground} size={26} />
       </IconButton>
 
-      <View className="h-12 flex-1 flex-row items-center gap-2.5 rounded-2xl bg-muted px-4">
-        {/* shrink-0 keeps the icon at full size when the row gets tight. */}
-        <View className="shrink-0">
-          <Search color={colors.mutedForeground} size={20} />
-        </View>
-        <TextInput
-          placeholder="Search"
-          placeholderTextColor={colors.mutedForeground}
-          className="flex-1 text-base text-foreground"
-        />
-      </View>
+      <OrgSwitcher />
+
+      {/* Pushes the action icons to the right when the org name is short. */}
+      <View className="flex-1" />
 
       <IconButton label="Notifications" onPress={() => openNotifications(true)}>
         <Bell color={colors.foreground} size={24} />

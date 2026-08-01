@@ -143,6 +143,7 @@ function AppShell() {
         >
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="setup" />
         </Stack>
       ) : null}
 
