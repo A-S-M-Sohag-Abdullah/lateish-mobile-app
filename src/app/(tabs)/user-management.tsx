@@ -1,17 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
   ChevronLeft,
+  Mail,
   MoreVertical,
   Plus,
   Search,
   Users,
+  X,
 } from "lucide-react-native";
-import { Fragment } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Fragment, useState } from "react";
+import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
+import { FormError } from "@/components/auth/form-error";
+import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
@@ -22,6 +26,12 @@ import {
   type OrgInvitation,
   type OrgMember,
 } from "@/types/organization";
+
+const ASSIGNABLE_ROLES: { key: BackendRole; label: string }[] = [
+  { key: "org_admin", label: "Admin" },
+  { key: "bdm", label: "BDM" },
+  { key: "distributor", label: "Distributor" },
+];
 
 // Backend roles → display label + badge style (keeps the existing badge look).
 const ROLE_LABEL: Record<BackendRole, string> = {
@@ -75,6 +85,7 @@ export default function UserManagementScreen() {
   const colors = useThemeColors();
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["organizations", orgId, "members"],
@@ -82,8 +93,9 @@ export default function UserManagementScreen() {
     enabled: !!orgId,
   });
 
+  const invitationsKey = ["organizations", orgId, "invitations"] as const;
   const { data: invitations = [] } = useQuery({
-    queryKey: ["organizations", orgId, "invitations"],
+    queryKey: invitationsKey,
     queryFn: () => api.get<OrgInvitation[]>(`/organizations/${orgId}/invitations`),
     enabled: !!orgId,
   });
@@ -129,21 +141,24 @@ export default function UserManagementScreen() {
           </View>
         </View>
 
-        {/* Search */}
-        <View className="h-11 flex-row items-center gap-2 rounded-lg border border-input bg-white/[0.03] px-3">
-          <Search color={colors.mutedForeground} size={16} />
-          <TextInput
-            placeholder="Search users by name, email or role..."
-            placeholderTextColor={colors.mutedForeground}
-            className="flex-1 text-sm text-foreground"
-          />
+        {/* Search + Invite */}
+        <View className="flex-row gap-2">
+          <View className="h-11 flex-1 flex-row items-center gap-2 rounded-lg border border-input bg-white/[0.03] px-3">
+            <Search color={colors.mutedForeground} size={16} />
+            <TextInput
+              placeholder="Search users by name, email or role..."
+              placeholderTextColor={colors.mutedForeground}
+              className="flex-1 text-sm text-foreground"
+            />
+          </View>
+          <Pressable
+            onPress={() => setInviteOpen(true)}
+            className="h-11 flex-row items-center gap-1.5 rounded-lg bg-blue-600 px-4 active:opacity-90"
+          >
+            <Plus color="#FFFFFF" size={18} />
+            <Text className="text-sm font-medium text-white">Invite</Text>
+          </Pressable>
         </View>
-
-        {/* Invite */}
-        <Pressable className="h-11 flex-row items-center justify-center gap-1.5 self-start rounded-lg bg-blue-600 px-4 active:opacity-90">
-          <Plus color="#FFFFFF" size={18} />
-          <Text className="text-sm font-medium text-white">Invite User</Text>
-        </Pressable>
 
         {/* User list */}
         {isLoading ? (
@@ -168,7 +183,128 @@ export default function UserManagementScreen() {
       </ScrollView>
 
       <BottomTabBar />
+
+      <InviteModal
+        orgId={orgId}
+        invitationsKey={invitationsKey}
+        visible={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+      />
     </SafeAreaView>
+  );
+}
+
+function InviteModal({
+  orgId,
+  invitationsKey,
+  visible,
+  onClose,
+}: {
+  orgId: string;
+  invitationsKey: readonly unknown[];
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const colors = useThemeColors();
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<BackendRole>("bdm");
+
+  const invite = useMutation({
+    mutationFn: () =>
+      api.post(`/organizations/${orgId}/invitations`, {
+        email: email.trim(),
+        role,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invitationsKey });
+      setEmail("");
+      setRole("bdm");
+      onClose();
+    },
+  });
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+    >
+      <Pressable
+        onPress={onClose}
+        className="flex-1 items-center justify-center bg-black/60 px-6"
+      >
+        <View
+          onStartShouldSetResponder={() => true}
+          className="w-full gap-4 rounded-2xl border border-border bg-popover p-5"
+        >
+          <View className="flex-row items-center justify-between">
+            <Text className="text-lg font-bold">Invite a Member</Text>
+            <Pressable onPress={onClose} hitSlop={8} className="active:opacity-70">
+              <X color={colors.mutedForeground} size={20} />
+            </Pressable>
+          </View>
+
+          <View className="gap-2">
+            <Text className="text-sm text-muted-foreground">Email address</Text>
+            <View className="h-12 flex-row items-center gap-2 rounded-lg border border-input bg-white/[0.03] px-3">
+              <Mail color={colors.mutedForeground} size={16} />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholder="colleague@example.com"
+                placeholderTextColor={colors.mutedForeground}
+                className="flex-1 text-base text-foreground"
+              />
+            </View>
+          </View>
+
+          <View className="gap-2">
+            <Text className="text-sm text-muted-foreground">Role</Text>
+            <View className="flex-row gap-2">
+              {ASSIGNABLE_ROLES.map((r) => (
+                <Pressable
+                  key={r.key}
+                  onPress={() => setRole(r.key)}
+                  className={cn(
+                    "flex-1 items-center rounded-lg border py-2.5",
+                    role === r.key
+                      ? "border-transparent bg-primary"
+                      : "border-border bg-secondary",
+                  )}
+                >
+                  <Text
+                    className={cn(
+                      "text-sm font-medium",
+                      role === r.key && "text-primary-foreground",
+                    )}
+                  >
+                    {r.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <FormError error={invite.error} />
+
+          <Pressable
+            onPress={() => invite.mutate()}
+            disabled={!email.trim() || invite.isPending}
+            className="h-12 items-center justify-center rounded-lg bg-blue-600 active:opacity-90 disabled:opacity-50"
+          >
+            <Text className="text-base font-semibold text-white">
+              {invite.isPending ? "Sending…" : "Send Invite"}
+            </Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
   );
 }
 
