@@ -1,26 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
+  Check,
   ChevronLeft,
   Mail,
   MoreVertical,
   Plus,
   Search,
+  UserMinus,
   Users,
   X,
 } from "lucide-react-native";
 import { Fragment, useState } from "react";
 import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { FormError } from "@/components/auth/form-error";
-import { Input } from "@/components/ui/input";
+import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth.store";
 import {
   type BackendRole,
   type OrgInvitation,
@@ -85,10 +87,19 @@ export default function UserManagementScreen() {
   const colors = useThemeColors();
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const myId = useAuthStore((s) => s.profile?.id);
+  // Only an owner or admin may manage members. Role precedence:
+  // Owner → Admin → BDM / Distributor.
+  const canManage =
+    currentOrg?.backendRole === "owner" || currentOrg?.backendRole === "org_admin";
 
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [actionMember, setActionMember] = useState<OrgMember | null>(null);
+
+  const membersKey = ["organizations", orgId, "members"] as const;
   const { data: members = [], isLoading } = useQuery({
-    queryKey: ["organizations", orgId, "members"],
+    queryKey: membersKey,
     queryFn: () => api.get<OrgMember[]>(`/organizations/${orgId}/members`),
     enabled: !!orgId,
   });
@@ -98,6 +109,20 @@ export default function UserManagementScreen() {
     queryKey: invitationsKey,
     queryFn: () => api.get<OrgInvitation[]>(`/organizations/${orgId}/invitations`),
     enabled: !!orgId,
+  });
+
+  const changeRole = useMutation({
+    mutationFn: (vars: { userId: string; role: BackendRole }) =>
+      api.patch(`/organizations/${orgId}/members/${vars.userId}/role`, {
+        role: vars.role,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: membersKey }),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: (userId: string) =>
+      api.delete(`/organizations/${orgId}/members/${userId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: membersKey }),
   });
 
   const activeUsers = members.filter((m) => m.status.toLowerCase() === "active").length;
@@ -172,12 +197,22 @@ export default function UserManagementScreen() {
           </View>
         ) : (
           <View className="overflow-hidden rounded-2xl border border-border bg-white/[0.03]">
-            {members.map((member, i) => (
-              <Fragment key={member.user_id}>
-                {i > 0 ? <View className="ml-4 h-px bg-border/50" /> : null}
-                <UserRow member={member} />
-              </Fragment>
-            ))}
+            {members.map((member, i) => {
+              // Owners can't be managed; you can't manage yourself; only
+              // owner/admin can manage at all.
+              const actionable =
+                canManage && member.role !== "owner" && member.user_id !== myId;
+              return (
+                <Fragment key={member.user_id}>
+                  {i > 0 ? <View className="ml-4 h-px bg-border/50" /> : null}
+                  <UserRow
+                    member={member}
+                    actionable={actionable}
+                    onActions={() => setActionMember(member)}
+                  />
+                </Fragment>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -190,7 +225,121 @@ export default function UserManagementScreen() {
         visible={inviteOpen}
         onClose={() => setInviteOpen(false)}
       />
+
+      {actionMember ? (
+        <MemberActionsSheet
+          key={actionMember.user_id}
+          member={actionMember}
+          onClose={() => setActionMember(null)}
+          onChangeRole={(role) => {
+            changeRole.mutate({ userId: actionMember.user_id, role });
+            setActionMember(null);
+          }}
+          onRemove={() => {
+            removeMember.mutate(actionMember.user_id);
+            setActionMember(null);
+          }}
+        />
+      ) : null}
     </SafeAreaView>
+  );
+}
+
+function MemberActionsSheet({
+  member,
+  onClose,
+  onChangeRole,
+  onRemove,
+}: {
+  member: OrgMember;
+  onClose: () => void;
+  onChangeRole: (role: BackendRole) => void;
+  onRemove: () => void;
+}) {
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const [confirming, setConfirming] = useState(false);
+  const name = memberName(member);
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+    >
+      <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose}>
+        <View
+          onStartShouldSetResponder={() => true}
+          style={{ paddingBottom: insets.bottom + 12 }}
+          className="rounded-t-2xl border-t border-border bg-popover px-4 pt-4"
+        >
+          <View className="mb-2 flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-base font-bold" numberOfLines={1}>
+                {name}
+              </Text>
+              <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+                {member.user.email}
+              </Text>
+            </View>
+            <Pressable onPress={onClose} hitSlop={8} className="active:opacity-70">
+              <X color={colors.mutedForeground} size={20} />
+            </Pressable>
+          </View>
+
+          <Text className="px-1 py-1 text-xs font-medium text-muted-foreground">
+            Change role
+          </Text>
+          {ASSIGNABLE_ROLES.map((r) => (
+            <Pressable
+              key={r.key}
+              onPress={() => onChangeRole(r.key)}
+              className="flex-row items-center justify-between rounded-lg px-3 py-3 active:bg-white/5"
+            >
+              <Text className="text-base">{r.label}</Text>
+              {member.role === r.key ? (
+                <Check color={colors.primary} size={18} />
+              ) : null}
+            </Pressable>
+          ))}
+
+          <View className="my-1 h-px bg-border/60" />
+
+          {confirming ? (
+            <View className="gap-2 py-1">
+              <Text className="px-1 text-sm text-muted-foreground">
+                Remove {name} from the organization?
+              </Text>
+              <View className="flex-row gap-2">
+                <Pressable
+                  onPress={() => setConfirming(false)}
+                  className="flex-1 items-center rounded-lg border border-border bg-secondary py-3 active:opacity-80"
+                >
+                  <Text className="text-sm font-medium">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={onRemove}
+                  className="flex-1 items-center rounded-lg bg-red-600 py-3 active:opacity-90"
+                >
+                  <Text className="text-sm font-medium text-white">Remove</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setConfirming(true)}
+              className="flex-row items-center gap-2 rounded-lg px-3 py-3 active:bg-red-500/10"
+            >
+              <UserMinus color="#EF4444" size={18} />
+              <Text className="text-base text-red-500">Remove member</Text>
+            </Pressable>
+          )}
+        </View>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -331,7 +480,15 @@ function StatDivider() {
   return <View className="w-px self-stretch bg-border/60" />;
 }
 
-function UserRow({ member }: { member: OrgMember }) {
+function UserRow({
+  member,
+  actionable,
+  onActions,
+}: {
+  member: OrgMember;
+  actionable: boolean;
+  onActions: () => void;
+}) {
   const name = memberName(member);
   const status = statusMeta(member.status);
   return (
@@ -374,9 +531,13 @@ function UserRow({ member }: { member: OrgMember }) {
         <Text className="text-xs text-muted-foreground">{status.label}</Text>
       </View>
 
-      <Pressable hitSlop={6} className="active:opacity-70">
-        <MoreVertical color="#64748B" size={18} />
-      </Pressable>
+      {actionable ? (
+        <Pressable onPress={onActions} hitSlop={6} className="active:opacity-70">
+          <MoreVertical color="#64748B" size={18} />
+        </Pressable>
+      ) : (
+        <View style={{ width: 18 }} />
+      )}
     </View>
   );
 }
