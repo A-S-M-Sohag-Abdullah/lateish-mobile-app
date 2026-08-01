@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -21,14 +21,14 @@ const TIME_ZONES = [
 ];
 
 export default function TimeZoneScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
   const [zone, setZone] = useState("Paris (UTC+01:00)");
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-70">
+        <Pressable onPress={() => goBack()} hitSlop={8} className="active:opacity-70">
           <ChevronLeft color={colors.foreground} size={26} />
         </Pressable>
         <Text className="text-2xl font-bold">Time Zone</Text>

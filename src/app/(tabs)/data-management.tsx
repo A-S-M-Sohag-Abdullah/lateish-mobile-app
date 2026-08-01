@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import {
   ChevronLeft,
   ChevronRight,
@@ -44,13 +44,13 @@ const PREFERENCES: ActionRowData[] = [
 ];
 
 export default function DataManagementScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-70">
+        <Pressable onPress={() => goBack()} hitSlop={8} className="active:opacity-70">
           <ChevronLeft color={colors.foreground} size={26} />
         </Pressable>
         <Text className="text-2xl font-bold">Data Management</Text>

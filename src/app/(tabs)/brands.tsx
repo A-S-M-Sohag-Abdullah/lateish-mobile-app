@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { ChevronLeft, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -21,7 +21,7 @@ import {
 } from "@/types/brand";
 
 export default function BrandsScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
@@ -39,7 +39,7 @@ export default function BrandsScreen() {
       <View className="flex-row items-center justify-between px-4 py-3">
         <View className="flex-row items-center gap-2">
           <Pressable
-            onPress={() => (creating ? setCreating(false) : router.back())}
+            onPress={() => (creating ? setCreating(false) : goBack())}
             hitSlop={8}
             className="active:opacity-70"
           >

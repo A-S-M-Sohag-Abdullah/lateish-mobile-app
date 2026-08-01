@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { Check, ChevronLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -16,7 +16,7 @@ import { api } from "@/lib/api";
 import { CURRENCIES, INDUSTRIES, REGIONS } from "@/lib/org-options";
 
 export default function OrganizationsScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
   const queryClient = useQueryClient();
   const { currentOrg } = useOrganizations();
@@ -47,7 +47,7 @@ export default function OrganizationsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-70">
+        <Pressable onPress={() => goBack()} hitSlop={8} className="active:opacity-70">
           <ChevronLeft color={colors.foreground} size={26} />
         </Pressable>
         <Text className="text-2xl font-bold">Organization</Text>

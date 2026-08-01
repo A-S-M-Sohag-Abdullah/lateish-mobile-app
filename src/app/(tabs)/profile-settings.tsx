@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { Camera, ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -11,7 +11,7 @@ import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useAuthStore } from "@/store/auth.store";
 
 export default function ProfileSettingsScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
   const profile = useAuthStore((s) => s.profile);
 
@@ -29,7 +29,7 @@ export default function ProfileSettingsScreen() {
       {/* Header */}
       <View className="flex-row items-center gap-2 px-4 py-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           hitSlop={8}
           className="active:opacity-70"
         >
@@ -88,7 +88,7 @@ export default function ProfileSettingsScreen() {
 
         {/* Save */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           className="mt-2 h-14 items-center justify-center rounded-xl bg-white active:opacity-90"
         >
           <Text className="text-base font-semibold text-black">Save and Update</Text>

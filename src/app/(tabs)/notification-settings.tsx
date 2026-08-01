@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import {
   Bell,
   ChevronLeft,
@@ -47,7 +47,7 @@ const PREFERENCES: ToggleItem[] = [
 ];
 
 export default function NotificationSettingsScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
 
   return (
@@ -55,7 +55,7 @@ export default function NotificationSettingsScreen() {
       {/* Header */}
       <View className="gap-0.5 px-4 py-3">
         <View className="flex-row items-center gap-2">
-          <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-70">
+          <Pressable onPress={() => goBack()} hitSlop={8} className="active:opacity-70">
             <ChevronLeft color={colors.foreground} size={26} />
           </Pressable>
           <Text className="text-2xl font-bold">Notification Settings</Text>

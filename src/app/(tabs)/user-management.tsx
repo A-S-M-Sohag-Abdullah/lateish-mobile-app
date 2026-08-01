@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import {
   Check,
   ChevronLeft,
@@ -83,7 +83,7 @@ function initialsFor(name: string): string {
 }
 
 export default function UserManagementScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
@@ -135,7 +135,7 @@ export default function UserManagementScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       {/* Header */}
       <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-70">
+        <Pressable onPress={() => goBack()} hitSlop={8} className="active:opacity-70">
           <ChevronLeft color={colors.foreground} size={26} />
         </Pressable>
         <Text className="text-2xl font-bold">User Management</Text>

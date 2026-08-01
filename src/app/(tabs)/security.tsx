@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -36,7 +36,7 @@ function PasswordField({
 }
 
 export default function SecurityScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
 
   const [current, setCurrent] = useState("");
@@ -46,7 +46,7 @@ export default function SecurityScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-70">
+        <Pressable onPress={() => goBack()} hitSlop={8} className="active:opacity-70">
           <ChevronLeft color={colors.foreground} size={26} />
         </Pressable>
         <Text className="text-2xl font-bold">Password and Security</Text>
@@ -65,7 +65,7 @@ export default function SecurityScreen() {
 
       <View className="px-4 pb-4 pt-2">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           className="h-14 items-center justify-center rounded-xl bg-white active:opacity-90"
         >
           <Text className="text-base font-semibold text-black">Save and Update</Text>

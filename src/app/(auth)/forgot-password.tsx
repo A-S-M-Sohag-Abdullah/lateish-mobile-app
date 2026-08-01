@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { ArrowLeft } from "lucide-react-native";
 import { useState } from "react";
 import {
@@ -30,6 +31,7 @@ import { useAuthStore } from "@/store/auth.store";
  */
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const goBack = useGoBack("/login");
   const sendPasswordReset = useAuthStore((s) => s.sendPasswordReset);
   const [email, setEmail] = useState("");
 
@@ -57,7 +59,7 @@ export default function ForgotPasswordScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            onPress={() => router.back()}
+            onPress={() => goBack()}
             className="ml-4 mt-3 h-11 w-11 items-center justify-center rounded-lg active:bg-white/10"
           >
             <ArrowLeft color="#FFFFFF" size={22} />

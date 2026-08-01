@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useGoBack } from "@/hooks/use-go-back";
 import { Plus } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
@@ -44,7 +44,7 @@ function Field({
 }
 
 export function CreateTab() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const colors = useThemeColors();
 
   // Local UI state — this is a preview form, nothing is submitted.
@@ -249,7 +249,7 @@ export function CreateTab() {
       {/* Actions */}
       <View className="flex-row gap-3 pt-1">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           className="h-12 flex-1 items-center justify-center rounded-lg border border-border active:opacity-70"
         >
           <Text className="text-base font-medium">Cancel</Text>
