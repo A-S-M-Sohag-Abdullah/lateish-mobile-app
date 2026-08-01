@@ -95,7 +95,10 @@ Then a series of interactive prompts (in order):
    team → also `ARTHUR PLAT`.** Never mix team and provider entities.
 5. **`Generate a new Apple Distribution Certificate? (Y/n)`** → **Y** to let EAS create &
    manage it — *unless* the account is at Apple's 3-cert limit (see Troubleshooting).
-6. Say **Yes** to auto-create the App ID (`com.lateish.app`) and Provisioning Profile.
+6. **`Generate a new Apple Provisioning Profile? (Y/n)`** → **Y**. Provisioning profiles
+   **are** app-specific (unlike distribution certs), so this is always safe — no effect on
+   the client's other apps.
+7. EAS auto-creates the App ID (`com.lateish.app`) if it doesn't exist.
 
 - Cloud build ~20–30 min → `.ipa`.
 - EAS **caches the Apple session (~2 weeks)**, so builds within that window won't re-prompt for 2FA.
@@ -105,10 +108,26 @@ Then a series of interactive prompts (in order):
 ```bash
 eas submit --platform ios --profile production
 ```
-- Sign in with the same Apple ID (may ask for a 2FA code again if the session expired).
-- If the app doesn't exist yet, let EAS create it, or create it manually
-  in **App Store Connect → Apps → “+”** (Name `LATE(ish)`, Bundle ID `com.lateish.app`, SKU `lateish`).
-- Apple "processes" the build ~5–15 min.
+Interactive prompts (in order):
+
+1. **`What would you like to submit?`** → **`Select a build from EAS`** (lists your finished
+   cloud builds — no URL/ID copying). *(Shortcut: `eas submit -p ios --profile production --latest`
+   skips this and grabs the newest build.)*
+2. **`Which build would you like to submit?`** → pick the **latest `finished` production build**.
+3. **`Generate a new App Store Connect API Key? (Y/n)`** → **Y**. This is the key EAS uses to
+   *upload* to App Store Connect (separate from the Apple ID login used to *build*). EAS creates,
+   stores, and **reuses it for all future submissions**. No tight per-account cap like certs.
+4. **`Select role for the generated API key:`** → **`ADMIN (default)`**. On a *first-ever*
+   submission EAS must **create the app record** in App Store Connect, which can trip the
+   narrower `APP_MANAGER` role on permissions — ADMIN avoids a blocked upload. (It's the
+   client's own account and EAS stores the key securely.)
+5. If the app doesn't exist yet, EAS creates it (Name `LATE(ish)`, Bundle ID `com.lateish.app`,
+   SKU `lateish`) — or make it manually in **App Store Connect → Apps → “+”**.
+
+- Upload runs a few min, then Apple **"processes"** the build ~5–15 min before it appears in TestFlight.
+- **First submission only:** App Store Connect may ask for **Export Compliance** — since
+  `ITSAppUsesNonExemptEncryption: false` is set, it should auto-clear; if asked, answer *uses
+  only exempt encryption*.
 
 ### 2d. Get it on devices
 Everyone installs through Apple's **TestFlight** app (not the normal App Store).
