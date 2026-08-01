@@ -67,7 +67,7 @@ export default function RegisterScreen() {
         />
 
         <AuthField
-          label="Phone Number"
+          label="Phone Number (optional)"
           value={phone}
           onChangeText={setPhone}
           autoComplete="tel"
