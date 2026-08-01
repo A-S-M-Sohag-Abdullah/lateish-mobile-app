@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
-  ArrowUpDown,
   ChevronLeft,
-  Download,
-  ListFilter,
   MoreVertical,
   Plus,
   Search,
@@ -132,37 +129,21 @@ export default function UserManagementScreen() {
           </View>
         </View>
 
-        {/* Search + Filter + Sort */}
-        <View className="flex-row gap-2">
-          <View className="h-11 flex-1 flex-row items-center gap-2 rounded-lg border border-input bg-white/[0.03] px-3">
-            <Search color={colors.mutedForeground} size={16} />
-            <TextInput
-              placeholder="Search users by name, email or role..."
-              placeholderTextColor={colors.mutedForeground}
-              className="flex-1 text-sm text-foreground"
-            />
-          </View>
-          <Pressable className="h-11 flex-row items-center gap-1.5 rounded-lg border border-border bg-white/[0.03] px-3 active:opacity-80">
-            <ListFilter color={colors.foreground} size={16} />
-            <Text className="text-sm">Filter</Text>
-          </Pressable>
-          <Pressable className="h-11 flex-row items-center gap-1.5 rounded-lg border border-border bg-white/[0.03] px-3 active:opacity-80">
-            <ArrowUpDown color={colors.foreground} size={16} />
-            <Text className="text-sm">Sort</Text>
-          </Pressable>
+        {/* Search */}
+        <View className="h-11 flex-row items-center gap-2 rounded-lg border border-input bg-white/[0.03] px-3">
+          <Search color={colors.mutedForeground} size={16} />
+          <TextInput
+            placeholder="Search users by name, email or role..."
+            placeholderTextColor={colors.mutedForeground}
+            className="flex-1 text-sm text-foreground"
+          />
         </View>
 
-        {/* Invite + Export */}
-        <View className="flex-row items-center justify-between">
-          <Pressable className="h-11 flex-row items-center gap-1.5 rounded-lg bg-blue-600 px-4 active:opacity-90">
-            <Plus color="#FFFFFF" size={18} />
-            <Text className="text-sm font-medium text-white">Invite User</Text>
-          </Pressable>
-          <Pressable className="h-11 flex-row items-center gap-1.5 rounded-lg border border-border bg-white/[0.03] px-4 active:opacity-80">
-            <Download color={colors.foreground} size={16} />
-            <Text className="text-sm">Export Users</Text>
-          </Pressable>
-        </View>
+        {/* Invite */}
+        <Pressable className="h-11 flex-row items-center justify-center gap-1.5 self-start rounded-lg bg-blue-600 px-4 active:opacity-90">
+          <Plus color="#FFFFFF" size={18} />
+          <Text className="text-sm font-medium text-white">Invite User</Text>
+        </Pressable>
 
         {/* User list */}
         {isLoading ? (
