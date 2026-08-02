@@ -7,6 +7,7 @@ import {
   useAudioRecorderState,
 } from "expo-audio";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 
 import { api } from "@/lib/api";
 
@@ -63,12 +64,20 @@ export function useVoiceRecorder(
   const { mutate: transcribe, isPending: isUploading } = useMutation({
     mutationFn: async ({ uri, duration }: { uri: string; duration: number }) => {
       const form = new FormData();
-      // React Native FormData file part: { uri, name, type }.
-      form.append("audio", {
-        uri,
-        name: "recording.m4a",
-        type: "audio/m4a",
-      } as unknown as Blob);
+      if (Platform.OS === "web") {
+        // On web the recording is a blob: URL — fetch it into a real Blob so
+        // multer receives an actual file part.
+        const blob = await (await fetch(uri)).blob();
+        const ext = blob.type.includes("webm") ? "webm" : "m4a";
+        form.append("audio", blob, `recording.${ext}`);
+      } else {
+        // React Native FormData file part: { uri, name, type }.
+        form.append("audio", {
+          uri,
+          name: "recording.m4a",
+          type: "audio/m4a",
+        } as unknown as Blob);
+      }
       const result = await api.postForm<TranscribeResult>(
         `/organizations/${orgId}/voice-notes/transcribe-interaction`,
         form,
