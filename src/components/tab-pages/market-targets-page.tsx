@@ -10,12 +10,8 @@ import { TargetStatTiles } from "@/components/market-targets/target-stat-tiles";
 import { CreateTargetWizard } from "@/components/target-wizard/create-target-wizard";
 import { RightSheet } from "@/components/ui/right-sheet";
 import { Text } from "@/components/ui/text";
-import {
-  filterTargets,
-  getTargetRecord,
-  TARGET_RECORDS,
-  type TargetFilter,
-} from "@/lib/market-targets-data";
+import { useMarketTargets } from "@/hooks/use-market-targets";
+import { filterTargets, type TargetFilter } from "@/lib/market-targets-data";
 
 export function MarketTargetsPage() {
   const [filter, setFilter] = useState<TargetFilter>("Active Targets");
@@ -23,8 +19,15 @@ export function MarketTargetsPage() {
   const [actualsOpen, setActualsOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const targets = useMemo(() => filterTargets(TARGET_RECORDS, filter), [filter]);
-  const selectedTarget = selectedId ? getTargetRecord(selectedId) : undefined;
+  const { records, summary, isLoading } = useMarketTargets();
+
+  const targets = useMemo(
+    () => filterTargets(records, filter),
+    [records, filter],
+  );
+  const selectedTarget = selectedId
+    ? records.find((t) => t.id === selectedId)
+    : undefined;
 
   return (
     <View className="flex-1 bg-background">
@@ -39,7 +42,7 @@ export function MarketTargetsPage() {
           </Text>
         </View>
 
-        <TargetStatTiles />
+        <TargetStatTiles summary={summary} />
 
         <View className="flex-row gap-3">
           <Pressable
@@ -66,13 +69,23 @@ export function MarketTargetsPage() {
         <TargetFilterChips value={filter} onChange={setFilter} />
 
         <View className="gap-4">
-          {targets.map((target) => (
-            <TargetListCard
-              key={target.id}
-              target={target}
-              onPress={() => setSelectedId(target.id)}
-            />
-          ))}
+          {isLoading ? (
+            <Text className="py-8 text-center text-sm text-muted-foreground">
+              Loading…
+            </Text>
+          ) : targets.length === 0 ? (
+            <Text className="py-8 text-center text-sm text-muted-foreground">
+              No market targets yet.
+            </Text>
+          ) : (
+            targets.map((target) => (
+              <TargetListCard
+                key={target.id}
+                target={target}
+                onPress={() => setSelectedId(target.id)}
+              />
+            ))
+          )}
         </View>
       </ScrollView>
 

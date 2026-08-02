@@ -2,7 +2,7 @@ import { TrendingDown } from "lucide-react-native";
 import { View } from "react-native";
 
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
-import { TARGET_SUMMARY } from "@/lib/market-targets-data";
+import { type TargetSummary } from "@/lib/market-targets-data";
 
 type Tone = "blue" | "purple" | "teal" | "maroon";
 
@@ -13,20 +13,20 @@ const TONES: Record<Tone, GradientColors> = {
   maroon: ["#4A2023", "#2E1416"],
 };
 
-export function TargetStatTiles() {
+export function TargetStatTiles({ summary }: { summary: TargetSummary }) {
   return (
     <View className="gap-3">
       <View className="flex-row gap-3">
         <StatCard
           colors={TONES.blue}
           label="Cases"
-          value={TARGET_SUMMARY.cases}
+          value={summary.cases}
           className="h-28"
         />
         <StatCard
           colors={TONES.purple}
           label="Distribution"
-          value={TARGET_SUMMARY.distribution}
+          value={summary.distribution}
           className="h-28"
         />
       </View>
@@ -34,19 +34,19 @@ export function TargetStatTiles() {
         <StatCard
           colors={TONES.purple}
           label="A&P Spend"
-          value={TARGET_SUMMARY.apSpend}
+          value={summary.apSpend}
           className="h-24"
         />
         <StatCard
           colors={TONES.teal}
           label="Markets"
-          value={TARGET_SUMMARY.markets}
+          value={summary.markets}
           className="h-24"
         />
         <StatCard
           colors={TONES.maroon}
           label="Momentum"
-          value={TARGET_SUMMARY.momentum}
+          value={summary.momentum}
           className="h-24"
           trailing={<TrendingDown color="#F87171" size={18} />}
         />

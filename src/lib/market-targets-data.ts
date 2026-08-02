@@ -21,8 +21,16 @@ export interface TargetRecord {
   activityLabel: string;
 }
 
-/** Top-of-page aggregate tiles. Hard-coded for the preview. */
-export const TARGET_SUMMARY = {
+/** Top-of-page aggregate tiles. */
+export interface TargetSummary {
+  cases: string;
+  distribution: string;
+  apSpend: string;
+  markets: string;
+  momentum: string;
+}
+
+export const TARGET_SUMMARY: TargetSummary = {
   cases: "0",
   distribution: "4",
   apSpend: "£0",
