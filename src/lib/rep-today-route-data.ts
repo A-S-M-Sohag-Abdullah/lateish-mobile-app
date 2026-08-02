@@ -21,20 +21,6 @@ export const REP_TABS = [
   "Voice Notes",
 ] as const;
 
-export const TERRITORY_COVERAGE = {
-  activeVenues: 0,
-  totalVenues: 0,
-  coverage: 0,
-};
-
-export const TERRITORY_BRANDS = [
-  "All Brands",
-  "Brand 1",
-  "Brand 2",
-  "Brand 3",
-  "Brand 4",
-] as const;
-
 export const TERRITORY_CHANNELS = [
   "All Channels",
   "On-Premise",
