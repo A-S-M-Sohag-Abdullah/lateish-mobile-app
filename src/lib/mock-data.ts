@@ -83,29 +83,6 @@ export function formatCount(value: number): string {
 
 // ── A&P Feedback ──────────────────────────────────────────────────────────────
 
-export interface ApFeedback {
-  question: string;
-  gap: string;
-  confidence: Confidence;
-  usedLabel: string;
-  totalLabel: string;
-  /** 0–1, share of the guardrail spent. */
-  usedPct: number;
-  guardrailCaption: string;
-  timeCaption: string;
-}
-
-export const AP_FEEDBACK: ApFeedback = {
-  question: "Is spend aligned with how fast we need to move to hit the plan?",
-  gap: "£121,524",
-  confidence: "High Confidence",
-  usedLabel: "£18,500",
-  totalLabel: "£25,000 (guardrail)",
-  usedPct: 0.64,
-  guardrailCaption: "64% of guardrail used",
-  timeCaption: "67% of time elapsed",
-};
-
 // ── Channel suggestions filters (visual only in preview) ──────────────────────
 
 export const CHANNEL_TYPE_OPTIONS = [
