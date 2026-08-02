@@ -41,13 +41,6 @@ export interface PipelineItem {
   priority?: boolean; // red dot beside the name
 }
 
-export const PIPELINE_THIS_WEEK: PipelineItem[] = [
-  { id: "aviary-west", name: "The Aviary West", amount: "£5,000", stage: "Proposal", date: "2026-05-31", progress: 0.7 },
-  { id: "pacific", name: "Pacific Provisions", amount: "£2,200", stage: "Identified", date: "2026-06-02", progress: 0.3, priority: true },
-];
-
-export const PIPELINE_NEXT_2_WEEKS: PipelineItem[] = [];
-
 // ── Orders tab ────────────────────────────────────────────────────────────────
 
 export type OrderStatus =
@@ -180,9 +173,3 @@ export interface ActivityEntry {
   next: string;
 }
 
-export const PIPELINE_NEEDS_ATTENTION: PipelineItem[] = [
-  { id: "copper-still", name: "The Copper Still", amount: "£3,200", stage: "Proposal", date: "2026-05-24", progress: 0.6 },
-  { id: "sunset-social", name: "Sunset Social", amount: "£4,500", stage: "Committed", date: "2026-05-26", progress: 1 },
-  { id: "brooklyn-craft", name: "Brooklyn Craft Co", amount: "£1,800", stage: "Qualified", date: "2026-05-26", progress: 0.4 },
-  { id: "elysium", name: "Elysium Lounge", amount: "£1,500", stage: "Qualified", date: "2026-05-18", progress: 0.35 },
-];
