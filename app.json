@@ -58,6 +58,12 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow LATE(ish) to access your microphone to record voice notes."
+        }
       ]
     ],
     "extra": {

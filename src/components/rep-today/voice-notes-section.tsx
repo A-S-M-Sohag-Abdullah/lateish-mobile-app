@@ -1,11 +1,12 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Brain, Clock, Mic, Search, Sparkles } from "lucide-react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Brain, Clock, Mic, Search, Sparkles, Square } from "lucide-react-native";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +45,7 @@ export function VoiceNotesSection() {
   const colors = useThemeColors();
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
+  const queryClient = useQueryClient();
 
   const [subTab, setSubTab] = useState<SubTab>("notes");
   const [sentFilter, setSentFilter] = useState<string | null>(null);
@@ -53,6 +55,26 @@ export function VoiceNotesSection() {
     queryKey: ["voice-notes", orgId],
     queryFn: () => api.get<VoiceNote[]>(`/organizations/${orgId}/voice-notes?limit=50`),
     enabled: !!orgId,
+  });
+
+  const { mutate: saveNote } = useMutation({
+    mutationFn: (payload: {
+      transcription: string;
+      duration_secs?: number;
+      sentiment?: string;
+      account_name?: string;
+    }) => api.post<VoiceNote>(`/organizations/${orgId}/voice-notes`, payload),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["voice-notes", orgId] }),
+  });
+
+  const recorder = useVoiceRecorder(orgId, (result, duration) => {
+    saveNote({
+      transcription: result.transcript,
+      duration_secs: duration,
+      sentiment: result.parsed.sentiment,
+      account_name: result.parsed.accountName ?? undefined,
+    });
   });
 
   const {
@@ -79,7 +101,68 @@ export function VoiceNotesSection() {
   });
 
   return (
-    <View className="gap-4 rounded-2xl border border-border p-4">
+    <View className="gap-4">
+      {/* Header with mic recorder */}
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <View className="flex-row items-center gap-2">
+            <Mic color={colors.foreground} size={22} />
+            <Text className="text-2xl font-bold">Voice Notes</Text>
+          </View>
+          <Text className="text-sm text-muted-foreground">
+            Capture field notes — LATE(ish) transcribes and organises them for you
+          </Text>
+        </View>
+
+        <View className="items-center gap-1">
+          {recorder.isRecording ? (
+            <Text className="text-sm font-medium tabular-nums text-red-400">
+              {recorder.secsLeft}s
+            </Text>
+          ) : null}
+          <Pressable
+            onPress={() =>
+              recorder.isRecording ? recorder.stop() : recorder.start()
+            }
+            disabled={recorder.isUploading}
+            className={cn(
+              "h-14 w-14 items-center justify-center rounded-full",
+              recorder.isRecording ? "bg-red-500" : "bg-primary",
+              recorder.isUploading && "opacity-60",
+            )}
+          >
+            {recorder.isUploading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : recorder.isRecording ? (
+              <Square color="#FFFFFF" size={20} fill="#FFFFFF" />
+            ) : (
+              <Mic color={colors.primaryForeground} size={24} />
+            )}
+          </Pressable>
+        </View>
+      </View>
+
+      {recorder.isRecording ? (
+        <View className="flex-row items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+          <View className="h-3 w-3 rounded-full bg-red-500" />
+          <Text className="flex-1 text-sm font-medium text-red-400">
+            Recording… tap stop when done — auto-stops at 30s
+          </Text>
+        </View>
+      ) : null}
+      {recorder.isUploading ? (
+        <View className="flex-row items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <ActivityIndicator color={colors.primary} size="small" />
+          <Text className="flex-1 text-sm text-muted-foreground">
+            Transcribing your note…
+          </Text>
+        </View>
+      ) : null}
+      {recorder.error ? (
+        <Text className="text-sm text-red-400">{recorder.error}</Text>
+      ) : null}
+
+      <View className="gap-4 rounded-2xl border border-border p-4">
       {/* Sub-tabs */}
       <View className="flex-row self-start rounded-lg bg-secondary p-1">
         {(
@@ -262,6 +345,7 @@ export function VoiceNotesSection() {
           ) : null}
         </View>
       )}
+      </View>
     </View>
   );
 }

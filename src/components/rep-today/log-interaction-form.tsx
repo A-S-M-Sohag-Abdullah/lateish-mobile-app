@@ -2,17 +2,29 @@ import {
   ChevronDown,
   ChevronUp,
   Mic,
+  Square,
   TriangleAlert,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 
 import { CenteredPopup } from "@/components/ui/centered-popup";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Field } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import {
+  useVoiceRecorder,
+  type TranscribeResult,
+} from "@/hooks/use-voice-recorder";
 import {
   ACCOUNT_OPTIONS,
   ACCOUNT_PLACEHOLDER,
@@ -35,6 +47,8 @@ const AMBER = "#D9A441";
 /** "Log Interaction" form popup, opened from the Rep Today page. */
 export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps) {
   const colors = useThemeColors();
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
   const [account, setAccount] = useState<string>(ACCOUNT_PLACEHOLDER);
   const [type, setType] = useState<string>(INTERACTION_TYPE_PLACEHOLDER);
   const [nextAction, setNextAction] = useState<string>(NEXT_ACTION_PLACEHOLDER);
@@ -47,6 +61,51 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
       b.includes(brand) ? b.filter((x) => x !== brand) : [...b, brand],
     );
   }
+
+  function applyTranscription(result: TranscribeResult) {
+    const parsed = result.parsed;
+    if (parsed.interactionType) {
+      const match = INTERACTION_TYPE_OPTIONS.find(
+        (o) => o.toLowerCase() === parsed.interactionType!.toLowerCase(),
+      );
+      if (match) setType(match);
+    }
+    if (parsed.nextAction) {
+      const match = NEXT_ACTION_OPTIONS.find(
+        (o) => o.toLowerCase() === parsed.nextAction!.toLowerCase(),
+      );
+      if (match) setNextAction(match);
+    }
+    if (parsed.accountName) {
+      const match = ACCOUNT_OPTIONS.find(
+        (o) =>
+          o.toLowerCase().includes(parsed.accountName!.toLowerCase()) ||
+          parsed.accountName!.toLowerCase().includes(o.toLowerCase()),
+      );
+      if (match) setAccount(match);
+    }
+    if (parsed.brands.length > 0) {
+      const matched = parsed.brands
+        .map((b) =>
+          BRAND_OPTIONS.find(
+            (opt) =>
+              opt.toLowerCase().includes(b.name.toLowerCase()) ||
+              b.name.toLowerCase().includes(opt.toLowerCase()),
+          ),
+        )
+        .filter((x): x is (typeof BRAND_OPTIONS)[number] => !!x);
+      if (matched.length > 0)
+        setBrands((b) => [...new Set<string>([...b, ...matched])]);
+    }
+    if (parsed.notes) {
+      setNotes(parsed.notes);
+      setNotesOpen(true);
+    }
+  }
+
+  const recorder = useVoiceRecorder(orgId, (result) =>
+    applyTranscription(result),
+  );
 
   return (
     <CenteredPopup visible={visible} onClose={onClose} heightRatio={0.92}>
@@ -64,12 +123,45 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable className="h-12 flex-row items-center justify-center gap-2 rounded-md border border-white bg-white/5 active:opacity-80">
-            <Mic color={colors.foreground} size={20} />
-            <Text className="text-base font-semibold text-foreground">
-              Record Interaction
-            </Text>
+          <Pressable
+            onPress={() =>
+              recorder.isRecording ? recorder.stop() : recorder.start()
+            }
+            disabled={recorder.isUploading}
+            className={cn(
+              "h-12 flex-row items-center justify-center gap-2 rounded-md border active:opacity-80",
+              recorder.isRecording
+                ? "border-red-500 bg-red-500/10"
+                : "border-white bg-white/5",
+              recorder.isUploading && "opacity-60",
+            )}
+          >
+            {recorder.isUploading ? (
+              <>
+                <ActivityIndicator color={colors.foreground} size="small" />
+                <Text className="text-base font-semibold text-foreground">
+                  Transcribing…
+                </Text>
+              </>
+            ) : recorder.isRecording ? (
+              <>
+                <Square color="#F87171" size={18} fill="#F87171" />
+                <Text className="text-base font-semibold text-red-400">
+                  Stop Recording · {recorder.secsLeft}s
+                </Text>
+              </>
+            ) : (
+              <>
+                <Mic color={colors.foreground} size={20} />
+                <Text className="text-base font-semibold text-foreground">
+                  Record Interaction
+                </Text>
+              </>
+            )}
           </Pressable>
+          {recorder.error ? (
+            <Text className="text-sm text-red-400">{recorder.error}</Text>
+          ) : null}
 
           <View
             className="flex-row gap-2 rounded-xl border p-3"
