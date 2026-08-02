@@ -1,15 +1,17 @@
 import { RefreshCw, Sparkles } from "lucide-react-native";
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 
-import { SectionCard } from "@/components/dashboard/section-card";
-import { Dropdown } from "@/components/ui/dropdown";
+import { EmptyState, SectionCard } from "@/components/dashboard/section-card";
 import { Text } from "@/components/ui/text";
-import { CHANNEL_OPTIONS, CHANNEL_TYPE_OPTIONS } from "@/lib/mock-data";
+import { useRepTodaySummary } from "@/hooks/use-rep-today-summary";
+import { cn } from "@/lib/utils";
 
 export function ChannelSuggestionsCard() {
-  const [type, setType] = useState<string>(CHANNEL_TYPE_OPTIONS[0]);
-  const [channel, setChannel] = useState<string>(CHANNEL_OPTIONS[0]);
+  const { summary, isLoading, isFetching, refetch } = useRepTodaySummary();
+
+  const networkInsights = summary?.networkInsights ?? [];
+  const suggestedSteps = summary?.suggestedSteps ?? [];
+  const hasContent = networkInsights.length > 0 || suggestedSteps.length > 0;
 
   return (
     <SectionCard
@@ -17,40 +19,65 @@ export function ChannelSuggestionsCard() {
       title="Key Channel Suggestions"
       description="AI powered insights from activity, inventory & A&P analysis."
     >
-      {/* The list is empty until the API is wired up; the mock shows a tall
-          blank body above the filter row. */}
-      <View className="h-24" />
+      {isLoading ? (
+        <EmptyState label="Loading…" />
+      ) : !hasContent ? (
+        <EmptyState label="We don't have enough data on you yet" />
+      ) : (
+        <View className="gap-2">
+          {networkInsights.map((text, i) => (
+            <InsightRow
+              key={`net-${i}`}
+              tag="Network"
+              tagClassName="border-blue-500/20 bg-blue-500/10 text-blue-400"
+              text={text}
+            />
+          ))}
+          {suggestedSteps.map((text, i) => (
+            <InsightRow
+              key={`step-${i}`}
+              tag="Action"
+              tagClassName="border-green-500/20 bg-green-500/10 text-green-400"
+              text={text}
+            />
+          ))}
+        </View>
+      )}
 
-      {/* Three equal columns: each control gets flex-1 so they grow together
-          with the card width. text-xs keeps them fitting on narrow screens. */}
-      <View className="flex-row items-center gap-2">
-        <Dropdown
-          className="flex-1"
-          options={CHANNEL_TYPE_OPTIONS}
-          value={type}
-          onChange={setType}
-        />
-        <Dropdown
-          className="flex-1"
-          options={CHANNEL_OPTIONS}
-          value={channel}
-          onChange={setChannel}
-        />
-        <RefreshButton />
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Refresh suggestions"
+        onPress={() => refetch()}
+        disabled={isFetching}
+        className="mt-1 h-9 flex-row items-center justify-center gap-1.5 self-end rounded-lg border border-border bg-secondary px-4 active:opacity-80"
+      >
+        <RefreshCw color="#94A3B8" size={14} />
+        <Text className="text-xs font-medium">
+          {isFetching ? "Refreshing…" : "Refresh Insights"}
+        </Text>
+      </Pressable>
     </SectionCard>
   );
 }
 
-function RefreshButton() {
+function InsightRow({
+  tag,
+  tagClassName,
+  text,
+}: {
+  tag: string;
+  tagClassName: string;
+  text: string;
+}) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Refresh suggestions"
-      className="h-9 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg bg-brand-maroon px-3 active:bg-brand-maroon-pressed"
-    >
-      <RefreshCw color="#FFFFFF" size={14} />
-      <Text className="text-xs font-medium text-white">Refresh</Text>
-    </Pressable>
+    <View className="flex-row items-start gap-3 rounded-xl border border-border bg-background/40 p-3">
+      <Sparkles color="#94A3B8" size={16} />
+      <View className="flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+        <View className={cn("rounded-md border px-1.5 py-0.5", tagClassName)}>
+          <Text className={cn("text-xs font-medium", tagClassName)}>{tag}</Text>
+        </View>
+        <Text className="flex-1 text-sm">{text}</Text>
+      </View>
+    </View>
   );
 }

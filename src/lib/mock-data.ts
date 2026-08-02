@@ -81,22 +81,3 @@ export function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
-// ── A&P Feedback ──────────────────────────────────────────────────────────────
-
-// ── Channel suggestions filters (visual only in preview) ──────────────────────
-
-export const CHANNEL_TYPE_OPTIONS = [
-  "All Types",
-  "Distribution",
-  "Velocity",
-  "Coverage",
-  "Pricing",
-] as const;
-
-export const CHANNEL_OPTIONS = [
-  "All Channels",
-  "On-Premise",
-  "Off-Premise",
-  "Independent",
-  "National Chains",
-] as const;
