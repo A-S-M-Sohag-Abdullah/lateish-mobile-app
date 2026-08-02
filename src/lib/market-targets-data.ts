@@ -21,7 +21,7 @@ export interface TargetRecord {
   activityLabel: string;
 }
 
-/** Top-of-page aggregate tiles. */
+/** Top-of-page aggregate tiles (computed from the API — see useMarketTargets). */
 export interface TargetSummary {
   cases: string;
   distribution: string;
@@ -29,14 +29,6 @@ export interface TargetSummary {
   markets: string;
   momentum: string;
 }
-
-export const TARGET_SUMMARY: TargetSummary = {
-  cases: "0",
-  distribution: "4",
-  apSpend: "£0",
-  markets: "4",
-  momentum: "Behind",
-};
 
 export const TARGET_RECORDS: TargetRecord[] = [
   {
@@ -104,10 +96,6 @@ export const TARGET_RECORDS: TargetRecord[] = [
     activityLabel: "Strong Activity",
   },
 ];
-
-export function getTargetRecord(id: string): TargetRecord | undefined {
-  return TARGET_RECORDS.find((t) => t.id === id);
-}
 
 export const TARGET_FILTERS = ["Active Targets", "Ahead", "Behind"] as const;
 export type TargetFilter = (typeof TARGET_FILTERS)[number];
