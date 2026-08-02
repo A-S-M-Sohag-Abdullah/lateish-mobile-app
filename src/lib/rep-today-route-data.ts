@@ -1,4 +1,4 @@
-import { Droplet, Menu, Tag, type LucideIcon } from "lucide-react-native";
+import { type LucideIcon } from "lucide-react-native";
 
 export type StopStatus = "green" | "amber" | "red";
 
@@ -180,11 +180,6 @@ export function scoreTone(pct: number): "green" | "amber" | "red" {
 
 // ── Activity Log tab ──────────────────────────────────────────────────────────
 
-export const ACTIVITY_NOTE = {
-  title: "These are example entries",
-  body: "They demonstrate what effective activity logging looks like. Your real activities will replace these after you start logging interactions.",
-};
-
 export type ActivityStatus = "Progressed" | "Blocked";
 
 export interface ActivityEntry {
@@ -198,45 +193,6 @@ export interface ActivityEntry {
   description: string;
   next: string;
 }
-
-export const ACTIVITY_ENTRIES: ActivityEntry[] = [
-  {
-    id: "copper-room",
-    name: "The Copper Room",
-    icon: Droplet,
-    date: "May 21",
-    status: "Progressed",
-    location: "SoHo • Sampling",
-    tags: ["Broken Barrier Tequila", "On Premise"],
-    description:
-      "Bartender loved the blanco expression. Interested in signature serve for summer menu.",
-    next: "Follow up with cocktail menu proposal",
-  },
-  {
-    id: "agave-dreams",
-    name: "Agave Dreams",
-    icon: Menu,
-    date: "May 20",
-    status: "Blocked",
-    location: "East Village • Menu Discussion",
-    tags: ["Good Intentions Mezcal", "On Premise"],
-    description:
-      "Buyer interested but current distributor relationship blocking. Need to address channel conflict.",
-    next: "Reconnect after distributor alignment",
-  },
-  {
-    id: "borough-wines",
-    name: "Borough Wines",
-    icon: Tag,
-    date: "May 19",
-    status: "Progressed",
-    location: "Brooklyn • Intro",
-    tags: ["Broken Barrier Tequila", "Good Intentions Mezcal", "Off Premise"],
-    description:
-      "Independent retailer actively looking for premium agave. Strong fit for emerging brands.",
-    next: "Send pricing and tasting samples",
-  },
-];
 
 export const PIPELINE_NEEDS_ATTENTION: PipelineItem[] = [
   { id: "copper-still", name: "The Copper Still", amount: "£3,200", stage: "Proposal", date: "2026-05-24", progress: 0.6 },
