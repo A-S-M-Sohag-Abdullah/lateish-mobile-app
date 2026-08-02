@@ -4,7 +4,10 @@ export type GuardrailType = "fixed" | "nsv";
 export type ConfidenceLevel = "high" | "medium" | "low";
 
 export interface TargetDraft {
-  market: string;
+  brandId: string;
+  brandName: string;
+  territoryId: string;
+  territoryName: string;
   startDate: string; // dd/MM/yyyy
   endDate: string; // dd/MM/yyyy
   channels: string[];
@@ -16,7 +19,7 @@ export interface TargetDraft {
 }
 
 export const TARGET_STEPS: WizardStepMeta[] = [
-  { title: "Market & Dates", subtitle: "Select market and set target date range" },
+  { title: "Territory & Dates", subtitle: "Select territory, brand and set the target date range" },
   { title: "Channels", subtitle: "Choose sales channel with focus roles" },
   { title: "Targets", subtitle: "Set your case and distribution targets" },
   { title: "A&P Guardrail", subtitle: "Set your case and distribution targets" },
@@ -56,7 +59,10 @@ export const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
 };
 
 export const DEFAULT_TARGET_DRAFT: TargetDraft = {
-  market: "",
+  brandId: "",
+  brandName: "",
+  territoryId: "",
+  territoryName: "",
   startDate: "22/05/2026",
   endDate: "20/08/2026",
   channels: [CHANNEL_CHOICES[0]],

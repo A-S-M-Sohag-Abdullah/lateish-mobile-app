@@ -1,8 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { View } from "react-native";
 
-import { CheckboxRow, Field, OptionCard, SearchField } from "@/components/ui/form";
+import { CheckboxRow, Field, OptionCard } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/ui/select-field";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { api } from "@/lib/api";
 import {
   CHANNEL_CHOICES,
   CONFIDENCE_CHOICES,
@@ -11,6 +15,8 @@ import {
   periodDays,
   type TargetDraft,
 } from "@/lib/target-wizard-data";
+import type { ApiBrand } from "@/types/brand";
+import type { ApiTerritory } from "@/types/territory";
 
 interface StepProps {
   draft: TargetDraft;
@@ -26,15 +32,51 @@ function ReadonlyField({ value }: { value: string }) {
   );
 }
 
+function territoryLabel(t: ApiTerritory): string {
+  return `${t.name}${t.state ? ` (${t.state})` : ""}`;
+}
+
 export function MarketDatesStep({ draft, update }: StepProps) {
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
   const days = periodDays(draft.startDate, draft.endDate);
+
+  const { data: brands = [] } = useQuery({
+    queryKey: ["brands", orgId],
+    queryFn: () => api.get<ApiBrand[]>(`/organizations/${orgId}/brands`),
+    enabled: !!orgId,
+  });
+  const { data: territories = [] } = useQuery({
+    queryKey: ["territories", orgId],
+    queryFn: () => api.get<ApiTerritory[]>(`/organizations/${orgId}/territories`),
+    enabled: !!orgId,
+  });
+
+  const activeBrands = brands.filter((b) => b.status === "active");
+
   return (
     <>
-      <Field label="Market">
-        <SearchField
-          value={draft.market}
-          onChangeText={(market) => update({ market })}
-          placeholder="Search market"
+      <Field label="Territory *">
+        <SelectField
+          value={draft.territoryName}
+          placeholder="Select a territory"
+          options={territories.map(territoryLabel)}
+          onChange={(label) => {
+            const t = territories.find((x) => territoryLabel(x) === label);
+            update({ territoryId: t?.id ?? "", territoryName: label });
+          }}
+        />
+      </Field>
+
+      <Field label="Brand *">
+        <SelectField
+          value={draft.brandName}
+          placeholder="Select a brand"
+          options={activeBrands.map((b) => b.name)}
+          onChange={(name) => {
+            const b = activeBrands.find((x) => x.name === name);
+            update({ brandId: b?.id ?? "", brandName: name });
+          }}
         />
       </Field>
 
@@ -178,11 +220,11 @@ export function ReviewStep({ draft }: StepProps) {
   const dash = (v: string) => (v.trim().length > 0 ? v : "-");
 
   const cells: [string, string][] = [
-    ["Market", dash(draft.market)],
+    ["Territory", dash(draft.territoryName)],
+    ["Brand", dash(draft.brandName)],
     ["Period", `${draft.startDate} • ${draft.endDate}`],
     ["Case target", dash(draft.caseTarget)],
     ["Distribution", dash(draft.distributionTarget)],
-    ["A&P Guardrail", draft.apBudget.trim() || "0"],
     ["Confidence", CONFIDENCE_LABELS[draft.confidence]],
   ];
   const rows = [cells.slice(0, 2), cells.slice(2, 4), cells.slice(4, 6)];
