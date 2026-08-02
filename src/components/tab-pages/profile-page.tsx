@@ -4,10 +4,8 @@ import {
   Bell,
   Building2,
   ChevronRight,
-  Clock,
   Database,
   HelpCircle,
-  Languages,
   Lock,
   Mail,
   Tag,
@@ -36,13 +34,6 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
       { icon: Tag, label: "Brands", href: "/brands" },
       { icon: Users, label: "User Management", href: "/user-management" },
       { icon: Bell, label: "Notifications", href: "/notification-settings" },
-    ],
-  },
-  {
-    title: "Preference",
-    rows: [
-      { icon: Languages, label: "Language", href: "/language" },
-      { icon: Clock, label: "Time Zone", href: "/time-zone" },
     ],
   },
   {
