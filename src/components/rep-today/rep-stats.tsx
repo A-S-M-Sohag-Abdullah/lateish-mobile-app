@@ -2,7 +2,8 @@ import { View } from "react-native";
 
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
 import { Text } from "@/components/ui/text";
-import { REP_STATS } from "@/lib/rep-today-data";
+import { useRepTodaySummary } from "@/hooks/use-rep-today-summary";
+import { type RepStat } from "@/lib/rep-today-data";
 
 /**
  * Card background from the design:
@@ -16,7 +17,21 @@ const STAT_START = { x: 0.21, y: 0.09 };
 const STAT_END = { x: 0.79, y: 0.91 };
 
 export function RepStats() {
-  const rows = [REP_STATS.slice(0, 2), REP_STATS.slice(2, 4)];
+  const { summary, symbol } = useRepTodaySummary();
+  const d = summary?.dayStats;
+
+  const stats: RepStat[] = [
+    { label: "Active Venues", value: String(d?.activeVenues ?? 0) },
+    {
+      label: "Opportunities",
+      value: String(d?.opportunities.count ?? 0),
+      suffix: `(${symbol}${(d?.opportunities.value ?? 0).toLocaleString("en-US")})`,
+    },
+    { label: "Follow ups due", value: String(d?.followUpsDue ?? 0) },
+    { label: "Conversion Rate", value: `${d?.conversionRate ?? 0}%` },
+  ];
+
+  const rows = [stats.slice(0, 2), stats.slice(2, 4)];
   return (
     <View className="gap-3">
       {rows.map((row, i) => (

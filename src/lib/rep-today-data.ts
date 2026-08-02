@@ -6,25 +6,11 @@ export const REP_TODAY_HEADER = {
   subtitle: "BDM Cockpit • Opportunity Flow • Field Intelligence",
 };
 
-export const BRAND_MOMENTUM = {
-  title: "Brand momentum",
-  sample: "Stable Sample",
-  trend: "Flat",
-  note: "Esther Run Gaining traction in on premise",
-};
-
 export interface RepStat {
   label: string;
   value: string;
   suffix?: string;
 }
-
-export const REP_STATS: RepStat[] = [
-  { label: "Active Venues", value: "18" },
-  { label: "Opportunities", value: "7", suffix: "(£12000)" },
-  { label: "Follow ups due", value: "3" },
-  { label: "Conversion Rate", value: "67%" },
-];
 
 export interface PremiseStat {
   label: string;
@@ -32,23 +18,6 @@ export interface PremiseStat {
   detail: string;
   tone: "success" | "neutral";
 }
-
-export const AI_INSIGHT = {
-  summary: "7 opportunities in play • 3 follow-ups due",
-  onPremise: {
-    label: "On premise",
-    status: "Warning",
-    detail: "(11/17)",
-    tone: "success",
-  } satisfies PremiseStat,
-  offPremise: {
-    label: "Off premise",
-    status: "Stable",
-    detail: "(11/11)",
-    tone: "neutral",
-  } satisfies PremiseStat,
-  note: "These are example insights. Real network intelligence will appear as market activity grows.",
-};
 
 export interface NetworkInsight {
   text: string;
