@@ -1,14 +1,10 @@
 import { Lightbulb, Target } from "lucide-react-native";
 import { View } from "react-native";
 
-import { Tag } from "@/components/ui/tag";
 import { Text } from "@/components/ui/text";
+import { useRepTodaySummary } from "@/hooks/use-rep-today-summary";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import {
-  SUGGESTED_STEPS,
-  SUGGESTED_STEPS_NOTE,
-  type NextStep,
-} from "@/lib/rep-today-data";
+import { type NextStep } from "@/lib/rep-today-data";
 
 /**
  * Unlike the other insight sections this has no outer card — the header and
@@ -16,6 +12,13 @@ import {
  */
 export function SuggestedNextStepsCard() {
   const colors = useThemeColors();
+  const { summary } = useRepTodaySummary();
+  const steps: NextStep[] = (summary?.suggestedSteps ?? []).map((text) => ({
+    title: text,
+    description: "",
+    accent: "#824343",
+  }));
+
   return (
     <View className="gap-4">
       <View className="gap-1">
@@ -24,20 +27,23 @@ export function SuggestedNextStepsCard() {
           <Text className="text-xl font-bold">Suggested Next Steps</Text>
         </View>
         <Text className="text-base leading-6 text-muted-foreground">
-          Reference-based focus areas to get you started
+          Priorities from your activity, inventory &amp; A&amp;P data
         </Text>
       </View>
 
-      <View className="flex-row items-start gap-2 rounded-xl bg-secondary p-3">
-        <Lightbulb color={colors.mutedForeground} size={18} />
-        <Text className="flex-1 text-sm text-muted-foreground">
-          {SUGGESTED_STEPS_NOTE}
-        </Text>
-      </View>
-
-      {SUGGESTED_STEPS.map((step, i) => (
-        <StepItem key={step.title} index={i + 1} step={step} />
-      ))}
+      {steps.length === 0 ? (
+        <View className="flex-row items-start gap-2 rounded-xl bg-secondary p-3">
+          <Lightbulb color={colors.mutedForeground} size={18} />
+          <Text className="flex-1 text-sm text-muted-foreground">
+            Log interactions and visits — your first priorities will appear as
+            your data builds up.
+          </Text>
+        </View>
+      ) : (
+        steps.map((step, i) => (
+          <StepItem key={i} index={i + 1} step={step} />
+        ))
+      )}
     </View>
   );
 }
@@ -53,7 +59,7 @@ function StepItem({ index, step }: { index: number; step: NextStep }) {
         borderColor: "#323749",
         borderRadius: 14,
         borderLeftWidth: 3,
-        borderLeftColor: "#824343",
+        borderLeftColor: step.accent,
       }}
     >
       {/* Number and lightbulb are a fixed prefix on the first line only. */}
@@ -62,15 +68,14 @@ function StepItem({ index, step }: { index: number; step: NextStep }) {
         <Lightbulb color={colors.mutedForeground} size={16} />
       </View>
 
-      {/* Title, badge and description stack to the right. */}
+      {/* Title and description stack to the right. */}
       <View className="flex-1 gap-1.5">
         <Text className="text-base font-semibold text-foreground">
           {step.title}
         </Text>
-        <Tag label="Example" variant="outline" />
-        <Text className="text-sm text-muted-foreground">
-          {step.description}
-        </Text>
+        {step.description ? (
+          <Text className="text-sm text-muted-foreground">{step.description}</Text>
+        ) : null}
       </View>
     </View>
   );

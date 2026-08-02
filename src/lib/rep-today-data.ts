@@ -25,67 +25,9 @@ export interface NetworkInsight {
   tags: { label: string; variant: TagVariant }[];
 }
 
-export const NETWORK_INSIGHTS: NetworkInsight[] = [
-  {
-    text: "Across similar urban markets, early wins tend to cluster in trend-leading cocktail venues.",
-    subtext:
-      "Bartender influence and menu visibility drive faster adoption in these venues.",
-    tags: [
-      { label: "Example", variant: "neutral" },
-      { label: "High Confidence", variant: "success" },
-      { label: "On-Premise", variant: "neutral" },
-    ],
-  },
-  {
-    text: "Premium spirits often gain traction faster in venues where staff receive brand education.",
-    subtext: "Training creates advocates who recommend your brand to guests.",
-    tags: [
-      { label: "Example", variant: "neutral" },
-      { label: "Medium Confidence", variant: "warning" },
-      { label: "On-Premise", variant: "neutral" },
-    ],
-  },
-];
-
 export interface NextStep {
   title: string;
   description: string;
   /** Left-edge accent colour. */
   accent: string;
 }
-
-export const SUGGESTED_STEPS_NOTE =
-  "These are suggested focus areas. Your personalized steps will appear after logging interactions.";
-
-export const SUGGESTED_STEPS: NextStep[] = [
-  {
-    title: "Start with trend-leading cocktail bars",
-    description:
-      "Modern Cocktail Bars typically show fastest adoption for premium spirits. Identify 3-5 in your territory.",
-    accent: "#B91C1C",
-  },
-  {
-    title: "Balance on-premise and off-premise coverage",
-    description:
-      "A healthy territory mix is roughly 70% on-premise, 30% off-premise for emerging brands.",
-    accent: "#2563EB",
-  },
-  {
-    title: "Build relationships with agave specialists",
-    description:
-      "Agave / Category Specialist Bars are natural advocates for tequila and mezcal brands.",
-    accent: "#D97706",
-  },
-  {
-    title: "Connect with independent retailers",
-    description:
-      "Independent Specialist Retailers often convert faster than chains for emerging brands.",
-    accent: "#2563EB",
-  },
-  {
-    title: "Log your first interaction",
-    description:
-      "Start building your territory intelligence by logging a visit or call with any account.",
-    accent: "#2563EB",
-  },
-];

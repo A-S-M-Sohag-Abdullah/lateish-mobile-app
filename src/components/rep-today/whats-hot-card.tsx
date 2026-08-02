@@ -3,18 +3,28 @@ import { View } from "react-native";
 
 import { SectionCard } from "@/components/dashboard/section-card";
 import { Text } from "@/components/ui/text";
+import { useRepTodaySummary } from "@/hooks/use-rep-today-summary";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import { WHATS_HOT } from "@/lib/rep-today-route-data";
 
 export function WhatsHotCard() {
   const colors = useThemeColors();
+  const { summary } = useRepTodaySummary();
+  const c = summary?.channels;
+
+  const insights = c
+    ? [
+        `On-Premise: ${c.onPremise.progressing} of ${c.onPremise.total} accounts progressing — ${c.onPremise.status}`,
+        `Off-Premise: ${c.offPremise.progressing} of ${c.offPremise.total} accounts progressing — ${c.offPremise.status}`,
+      ]
+    : [];
+
   return (
     <SectionCard
       icon={Sparkles}
       title="What's Hot Right Now"
-      description={WHATS_HOT.note}
+      description="Channel momentum based on your logged interactions"
     >
-      {WHATS_HOT.insights.map((text, i) => (
+      {insights.map((text, i) => (
         <View
           key={i}
           className="flex-row gap-2 rounded-xl border border-border bg-background/40 p-4"
@@ -26,7 +36,7 @@ export function WhatsHotCard() {
         </View>
       ))}
       <Text className="text-sm leading-5 text-muted-foreground">
-        {WHATS_HOT.footer}
+        Log interactions to see your channel momentum here.
       </Text>
     </SectionCard>
   );

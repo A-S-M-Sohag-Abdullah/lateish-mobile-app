@@ -44,27 +44,6 @@ export const REP_TABS = [
   "Voice Notes",
 ] as const;
 
-export const WHATS_HOT = {
-  note: "Movement clusters will appear as you log interactions",
-  insights: [
-    "Example: Momentum building in modern cocktail bars in urban cores - early progression signals detected for brands discussed in this segment",
-    "Example: Premium nightlife venues often show strong tractions for agave spirits after initial tasting.",
-    "Example: Casual dining can require longer nurture cycles - consider consistent follow ups.",
-  ],
-  footer:
-    "These are example insights. Your actual momentum will appear after logging interactions.",
-};
-
-export const BRAND_MOMENTUM_INSIGHTS = {
-  note: "Brand level momentum will build as you discuss brands in interactions",
-  items: [
-    "Example: Tequilla brands typically gain early traction in Agave Specialists Bars & trend-leading cocktails venues.",
-    "Example: Premium spirits often progress faster in venues where bartenders have menu influence.",
-  ],
-  footer:
-    "These are example insights based on category patterns. Your brand momentum will appear after logging interactions.",
-};
-
 export const TERRITORY_COVERAGE = {
   activeVenues: 0,
   totalVenues: 0,
