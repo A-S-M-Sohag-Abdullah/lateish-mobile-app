@@ -11,8 +11,6 @@ import { Text } from "@/components/ui/text";
 import { useGoBack } from "@/hooks/use-go-back";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store/auth.store";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -45,28 +43,15 @@ function PasswordField({
 export default function SecurityScreen() {
   const goBack = useGoBack();
   const colors = useThemeColors();
-  const email = useAuthStore((s) => s.profile?.email);
 
-  const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
 
   const save = useMutation({
-    mutationFn: async () => {
-      // Verify the current password first (the backend endpoint changes the
-      // password off the session and doesn't check it). Re-auth is the only
-      // client-side way to confirm it's correct.
-      if (email) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password: current,
-        });
-        if (error) throw new Error("Your current password is incorrect.");
-      }
-      await api.post("/users/change-password", { newPassword: next });
-    },
+    // Session-authenticated — works for password and Google-only accounts alike,
+    // so Google users can set a password for the first time here too.
+    mutationFn: () => api.post("/users/change-password", { newPassword: next }),
     onSuccess: () => {
-      setCurrent("");
       setNext("");
       setConfirm("");
     },
@@ -75,10 +60,7 @@ export default function SecurityScreen() {
   const mismatch = confirm.length > 0 && next !== confirm;
   const tooShort = next.length > 0 && next.length < MIN_PASSWORD_LENGTH;
   const canSubmit =
-    current.length > 0 &&
-    next.length >= MIN_PASSWORD_LENGTH &&
-    next === confirm &&
-    !save.isPending;
+    next.length >= MIN_PASSWORD_LENGTH && next === confirm && !save.isPending;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -95,15 +77,18 @@ export default function SecurityScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <Text className="-mb-2 text-sm text-muted-foreground">
+          Set a new password for your account.
+        </Text>
+
         <PasswordField
-          label="Current Password"
-          value={current}
+          label="New Password"
+          value={next}
           onChangeText={(v) => {
-            setCurrent(v);
+            setNext(v);
             save.reset();
           }}
         />
-        <PasswordField label="Create New Password" value={next} onChangeText={setNext} />
         <PasswordField
           label="Confirm New Password"
           value={confirm}
