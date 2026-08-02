@@ -64,13 +64,6 @@ export const PIPELINE_NEXT_2_WEEKS: PipelineItem[] = [];
 
 // ── Orders tab ────────────────────────────────────────────────────────────────
 
-export const ORDER_STATUS_COUNTS = {
-  received: 1,
-  processing: 2,
-  shipped: 4,
-  delayed: 1,
-};
-
 export type OrderStatus =
   | "Delivered"
   | "Shipped"
@@ -85,16 +78,6 @@ export interface Order {
   date: string;
   status: OrderStatus;
 }
-
-export const RECENT_ORDERS: Order[] = [
-  { id: "0041", name: "The Copper Still", orderNo: "#ORD-2026-0041", date: "Feb 10", status: "Delivered" },
-  { id: "0040", name: "Velvet Room", orderNo: "#ORD-2026-0040", date: "Feb 9", status: "Shipped" },
-  { id: "0039", name: "Market Street Bistro", orderNo: "#ORD-2026-0039", date: "Feb 8", status: "Processing" },
-  { id: "0038", name: "The Botanist", orderNo: "#ORD-2026-0038", date: "Feb 7", status: "Delayed" },
-  { id: "0037", name: "Harbour & Hops", orderNo: "#ORD-2026-0037", date: "Feb 6", status: "Delivered" },
-  { id: "0036", name: "The Gilded Fox", orderNo: "#ORD-2026-0036", date: "Feb 5", status: "Received" },
-  { id: "0035", name: "Slate & Grain", orderNo: "#ORD-2026-0035", date: "Feb 4", status: "Shipped" },
-];
 
 // ── Debriefs tab ──────────────────────────────────────────────────────────────
 
