@@ -1,17 +1,16 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { CenteredPopup } from "@/components/ui/centered-popup";
 import { Dropdown } from "@/components/ui/dropdown";
-import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
+import { useMarketTargets } from "@/hooks/use-market-targets";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import {
-  RECORD_ACTUALS_PREV,
-  TARGET_RECORDS,
-  type PrevMonthValue,
-} from "@/lib/market-targets-data";
+import { api } from "@/lib/api";
+import { type PrevMonthValue, type TargetRecord } from "@/lib/market-targets-data";
 import { cn } from "@/lib/utils";
 
 interface RecordActualsFormProps {
@@ -20,24 +19,77 @@ interface RecordActualsFormProps {
 }
 
 const SELECT_PLACEHOLDER = "Select target";
-const TARGET_OPTIONS = [
-  SELECT_PLACEHOLDER,
-  ...TARGET_RECORDS.map((t) => t.location),
-];
+const NO_DATA: PrevMonthValue = { month: "On record", value: "—" };
+
+/** Build the on-record comparison cards from the selected target's live values. */
+function comparisonFor(t?: TargetRecord) {
+  if (!t) {
+    return {
+      target: NO_DATA,
+      month: NO_DATA,
+      cases: NO_DATA,
+      distribution: NO_DATA,
+      apSpend: NO_DATA,
+      notes: NO_DATA,
+    };
+  }
+  return {
+    target: { month: "Selected", value: t.location },
+    month: { month: "Period", value: t.dateRange },
+    cases: { month: "On record", value: t.cases.current.toLocaleString("en-US") },
+    distribution: { month: "On record", value: String(t.distribution.current) },
+    apSpend: { month: "On record", value: t.apSpend.toLocaleString("en-US") },
+    notes: { month: "On record", value: t.momentumNote || "—" },
+  } satisfies Record<string, PrevMonthValue>;
+}
 
 /**
  * "Record Monthly Actuals" — a single-step form popup. Each field sits beside a
- * card showing the prior month's value for comparison. Inert in the preview.
+ * card showing the target's currently-recorded value. Submits real actuals.
  */
 export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) {
+  const queryClient = useQueryClient();
+  // Reuses the page's cached market-targets query.
+  const { records, orgId } = useMarketTargets();
+  const targetOptions = [SELECT_PLACEHOLDER, ...records.map((t) => t.location)];
+
   const [target, setTarget] = useState(SELECT_PLACEHOLDER);
   const [cases, setCases] = useState("");
   const [distribution, setDistribution] = useState("");
   const [apSpend, setApSpend] = useState("");
   const [notes, setNotes] = useState("");
 
+  const selected = records.find((r) => r.location === target);
+  const prev = comparisonFor(selected);
+
+  const record = useMutation({
+    mutationFn: () =>
+      api.patch(`/organizations/${orgId}/market-targets/${selected?.id}/actuals`, {
+        case_actual: Number(cases),
+        distribution_actual: distribution !== "" ? Number(distribution) : null,
+        ap_actual: apSpend !== "" ? Number(apSpend) : null,
+        notes: notes || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["market-targets", orgId] });
+      close();
+    },
+  });
+
+  function close() {
+    setTarget(SELECT_PLACEHOLDER);
+    setCases("");
+    setDistribution("");
+    setApSpend("");
+    setNotes("");
+    record.reset();
+    onClose();
+  }
+
+  const canSubmit = !!selected && cases !== "" && !record.isPending;
+
   return (
-    <CenteredPopup visible={visible} onClose={onClose}>
+    <CenteredPopup visible={visible} onClose={close}>
       <View className="flex-1">
         <View className="gap-2 px-6 pt-6">
           <Text className="text-3xl font-bold">Record Monthly Actuals</Text>
@@ -52,20 +104,20 @@ export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) 
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <FieldRow label="Market Target *" prev={RECORD_ACTUALS_PREV.target}>
+          <FieldRow label="Market Target *" prev={prev.target}>
             <Dropdown
               className="h-12"
-              options={TARGET_OPTIONS}
+              options={targetOptions}
               value={target}
               onChange={setTarget}
             />
           </FieldRow>
 
-          <FieldRow label="Month" prev={RECORD_ACTUALS_PREV.month}>
-            <DisabledField value="Current Month (June 2026)" />
+          <FieldRow label="Period" prev={prev.month}>
+            <DisabledField value={selected ? selected.dateRange : "—"} />
           </FieldRow>
 
-          <FieldRow label="Cases sold" prev={RECORD_ACTUALS_PREV.cases}>
+          <FieldRow label="Cases sold" prev={prev.cases}>
             <Input
               className="h-12"
               keyboardType="number-pad"
@@ -75,10 +127,7 @@ export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) 
             />
           </FieldRow>
 
-          <FieldRow
-            label="Distribution points"
-            prev={RECORD_ACTUALS_PREV.distribution}
-          >
+          <FieldRow label="Distribution points" prev={prev.distribution}>
             <Input
               className="h-12"
               keyboardType="number-pad"
@@ -88,7 +137,7 @@ export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) 
             />
           </FieldRow>
 
-          <FieldRow label="A&P Spend ($)" prev={RECORD_ACTUALS_PREV.apSpend}>
+          <FieldRow label="A&P Spend" prev={prev.apSpend}>
             <Input
               className="h-12"
               keyboardType="number-pad"
@@ -98,27 +147,29 @@ export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) 
             />
           </FieldRow>
 
-          <FieldRow label="Notes (optional)" prev={RECORD_ACTUALS_PREV.notes}>
+          <FieldRow label="Notes (optional)" prev={prev.notes}>
             <NotesField value={notes} onChangeText={setNotes} />
           </FieldRow>
+
+          {record.isError ? (
+            <Text className="text-sm text-red-500">
+              {(record.error as Error).message}
+            </Text>
+          ) : null}
         </ScrollView>
 
         <View className="flex-row gap-3 px-6 pb-4 pt-3">
-          <Button
-            variant="secondary"
-            size="lg"
-            className="flex-1"
-            onPress={onClose}
-          >
+          <Button variant="secondary" size="lg" className="flex-1" onPress={close}>
             <Text>Cancel</Text>
           </Button>
           <Button
             variant="brand"
             size="lg"
             className="flex-1"
-            onPress={onClose}
+            disabled={!canSubmit}
+            onPress={() => record.mutate()}
           >
-            <Text>Next</Text>
+            <Text>{record.isPending ? "Saving…" : "Save Actuals"}</Text>
           </Button>
         </View>
       </View>
@@ -156,7 +207,9 @@ function PrevMonthCard({ prev }: { prev: PrevMonthValue }) {
   return (
     <View className="w-28 gap-1 rounded-xl bg-secondary/60 p-3">
       <Text className="text-xs text-muted-foreground">{prev.month}</Text>
-      <Text className="text-base font-bold text-foreground">{prev.value}</Text>
+      <Text className="text-base font-bold text-foreground" numberOfLines={1}>
+        {prev.value}
+      </Text>
       {prev.delta ? (
         <Text className={cn("text-xs font-medium", DELTA_COLOR[prev.deltaTone ?? "flat"])}>
           {prev.delta}
