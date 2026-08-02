@@ -65,6 +65,7 @@ export const QUICK_ACCESS: QuickAccessItem[] = [
   },
 ];
 
+/** Display shape for a dashboard market-target card (mapped from the API). */
 export interface MarketTarget {
   id: string;
   location: string;
@@ -74,36 +75,6 @@ export interface MarketTarget {
   cases: { current: number; target: number };
   distribution: { current: number; target: number };
 }
-
-export const MARKET_TARGETS: MarketTarget[] = [
-  {
-    id: "chicago-il",
-    location: "Chicago, IL",
-    updatedAgo: "1 min ago",
-    gap: "£121,524",
-    confidence: "High Confidence",
-    cases: { current: 4250, target: 5000 },
-    distribution: { current: 98, target: 120 },
-  },
-  {
-    id: "austin-tx",
-    location: "Austin, TX",
-    updatedAgo: "12 min ago",
-    gap: "£84,310",
-    confidence: "Medium Confidence",
-    cases: { current: 2980, target: 4500 },
-    distribution: { current: 61, target: 95 },
-  },
-  {
-    id: "denver-co",
-    location: "Denver, CO",
-    updatedAgo: "1 hr ago",
-    gap: "£46,902",
-    confidence: "Low Confidence",
-    cases: { current: 1240, target: 3000 },
-    distribution: { current: 34, target: 80 },
-  },
-];
 
 /** Formats 4250 as "4,250". */
 export function formatCount(value: number): string {

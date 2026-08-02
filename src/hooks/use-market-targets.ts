@@ -54,6 +54,7 @@ function mapTarget(t: ApiMarketTarget): TargetRecord {
     apBudget: t.ap_target,
     momentumNote: t.notes || t.pace,
     activityLabel: t.pace,
+    createdAt: t.created_at,
   };
 }
 
@@ -89,5 +90,5 @@ export function useMarketTargets() {
   const records = (data?.data ?? []).map(mapTarget);
   const summary = computeSummary(records, symbol);
 
-  return { records, summary, isLoading: !!orgId && isLoading, orgId };
+  return { records, summary, isLoading: !!orgId && isLoading, orgId, symbol };
 }

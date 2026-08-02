@@ -20,6 +20,8 @@ export interface TargetRecord {
   momentumNote: string;
   /** Short activity label shown in the card footer. */
   activityLabel: string;
+  /** ISO created timestamp (used for the dashboard "last updated" label). */
+  createdAt: string;
 }
 
 /** Top-of-page aggregate tiles (computed from the API — see useMarketTargets). */
