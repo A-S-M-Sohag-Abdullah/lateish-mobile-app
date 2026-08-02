@@ -1,13 +1,20 @@
-import { useGoBack } from "@/hooks/use-go-back";
-import { ChevronLeft } from "lucide-react-native";
+import { useMutation } from "@tanstack/react-query";
+import { Check, ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FormError } from "@/components/auth/form-error";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
+import { useGoBack } from "@/hooks/use-go-back";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/store/auth.store";
+
+const MIN_PASSWORD_LENGTH = 8;
 
 function PasswordField({
   label,
@@ -38,10 +45,40 @@ function PasswordField({
 export default function SecurityScreen() {
   const goBack = useGoBack();
   const colors = useThemeColors();
+  const email = useAuthStore((s) => s.profile?.email);
 
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+
+  const save = useMutation({
+    mutationFn: async () => {
+      // Verify the current password first (the backend endpoint changes the
+      // password off the session and doesn't check it). Re-auth is the only
+      // client-side way to confirm it's correct.
+      if (email) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: current,
+        });
+        if (error) throw new Error("Your current password is incorrect.");
+      }
+      await api.post("/users/change-password", { newPassword: next });
+    },
+    onSuccess: () => {
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+    },
+  });
+
+  const mismatch = confirm.length > 0 && next !== confirm;
+  const tooShort = next.length > 0 && next.length < MIN_PASSWORD_LENGTH;
+  const canSubmit =
+    current.length > 0 &&
+    next.length >= MIN_PASSWORD_LENGTH &&
+    next === confirm &&
+    !save.isPending;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -58,17 +95,49 @@ export default function SecurityScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <PasswordField label="Current Password" value={current} onChangeText={setCurrent} />
+        <PasswordField
+          label="Current Password"
+          value={current}
+          onChangeText={(v) => {
+            setCurrent(v);
+            save.reset();
+          }}
+        />
         <PasswordField label="Create New Password" value={next} onChangeText={setNext} />
-        <PasswordField label="Confirm New Password" value={confirm} onChangeText={setConfirm} />
+        <PasswordField
+          label="Confirm New Password"
+          value={confirm}
+          onChangeText={setConfirm}
+        />
+
+        {tooShort ? (
+          <Text className="-mt-3 text-sm text-muted-foreground">
+            Password must be at least {MIN_PASSWORD_LENGTH} characters.
+          </Text>
+        ) : null}
+        {mismatch ? (
+          <Text className="-mt-3 text-sm text-red-500">Passwords do not match.</Text>
+        ) : null}
+
+        <FormError error={save.error} />
+
+        {save.isSuccess ? (
+          <View className="flex-row items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2.5">
+            <Check color="#22C55E" size={16} />
+            <Text className="text-sm text-green-500">Password updated successfully.</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View className="px-4 pb-4 pt-2">
         <Pressable
-          onPress={() => goBack()}
-          className="h-14 items-center justify-center rounded-xl bg-white active:opacity-90"
+          onPress={() => save.mutate()}
+          disabled={!canSubmit}
+          className="h-14 items-center justify-center rounded-xl bg-white active:opacity-90 disabled:opacity-50"
         >
-          <Text className="text-base font-semibold text-black">Save and Update</Text>
+          <Text className="text-base font-semibold text-black">
+            {save.isPending ? "Updating…" : "Save and Update"}
+          </Text>
         </Pressable>
       </View>
 
