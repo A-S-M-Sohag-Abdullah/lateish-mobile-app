@@ -11,7 +11,6 @@ import {
 import { BrandMomentumCard } from "@/components/rep-today/brand-momentum-card";
 import { BrandMomentumInsightsCard } from "@/components/rep-today/brand-momentum-insights-card";
 import { BrandsSection } from "@/components/rep-today/brands-section";
-import { DebriefsSection } from "@/components/rep-today/debriefs-section";
 import { LogInteractionForm } from "@/components/rep-today/log-interaction-form";
 import { NetworkIntelligenceCard } from "@/components/rep-today/network-intelligence-card";
 import { OrdersSection } from "@/components/rep-today/orders-section";
@@ -68,7 +67,6 @@ export function RepTodayPage() {
         {tab === "Territory" ? <TerritorySection /> : null}
         {tab === "Pipeline" ? <PipelineSection /> : null}
         {tab === "Activity Log" ? <ActivityLogSection /> : null}
-        {tab === "Debriefs" ? <DebriefsSection /> : null}
         {tab === "Orders" ? <OrdersSection /> : null}
         {tab === "Brands" ? <BrandsSection /> : null}
         {tab === "Voice Notes" ? <VoiceNotesSection /> : null}
