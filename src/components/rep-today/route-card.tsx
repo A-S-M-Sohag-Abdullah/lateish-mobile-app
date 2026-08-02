@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   CircleAlert,
   CircleCheck,
+  ClipboardList,
   MapPin,
   Play,
   Route,
@@ -10,15 +12,22 @@ import {
 import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import {
-  ROUTE,
-  ROUTE_PROGRESS,
-  ROUTE_STOPS,
   type RouteStop,
   type StopStatus,
 } from "@/lib/rep-today-route-data";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+interface RouteInteraction {
+  id: string;
+  account_name: string | null;
+  next_action: string | null;
+  due_date: string | null;
+  account: { city: string | null; state: string | null } | null;
+}
 
 const STATUS: Record<
   StopStatus,
@@ -29,65 +38,105 @@ const STATUS: Record<
   red: { icon: CircleAlert, color: "#EF4444", dot: "bg-red-500", label: "Red" },
 };
 
+const URGENCY: Record<StopStatus, number> = { red: 0, amber: 1, green: 2 };
+
+function dueDateStatus(dueDateStr: string): StopStatus {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDateStr);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  if (diffDays < 0) return "red";
+  if (diffDays <= 1) return "amber";
+  return "green";
+}
+
+function formatNextAction(next: string | null): string {
+  if (!next) return "Follow-up";
+  return next.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function RouteCard() {
   const colors = useThemeColors();
-  const pct = ROUTE_PROGRESS.total
-    ? ROUTE_PROGRESS.completed / ROUTE_PROGRESS.total
-    : 0;
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
+
+  const { data: interactions = [], isLoading } = useQuery({
+    queryKey: ["log-interactions", "route", orgId],
+    queryFn: () =>
+      api.get<RouteInteraction[]>(`/organizations/${orgId}/log-interactions/route`),
+    enabled: !!orgId,
+  });
+
+  const stops: RouteStop[] = interactions
+    .filter((li) => li.due_date && li.account_name)
+    .map((li) => ({
+      id: li.id,
+      index: 0,
+      name: li.account_name as string,
+      location: formatNextAction(li.next_action),
+      status: dueDateStatus(li.due_date as string),
+    }))
+    .sort((a, b) => URGENCY[a.status] - URGENCY[b.status])
+    .map((s, i) => ({ ...s, index: i + 1 }));
+
+  const total = stops.length;
+  const green = stops.filter((s) => s.status === "green").length;
+  const amber = stops.filter((s) => s.status === "amber").length;
+  const red = stops.filter((s) => s.status === "red").length;
 
   return (
     <View className="gap-4">
       <View className="flex-row items-center gap-2">
         <Route color={colors.foreground} size={22} />
-        <Text className="text-2xl font-bold">{ROUTE.title}</Text>
+        <Text className="text-2xl font-bold">Today's Route</Text>
       </View>
 
-      <View className="flex-row flex-wrap items-center gap-2">
-        <View className="rounded-md border border-green-600/50 px-2.5 py-1">
-          <Text className="text-xs font-medium text-green-400">
-            ↗ {ROUTE.conversion}
-          </Text>
-        </View>
-        <View className="rounded-md border border-yellow-600/50 px-2.5 py-1">
-          <Text className="text-xs font-medium text-yellow-400">
-            {ROUTE.sampleData}
-          </Text>
-        </View>
-        <Text className="text-sm text-muted-foreground">{ROUTE.stopsLabel}</Text>
-      </View>
+      <Text className="text-sm text-muted-foreground">{total} stops</Text>
 
       <Pressable className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-secondary active:opacity-80">
         <Play color={colors.foreground} size={18} fill={colors.foreground} />
         <Text className="text-base font-semibold">Start Route</Text>
       </Pressable>
 
-      {/* Progress */}
-      <View className="gap-2">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-base font-semibold">Route Progress</Text>
-          <Text className="text-base font-semibold">
-            {ROUTE_PROGRESS.completed} / {ROUTE_PROGRESS.total}
+      {isLoading ? (
+        <Text className="py-6 text-center text-sm text-muted-foreground">Loading…</Text>
+      ) : total === 0 ? (
+        <View className="items-center gap-2 rounded-2xl border border-border bg-card p-6">
+          <ClipboardList color={colors.mutedForeground} size={28} />
+          <Text className="text-sm font-medium text-muted-foreground">
+            No upcoming follow-ups
+          </Text>
+          <Text className="text-center text-xs text-muted-foreground">
+            Log an interaction with a due date to build your route.
           </Text>
         </View>
-        <View className="h-2 overflow-hidden rounded-full bg-white/10">
-          <View
-            className="h-full rounded-full bg-foreground"
-            style={{ width: `${Math.max(pct, 0.06) * 100}%` }}
-          />
-        </View>
-        <View className="flex-row items-center gap-4">
-          <Legend dot="bg-green-500" label={`${ROUTE_PROGRESS.green} Green`} />
-          <Legend dot="bg-yellow-500" label={`${ROUTE_PROGRESS.amber} Amber`} />
-          <Legend dot="bg-red-500" label={`${ROUTE_PROGRESS.red} Red`} />
-        </View>
-      </View>
+      ) : (
+        <>
+          {/* Progress */}
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-base font-semibold">Route Progress</Text>
+              <Text className="text-base font-semibold">0 / {total}</Text>
+            </View>
+            <View className="h-2 overflow-hidden rounded-full bg-white/10">
+              <View className="h-full rounded-full bg-foreground" style={{ width: "6%" }} />
+            </View>
+            <View className="flex-row items-center gap-4">
+              <Legend dot="bg-green-500" label={`${green} Green`} />
+              <Legend dot="bg-yellow-500" label={`${amber} Amber`} />
+              <Legend dot="bg-red-500" label={`${red} Red`} />
+            </View>
+          </View>
 
-      {/* Stops */}
-      <View className="gap-3">
-        {ROUTE_STOPS.map((stop, i) => (
-          <StopRow key={stop.id} stop={stop} active={i === 0} />
-        ))}
-      </View>
+          {/* Stops */}
+          <View className="gap-3">
+            {stops.map((stop, i) => (
+              <StopRow key={stop.id} stop={stop} active={i === 0} />
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -113,7 +162,6 @@ function StopRow({ stop, active }: { stop: RouteStop; active: boolean }) {
         active ? "border-brand-maroon bg-secondary" : "border-border bg-card",
       )}
     >
-      {/* Radio + number */}
       <View
         className={cn(
           "h-6 w-6 items-center justify-center rounded-full border-2",
@@ -122,9 +170,7 @@ function StopRow({ stop, active }: { stop: RouteStop; active: boolean }) {
       >
         {active ? <View className="h-3 w-3 rounded-full bg-brand-maroon" /> : null}
       </View>
-      <Text className="text-base font-bold text-muted-foreground">
-        {stop.index}
-      </Text>
+      <Text className="text-base font-bold text-muted-foreground">{stop.index}</Text>
 
       <View className="flex-1 gap-0.5">
         <Text className="text-base font-semibold">{stop.name}</Text>

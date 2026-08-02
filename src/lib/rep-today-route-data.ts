@@ -1,12 +1,5 @@
 import { Droplet, Menu, Tag, type LucideIcon } from "lucide-react-native";
 
-export const ROUTE = {
-  title: "Lower Manhattan Run",
-  conversion: "Conversion",
-  sampleData: "Sample Data",
-  stopsLabel: "5 stops",
-};
-
 export type StopStatus = "green" | "amber" | "red";
 
 export interface RouteStop {
@@ -16,22 +9,6 @@ export interface RouteStop {
   location: string;
   status: StopStatus;
 }
-
-export const ROUTE_STOPS: RouteStop[] = [
-  { id: "copper-still", index: 1, name: "The Copper Still", location: "SoHo, NYC", status: "green" },
-  { id: "velvet-room", index: 2, name: "Velvet Room", location: "NoLita, NYC", status: "green" },
-  { id: "spirit-vine", index: 3, name: "Spirit & Vine", location: "SoHo, NYC", status: "amber" },
-  { id: "blind-pig", index: 4, name: "The Blind Pig", location: "East Village, NYC", status: "green" },
-  { id: "les-wines", index: 5, name: "LES Wines & Spirits", location: "Lower East Side, NYC", status: "red" },
-];
-
-export const ROUTE_PROGRESS = {
-  completed: 0,
-  total: 5,
-  green: 3,
-  amber: 1,
-  red: 1,
-};
 
 export const REP_TABS = [
   "Momentum",
