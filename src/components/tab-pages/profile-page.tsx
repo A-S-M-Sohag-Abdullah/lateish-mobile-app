@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Lock,
   Mail,
+  MapPin,
   Tag,
   Users,
   type LucideIcon,
@@ -32,6 +33,7 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     rows: [
       { icon: Building2, label: "Organizations", href: "/organizations" },
       { icon: Tag, label: "Brands", href: "/brands" },
+      { icon: MapPin, label: "Territories", href: "/territories" },
       { icon: Users, label: "User Management", href: "/user-management" },
       { icon: Bell, label: "Notifications", href: "/notification-settings" },
     ],
