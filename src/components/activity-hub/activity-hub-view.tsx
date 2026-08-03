@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
-  Bell,
   MapPin,
   Phone,
   RefreshCw,
@@ -220,21 +219,16 @@ export function ActivityHubView() {
               Real-time team activity, wins, and collaboration
             </Text>
           </View>
-          <View className="flex-row items-center gap-2">
-            <View className="flex-row">
-              {headerAvatars.map((m, idx) => (
-                <View
-                  key={m.userId}
-                  style={{ marginLeft: idx === 0 ? 0 : -8 }}
-                  className="rounded-full border-2 border-background"
-                >
-                  <Avatar initials={m.initials} size={28} />
-                </View>
-              ))}
-            </View>
-            <View className="h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary">
-              <Bell color="#FFFFFF" size={18} />
-            </View>
+          <View className="flex-row">
+            {headerAvatars.map((m, idx) => (
+              <View
+                key={m.userId}
+                style={{ marginLeft: idx === 0 ? 0 : -8 }}
+                className="rounded-full border-2 border-background"
+              >
+                <Avatar initials={m.initials} size={28} />
+              </View>
+            ))}
           </View>
         </View>
 
