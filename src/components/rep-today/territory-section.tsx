@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, Search } from "lucide-react-native";
+import { MapPin, Plus, Search } from "lucide-react-native";
 import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
 
+import { AccountForm } from "@/components/rep-today/account-form";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
@@ -46,6 +47,7 @@ export function TerritorySection() {
   const [brand, setBrand] = useState<string>("All Brands");
   const [channel, setChannel] = useState<string>(TERRITORY_CHANNELS[0]);
   const [query, setQuery] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   const filtered = accounts.filter((a) => {
     const matchSearch = !query || a.name.toLowerCase().includes(query.toLowerCase());
@@ -61,7 +63,20 @@ export function TerritorySection() {
     <View className="gap-4">
       <Dropdown size="md" options={brandOptions} value={brand} onChange={setBrand} />
 
-      <Text className="text-2xl font-bold">Territory &amp; Venues</Text>
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="text-2xl font-bold">Territory &amp; Venues</Text>
+        <Pressable
+          onPress={() => setAddOpen(true)}
+          className="h-9 flex-row items-center gap-1.5 rounded-lg bg-primary px-3 active:opacity-90"
+        >
+          <Plus color={colors.primaryForeground} size={16} />
+          <Text className="text-sm font-medium text-primary-foreground">
+            Add Account
+          </Text>
+        </Pressable>
+      </View>
+
+      <AccountForm visible={addOpen} onClose={() => setAddOpen(false)} orgId={orgId} />
 
       <View className="flex-row items-center gap-3">
         <View className="h-12 flex-1 flex-row items-center gap-2.5 rounded-2xl bg-muted px-4">

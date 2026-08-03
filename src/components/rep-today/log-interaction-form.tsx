@@ -1,4 +1,6 @@
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
+  Check,
   ChevronDown,
   ChevronUp,
   Mic,
@@ -25,10 +27,9 @@ import {
   useVoiceRecorder,
   type TranscribeResult,
 } from "@/hooks/use-voice-recorder";
+import { api } from "@/lib/api";
 import {
-  ACCOUNT_OPTIONS,
   ACCOUNT_PLACEHOLDER,
-  BRAND_OPTIONS,
   FREQUENTLY_MISSED,
   INTERACTION_TYPE_OPTIONS,
   INTERACTION_TYPE_PLACEHOLDER,
@@ -36,10 +37,24 @@ import {
   NEXT_ACTION_PLACEHOLDER,
 } from "@/lib/log-interaction-data";
 import { cn } from "@/lib/utils";
+import type { ApiBrand } from "@/types/brand";
 
 interface LogInteractionFormProps {
   visible: boolean;
   onClose: () => void;
+}
+
+interface ApiAccount {
+  id: string;
+  name: string;
+  city: string | null;
+}
+
+interface ApiSku {
+  id: string;
+  name: string;
+  sku_code: string | null;
+  size_ml: number;
 }
 
 const AMBER = "#D9A441";
@@ -52,14 +67,50 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
   const [account, setAccount] = useState<string>(ACCOUNT_PLACEHOLDER);
   const [type, setType] = useState<string>(INTERACTION_TYPE_PLACEHOLDER);
   const [nextAction, setNextAction] = useState<string>(NEXT_ACTION_PLACEHOLDER);
-  const [brands, setBrands] = useState<string[]>([]);
+  const [brandIds, setBrandIds] = useState<string[]>([]);
+  const [selectedSkus, setSelectedSkus] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
 
-  function toggleBrand(brand: string) {
-    setBrands((b) =>
-      b.includes(brand) ? b.filter((x) => x !== brand) : [...b, brand],
+  // Real accounts, brands, and per-brand SKUs.
+  const { data: accountsPage } = useQuery({
+    queryKey: ["accounts", orgId],
+    queryFn: () =>
+      api.getPaginated<ApiAccount>(`/organizations/${orgId}/accounts?limit=100`),
+    enabled: !!orgId,
+  });
+  const accounts = accountsPage?.data ?? [];
+  const accountOptions = accounts.map((a) => a.name);
+
+  const { data: apiBrands = [] } = useQuery({
+    queryKey: ["brands", orgId],
+    queryFn: () => api.get<ApiBrand[]>(`/organizations/${orgId}/brands`),
+    enabled: !!orgId,
+  });
+  const activeBrands = apiBrands.filter((b) => b.status === "active");
+
+  const skuResults = useQueries({
+    queries: brandIds.map((id) => ({
+      queryKey: ["skus", orgId, id],
+      queryFn: () =>
+        api
+          .getPaginated<ApiSku>(`/organizations/${orgId}/brands/${id}/skus?limit=100`)
+          .then((r) => r.data),
+      enabled: !!orgId,
+    })),
+  });
+  const skusByBrand: Record<string, ApiSku[]> = Object.fromEntries(
+    brandIds.map((id, i) => [id, skuResults[i]?.data ?? []]),
+  );
+
+  function toggleBrand(id: string) {
+    setBrandIds((b) =>
+      b.includes(id) ? b.filter((x) => x !== id) : [...b, id],
     );
+  }
+
+  function toggleSku(skuId: string) {
+    setSelectedSkus((s) => ({ ...s, [skuId]: !s[skuId] }));
   }
 
   function applyTranscription(result: TranscribeResult) {
@@ -77,25 +128,26 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
       if (match) setNextAction(match);
     }
     if (parsed.accountName) {
-      const match = ACCOUNT_OPTIONS.find(
-        (o) =>
-          o.toLowerCase().includes(parsed.accountName!.toLowerCase()) ||
-          parsed.accountName!.toLowerCase().includes(o.toLowerCase()),
+      const match = accounts.find(
+        (a) =>
+          a.name.toLowerCase().includes(parsed.accountName!.toLowerCase()) ||
+          parsed.accountName!.toLowerCase().includes(a.name.toLowerCase()),
       );
-      if (match) setAccount(match);
+      if (match) setAccount(match.name);
     }
     if (parsed.brands.length > 0) {
       const matched = parsed.brands
         .map((b) =>
-          BRAND_OPTIONS.find(
+          activeBrands.find(
             (opt) =>
-              opt.toLowerCase().includes(b.name.toLowerCase()) ||
-              b.name.toLowerCase().includes(opt.toLowerCase()),
+              opt.name.toLowerCase().includes(b.name.toLowerCase()) ||
+              b.name.toLowerCase().includes(opt.name.toLowerCase()),
           ),
         )
-        .filter((x): x is (typeof BRAND_OPTIONS)[number] => !!x);
+        .filter((x): x is ApiBrand => !!x)
+        .map((x) => x.id);
       if (matched.length > 0)
-        setBrands((b) => [...new Set<string>([...b, ...matched])]);
+        setBrandIds((b) => [...new Set<string>([...b, ...matched])]);
     }
     if (parsed.notes) {
       setNotes(parsed.notes);
@@ -191,7 +243,7 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
           <Field label="Account *">
             <Dropdown
               size="md"
-              options={ACCOUNT_OPTIONS}
+              options={accountOptions.length > 0 ? accountOptions : [ACCOUNT_PLACEHOLDER]}
               value={account}
               onChange={setAccount}
               placeholder={ACCOUNT_PLACEHOLDER}
@@ -234,32 +286,90 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
               placeholder="Select all brands in this conversation"
             />
             <View className="mt-2 flex-row flex-wrap gap-2">
-              {BRAND_OPTIONS.map((brand) => {
-                const selected = brands.includes(brand);
-                return (
-                  <Pressable
-                    key={brand}
-                    onPress={() => toggleBrand(brand)}
-                    className={cn(
-                      "rounded-lg border px-4 py-2",
-                      selected
-                        ? "border-brand-maroon bg-brand-maroon/10"
-                        : "border-border bg-secondary",
-                    )}
-                  >
-                    <Text
+              {activeBrands.length === 0 ? (
+                <Text className="text-sm text-muted-foreground">
+                  No active brands yet.
+                </Text>
+              ) : (
+                activeBrands.map((brand) => {
+                  const selected = brandIds.includes(brand.id);
+                  return (
+                    <Pressable
+                      key={brand.id}
+                      onPress={() => toggleBrand(brand.id)}
                       className={cn(
-                        "text-sm",
-                        selected ? "text-white" : "text-muted-foreground",
+                        "rounded-lg border px-4 py-2",
+                        selected
+                          ? "border-brand-maroon bg-brand-maroon/10"
+                          : "border-border bg-secondary",
                       )}
                     >
-                      {brand}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        className={cn(
+                          "text-sm",
+                          selected ? "text-white" : "text-muted-foreground",
+                        )}
+                      >
+                        {brand.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
             </View>
           </Field>
+
+          {/* SKUs for each selected brand */}
+          {brandIds.map((id) => {
+            const brand = activeBrands.find((b) => b.id === id);
+            const skus = skusByBrand[id] ?? [];
+            if (!brand) return null;
+            return (
+              <View key={id} className="gap-2">
+                <Text className="text-sm font-medium text-foreground">
+                  {brand.name} — SKUs
+                </Text>
+                {skus.length === 0 ? (
+                  <Text className="text-sm text-muted-foreground">
+                    No SKUs for this brand.
+                  </Text>
+                ) : (
+                  <View className="gap-2">
+                    {skus.map((sku) => {
+                      const on = !!selectedSkus[sku.id];
+                      return (
+                        <Pressable
+                          key={sku.id}
+                          onPress={() => toggleSku(sku.id)}
+                          className="flex-row items-center gap-3"
+                        >
+                          <View
+                            className={cn(
+                              "h-5 w-5 items-center justify-center rounded border",
+                              on
+                                ? "border-brand-maroon bg-brand-maroon"
+                                : "border-border",
+                            )}
+                          >
+                            {on ? <Check color="#FFFFFF" size={14} /> : null}
+                          </View>
+                          <Text className="flex-1 text-sm text-foreground">
+                            {sku.name}
+                            {sku.size_ml ? (
+                              <Text className="text-muted-foreground">
+                                {"  "}
+                                {sku.size_ml}ml
+                              </Text>
+                            ) : null}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })}
 
           <Text className="text-sm leading-5 text-muted-foreground">
             Example: if you discussed Esther Rum pricing and showed Broken
