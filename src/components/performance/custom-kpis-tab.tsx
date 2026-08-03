@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChartColumn,
   Minus,
@@ -21,33 +22,79 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Line, Polyline } from "react-native-svg";
 
-import { Dropdown } from "@/components/ui/dropdown";
+import { FormError } from "@/components/auth/form-error";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { usePerformanceDashboard } from "@/hooks/use-performance-dashboard";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { CUSTOM_KPIS, type CustomKpi } from "@/lib/performance-data";
+import type { ApiPerfKpi } from "@/types/performance";
 
-const METRIC_TYPES = [
-  "Select type",
-  "Revenue",
-  "Visits",
-  "Conversion",
-  "BDM Cost per Case",
-  "Custom",
-] as const;
+interface KpiRow {
+  id: string;
+  emoji: string;
+  name: string;
+  description: string;
+  value: string;
+  target: string;
+  pct: number;
+  tone: "green" | "amber" | "red";
+  trend: "up" | "down" | "flat";
+  trendData: number[];
+  xLabels: string[];
+  targetValue: number;
+  currentValue: number;
+}
 
-const TONE_TEXT: Record<CustomKpi["tone"], string> = {
+const TONE_TEXT: Record<KpiRow["tone"], string> = {
   amber: "text-amber-500",
   green: "text-green-500",
   red: "text-red-500",
 };
 
-type SheetState = { mode: "create" | "edit"; kpi?: CustomKpi } | null;
+function mapKpi(k: ApiPerfKpi): KpiRow {
+  const ratio = k.targetValue > 0 ? k.currentValue / k.targetValue : 0;
+  const pct = Math.round(ratio * 100);
+  const fmt = (n: number) => `${n}${k.unit ? `${k.unit}` : ""}`;
+  return {
+    id: k.id,
+    emoji: k.emoji || "📊",
+    name: k.name,
+    description: k.description,
+    value: fmt(k.currentValue),
+    target: fmt(k.targetValue),
+    pct: Math.min(100, pct),
+    tone: ratio >= 1 ? "green" : ratio >= 0.5 ? "amber" : "red",
+    trend: k.trend,
+    trendData: (k.trendData ?? []).map((p) => p.value),
+    xLabels: (k.trendData ?? []).map((p) => p.month),
+    targetValue: k.targetValue,
+    currentValue: k.currentValue,
+  };
+}
+
+type SheetState = { mode: "create" | "edit"; kpi?: KpiRow } | null;
 
 export function CustomKpisTab() {
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
+  const queryClient = useQueryClient();
+  const { data, isLoading } = usePerformanceDashboard(30);
   const [sheet, setSheet] = useState<SheetState>(null);
+
+  const kpis = (data?.kpis ?? []).map(mapKpi);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["performance-dashboard", orgId, 30] });
+
+  const remove = useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/organizations/${orgId}/kpi-definitions/${id}`),
+    onSuccess: invalidate,
+  });
 
   return (
     <View className="gap-5">
@@ -70,23 +117,49 @@ export function CustomKpisTab() {
       </Pressable>
 
       {/* KPI cards */}
-      {CUSTOM_KPIS.map((kpi) => (
-        <KpiCard
-          key={kpi.name}
-          kpi={kpi}
-          onEdit={() => setSheet({ mode: "edit", kpi })}
-        />
-      ))}
+      {isLoading ? (
+        <Text className="py-8 text-center text-sm text-muted-foreground">
+          Loading KPIs…
+        </Text>
+      ) : kpis.length === 0 ? (
+        <View className="items-center rounded-2xl border border-border bg-card p-8">
+          <Text className="text-center text-sm text-muted-foreground">
+            No KPIs yet. Add one to start tracking.
+          </Text>
+        </View>
+      ) : (
+        kpis.map((kpi) => (
+          <KpiCard
+            key={kpi.id}
+            kpi={kpi}
+            onEdit={() => setSheet({ mode: "edit", kpi })}
+            onDelete={() => remove.mutate(kpi.id)}
+          />
+        ))
+      )}
 
-      <KpiFormSheet state={sheet} onClose={() => setSheet(null)} />
+      <KpiFormSheet
+        state={sheet}
+        orgId={orgId}
+        onClose={() => setSheet(null)}
+        onSaved={invalidate}
+      />
     </View>
   );
 }
 
-function KpiCard({ kpi, onEdit }: { kpi: CustomKpi; onEdit: () => void }) {
+function KpiCard({
+  kpi,
+  onEdit,
+  onDelete,
+}: {
+  kpi: KpiRow;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const colors = useThemeColors();
-  const Icon = kpi.icon;
   const exceeded = kpi.tone === "green";
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-card p-4">
@@ -94,7 +167,7 @@ function KpiCard({ kpi, onEdit }: { kpi: CustomKpi; onEdit: () => void }) {
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row gap-3">
           <View className="h-9 w-9 items-center justify-center rounded-lg bg-muted">
-            <Icon color={colors.foreground} size={18} />
+            <Text style={{ fontSize: 18 }}>{kpi.emoji}</Text>
           </View>
           <View className="flex-1">
             <Text className="text-base font-semibold">{kpi.name}</Text>
@@ -114,7 +187,20 @@ function KpiCard({ kpi, onEdit }: { kpi: CustomKpi; onEdit: () => void }) {
           <Pressable onPress={onEdit} hitSlop={8}>
             <SquarePen color={colors.mutedForeground} size={16} />
           </Pressable>
-          <Trash2 color={colors.mutedForeground} size={16} />
+          {confirmDelete ? (
+            <View className="flex-row items-center gap-1.5">
+              <Pressable onPress={onDelete} hitSlop={6}>
+                <Text className="text-xs font-medium text-red-500">Yes</Text>
+              </Pressable>
+              <Pressable onPress={() => setConfirmDelete(false)} hitSlop={6}>
+                <Text className="text-xs text-muted-foreground">No</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable onPress={() => setConfirmDelete(true)} hitSlop={8}>
+              <Trash2 color={colors.mutedForeground} size={16} />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -157,13 +243,15 @@ function KpiCard({ kpi, onEdit }: { kpi: CustomKpi; onEdit: () => void }) {
       </View>
 
       {/* Trend */}
-      <View className="gap-2">
-        <View className="flex-row items-center gap-2">
-          <ChartColumn color={colors.mutedForeground} size={16} />
-          <Text className="text-sm font-medium">Trend</Text>
+      {kpi.trendData.length > 0 ? (
+        <View className="gap-2">
+          <View className="flex-row items-center gap-2">
+            <ChartColumn color={colors.mutedForeground} size={16} />
+            <Text className="text-sm font-medium">Trend</Text>
+          </View>
+          <KpiTrendChart data={kpi.trendData} labels={kpi.xLabels} />
         </View>
-        <KpiTrendChart data={kpi.trendData} labels={kpi.xLabels} />
-      </View>
+      ) : null}
     </View>
   );
 }
@@ -187,36 +275,58 @@ function Field({
 
 function KpiFormSheet({
   state,
+  orgId,
   onClose,
+  onSaved,
 }: {
   state: SheetState;
+  orgId: string;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const editing = state?.mode === "edit";
 
-  // Local, UI-only form state — nothing is persisted in preview.
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [metric, setMetric] = useState<string>("Select type");
   const [unit, setUnit] = useState("");
   const [target, setTarget] = useState("");
   const [current, setCurrent] = useState("");
 
   // Seed fields when a sheet opens.
-  const [seededFor, setSeededFor] = useState<CustomKpi | null | undefined>(
+  const [seededFor, setSeededFor] = useState<KpiRow | null | undefined>(
     undefined,
   );
   if (state && seededFor !== state.kpi) {
     setSeededFor(state.kpi ?? null);
     setName(state.kpi?.name ?? "");
     setDescription(state.kpi?.description ?? "");
-    setMetric("Select type");
     setUnit("");
-    setTarget(state.kpi?.target ?? "");
-    setCurrent(state.kpi?.value ?? "");
+    setTarget(state.kpi ? String(state.kpi.targetValue) : "");
+    setCurrent(state.kpi ? String(state.kpi.currentValue) : "");
   }
+
+  const save = useMutation({
+    mutationFn: () => {
+      const payload = {
+        name: name.trim(),
+        description: description.trim() || null,
+        target_value: target !== "" ? Number(target) : null,
+        current_value: current !== "" ? Number(current) : null,
+      };
+      return editing && state?.kpi
+        ? api.patch(`/organizations/${orgId}/kpi-definitions/${state.kpi.id}`, payload)
+        : api.post(`/organizations/${orgId}/kpi-definitions`, {
+            ...payload,
+            unit: unit.trim() || null,
+          });
+    },
+    onSuccess: () => {
+      onSaved();
+      onClose();
+    },
+  });
 
   return (
     <Modal
@@ -274,28 +384,15 @@ function KpiFormSheet({
                 />
               </Field>
 
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <Field label="Metric Type">
-                    <Dropdown
-                      options={METRIC_TYPES}
-                      value={metric}
-                      onChange={setMetric}
-                      size="md"
-                      placeholder="Select type"
-                    />
-                  </Field>
-                </View>
-                <View className="flex-1">
-                  <Field label="Unit">
-                    <Input
-                      value={unit}
-                      onChangeText={setUnit}
-                      placeholder="e.g., %, £, visits"
-                    />
-                  </Field>
-                </View>
-              </View>
+              {!editing ? (
+                <Field label="Unit">
+                  <Input
+                    value={unit}
+                    onChangeText={setUnit}
+                    placeholder="e.g., %, £, visits"
+                  />
+                </Field>
+              ) : null}
 
               <View className="flex-row gap-3">
                 <View className="flex-1">
@@ -304,6 +401,7 @@ function KpiFormSheet({
                       value={target}
                       onChangeText={setTarget}
                       placeholder="Target to achieve"
+                      keyboardType="numeric"
                     />
                   </Field>
                 </View>
@@ -313,10 +411,13 @@ function KpiFormSheet({
                       value={current}
                       onChangeText={setCurrent}
                       placeholder="Current performance"
+                      keyboardType="numeric"
                     />
                   </Field>
                 </View>
               </View>
+
+              <FormError error={save.error} />
 
               {/* Actions */}
               <View className="flex-row justify-end gap-3 pt-1">
@@ -327,11 +428,16 @@ function KpiFormSheet({
                   <Text className="text-base font-medium">Cancel</Text>
                 </Pressable>
                 <Pressable
-                  onPress={onClose}
-                  className="h-11 items-center justify-center rounded-lg bg-white px-5 active:opacity-90"
+                  onPress={() => save.mutate()}
+                  disabled={!name.trim() || save.isPending}
+                  className="h-11 items-center justify-center rounded-lg bg-white px-5 active:opacity-90 disabled:opacity-50"
                 >
                   <Text className="text-base font-semibold text-black">
-                    {editing ? "Update KPI" : "Create KPI"}
+                    {save.isPending
+                      ? "Saving…"
+                      : editing
+                        ? "Update KPI"
+                        : "Create KPI"}
                   </Text>
                 </Pressable>
               </View>
@@ -399,8 +505,8 @@ function KpiTrendChart({
         className="flex-row justify-between"
         style={{ paddingLeft: TREND_PAD_L }}
       >
-        {labels.map((l) => (
-          <Text key={l} className="text-[10px] text-muted-foreground">
+        {labels.map((l, i) => (
+          <Text key={`${l}-${i}`} className="text-[10px] text-muted-foreground">
             {l}
           </Text>
         ))}

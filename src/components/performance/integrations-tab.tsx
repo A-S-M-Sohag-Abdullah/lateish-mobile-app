@@ -1,26 +1,82 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as WebBrowser from "expo-web-browser";
 import {
   Calendar,
   CircleAlert,
   CircleCheck,
+  CreditCard,
   Plus,
   RefreshCw,
   Settings,
+  Users,
+  type LucideIcon,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import {
-  ACTIVE_INTEGRATIONS,
-  type ActiveIntegration,
-} from "@/lib/performance-data";
+
+interface ApiActiveIntegration {
+  id: string;
+  provider: string;
+  status: "active" | "inactive" | "error";
+  lastSyncedAt: string | null;
+  connectedAt: string;
+}
+
+const PROVIDER: Record<string, { name: string; icon: LucideIcon }> = {
+  "google-calendar": { name: "Google Calendar", icon: Calendar },
+  hubspot: { name: "HubSpot", icon: Users },
+  salesforce: { name: "Salesforce", icon: Users },
+  netsuite: { name: "NetSuite", icon: CreditCard },
+  quickbooks: { name: "QuickBooks", icon: CreditCard },
+  sap: { name: "SAP", icon: CreditCard },
+};
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "Never";
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60) return "Just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}
 
 const SUBTABS = ["Active Integrations", "Available Integrations"] as const;
 
 export function IntegrationsTab() {
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
+  const queryClient = useQueryClient();
   const [sub, setSub] = useState<string>("Active Integrations");
+
+  const key = ["integrations", orgId] as const;
+  const { data: active = [], isLoading } = useQuery({
+    queryKey: key,
+    queryFn: () =>
+      api.get<ApiActiveIntegration[]>(`/organizations/${orgId}/integrations`),
+    enabled: !!orgId,
+  });
+
+  const disconnect = useMutation({
+    mutationFn: (provider: string) =>
+      api.delete(`/organizations/${orgId}/integrations/${provider}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+
+  const connectGoogle = useMutation({
+    mutationFn: () =>
+      api.get<{ url: string }>(
+        `/organizations/${orgId}/integrations/google-calendar/connect`,
+      ),
+    onSuccess: (res) => {
+      if (res?.url) WebBrowser.openBrowserAsync(res.url);
+    },
+  });
 
   return (
     <View className="gap-5">
@@ -35,20 +91,20 @@ export function IntegrationsTab() {
       {/* Sub tabs */}
       <View className="flex-row gap-2">
         {SUBTABS.map((t) => {
-          const active = t === sub;
+          const activeTab = t === sub;
           return (
             <Pressable
               key={t}
               onPress={() => setSub(t)}
               className={cn(
                 "h-10 items-center justify-center rounded-md px-4",
-                active ? "bg-brand-maroon" : "bg-secondary",
+                activeTab ? "bg-brand-maroon" : "bg-secondary",
               )}
             >
               <Text
                 className={cn(
                   "text-sm font-medium",
-                  active ? "text-white" : "text-muted-foreground",
+                  activeTab ? "text-white" : "text-muted-foreground",
                 )}
               >
                 {t}
@@ -59,19 +115,45 @@ export function IntegrationsTab() {
       </View>
 
       {sub === "Active Integrations" ? (
-        <View className="gap-3">
-          {ACTIVE_INTEGRATIONS.map((item) => (
-            <IntegrationCard key={item.name} item={item} />
-          ))}
-        </View>
+        isLoading ? (
+          <Text className="py-8 text-center text-sm text-muted-foreground">
+            Loading integrations…
+          </Text>
+        ) : active.length === 0 ? (
+          <View className="items-center rounded-2xl border border-border bg-card p-8">
+            <Text className="text-center text-sm text-muted-foreground">
+              No active integrations. Connect one from the Available tab.
+            </Text>
+          </View>
+        ) : (
+          <View className="gap-3">
+            {active.map((item) => (
+              <IntegrationCard
+                key={item.id}
+                item={item}
+                onDisconnect={() => disconnect.mutate(item.provider)}
+                disconnecting={disconnect.isPending}
+              />
+            ))}
+          </View>
+        )
       ) : (
-        <AvailableGoogleCalendar />
+        <AvailableGoogleCalendar
+          onConnect={() => connectGoogle.mutate()}
+          connecting={connectGoogle.isPending}
+        />
       )}
     </View>
   );
 }
 
-function AvailableGoogleCalendar() {
+function AvailableGoogleCalendar({
+  onConnect,
+  connecting,
+}: {
+  onConnect: () => void;
+  connecting: boolean;
+}) {
   const colors = useThemeColors();
   return (
     <View className="gap-3">
@@ -83,20 +165,37 @@ function AvailableGoogleCalendar() {
           follow-ups
         </Text>
       </View>
-      <View className="h-12 flex-row items-center justify-center gap-2 rounded-lg bg-white">
-        <Plus color="#000000" size={20} />
+      <Pressable
+        onPress={onConnect}
+        disabled={connecting}
+        className="h-12 flex-row items-center justify-center gap-2 rounded-lg bg-white active:opacity-90 disabled:opacity-60"
+      >
+        {connecting ? (
+          <ActivityIndicator color="#000000" />
+        ) : (
+          <Plus color="#000000" size={20} />
+        )}
         <Text className="text-base font-semibold text-black">
           Connect to Google calendar
         </Text>
-      </View>
+      </Pressable>
     </View>
   );
 }
 
-function IntegrationCard({ item }: { item: ActiveIntegration }) {
+function IntegrationCard({
+  item,
+  onDisconnect,
+  disconnecting,
+}: {
+  item: ApiActiveIntegration;
+  onDisconnect: () => void;
+  disconnecting: boolean;
+}) {
   const colors = useThemeColors();
-  const Icon = item.icon;
-  const [on, setOn] = useState(item.enabled);
+  const meta = PROVIDER[item.provider] ?? { name: item.provider, icon: Users };
+  const Icon = meta.icon;
+  const ok = item.status === "active";
 
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-4">
@@ -107,42 +206,36 @@ function IntegrationCard({ item }: { item: ActiveIntegration }) {
       <View className="flex-1">
         <View className="flex-row items-center gap-1.5">
           <Text className="text-base font-bold" numberOfLines={1}>
-            {item.name}
+            {meta.name}
           </Text>
-          {item.status === "ok" ? (
+          {ok ? (
             <CircleCheck color="#22C55E" size={16} />
           ) : (
             <CircleAlert color="#F59E0B" size={16} />
           )}
         </View>
         <Text className="text-sm text-muted-foreground">
-          Last sync: {item.lastSync}
+          Last sync: {timeAgo(item.lastSyncedAt)}
         </Text>
       </View>
 
       <View className="flex-row items-center gap-2.5">
-        <View
-          className={cn(
-            "h-8 flex-row items-center gap-1.5 rounded-md border border-border px-2.5",
-            !on && "opacity-50",
-          )}
-        >
+        <View className="h-8 flex-row items-center gap-1.5 rounded-md border border-border px-2.5">
           <RefreshCw color={colors.foreground} size={13} />
           <Text className="text-xs font-medium">Sync Now</Text>
         </View>
-        <Toggle value={on} onToggle={() => setOn((v) => !v)} />
+        <Pressable onPress={onDisconnect} disabled={disconnecting}>
+          <Toggle value={ok} />
+        </Pressable>
         <Settings color={colors.mutedForeground} size={18} />
       </View>
     </View>
   );
 }
 
-function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
+function Toggle({ value }: { value: boolean }) {
   return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
-      onPress={onToggle}
+    <View
       style={{
         width: 42,
         height: 24,
@@ -161,6 +254,6 @@ function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
           alignSelf: value ? "flex-end" : "flex-start",
         }}
       />
-    </Pressable>
+    </View>
   );
 }

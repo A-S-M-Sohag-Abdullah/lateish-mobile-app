@@ -36,8 +36,14 @@ export interface ApiBonusTracker {
 
 export interface ApiPerfKpi {
   id: string;
+  emoji: string;
+  name: string;
+  description: string;
   currentValue: number;
   targetValue: number;
+  unit: string;
+  trend: "up" | "down" | "flat";
+  trendData: { month: string; value: number }[];
 }
 
 export interface ApiPerformanceData {
