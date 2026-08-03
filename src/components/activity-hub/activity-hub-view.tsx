@@ -1,29 +1,61 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   Bell,
   MapPin,
+  Phone,
   RefreshCw,
   ShoppingCart,
+  Sparkles,
   TrendingUp,
   Trophy,
+  Utensils,
   type LucideIcon,
 } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import {
-  ACTIVITIES,
-  TEAM_MEMBERS,
-  TEAM_ONLINE_LABEL,
-  TODAY_SUMMARY,
-  type ActivityCategory,
-  type ActivityItem,
-  type TeamMember,
-} from "@/lib/activity-hub-data";
 
-type Filter = "all" | ActivityCategory;
+type ActivityType =
+  | "win"
+  | "order"
+  | "visit"
+  | "milestone"
+  | "menu"
+  | "call"
+  | "tasting";
+
+interface ApiActivityItem {
+  id: string;
+  type: ActivityType;
+  title: string;
+  description: string;
+  time: string;
+  userInitials: string;
+  userName: string;
+  tags: [string, string];
+  isHighlighted?: boolean;
+}
+interface ApiTeamMember {
+  userId: string;
+  initials: string;
+  name: string;
+  status: string;
+  isOnline: boolean;
+}
+interface ActivityHubData {
+  onlineCount: number;
+  totalCount: number;
+  activities: ApiActivityItem[];
+  teamMembers: ApiTeamMember[];
+  summary: { visits: number; orders: number; newListings: number; revenue: string };
+}
+
+type Filter = "all" | "wins" | "orders" | "visits" | "goals";
 
 const FILTERS: { key: Filter; label: string; icon?: LucideIcon }[] = [
   { key: "all", label: "All" },
@@ -33,12 +65,24 @@ const FILTERS: { key: Filter; label: string; icon?: LucideIcon }[] = [
   { key: "goals", label: "Goals", icon: TrendingUp },
 ];
 
-const CATEGORY_ICON: Record<ActivityCategory, LucideIcon> = {
-  wins: Trophy,
-  orders: ShoppingCart,
-  visits: MapPin,
-  goals: TrendingUp,
+const TYPE_ICON: Record<ActivityType, LucideIcon> = {
+  win: Trophy,
+  order: ShoppingCart,
+  visit: MapPin,
+  milestone: TrendingUp,
+  menu: Utensils,
+  call: Phone,
+  tasting: Sparkles,
 };
+
+function tabMatches(tab: Filter, type: ActivityType): boolean {
+  if (tab === "all") return true;
+  if (tab === "wins") return type === "win" || type === "milestone";
+  if (tab === "orders") return type === "order";
+  if (tab === "visits") return type === "visit" || type === "call" || type === "tasting";
+  if (tab === "goals") return type === "milestone";
+  return false;
+}
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
@@ -73,17 +117,31 @@ function Avatar({
 
 // ── Feed entry ────────────────────────────────────────────────────────────────
 
-function FeedEntry({ item }: { item: ActivityItem }) {
-  const Icon = CATEGORY_ICON[item.category];
+function FeedEntry({ item }: { item: ApiActivityItem }) {
+  const Icon = TYPE_ICON[item.type] ?? MapPin;
   return (
-    <View className="gap-3 rounded-2xl bg-white/[0.03] p-4">
+    <View
+      className={cn(
+        "gap-3 rounded-2xl p-4",
+        item.isHighlighted
+          ? "border border-primary/20 bg-primary/5"
+          : "bg-white/[0.03]",
+      )}
+    >
       <View className="flex-row items-start gap-3">
         <View className="h-9 w-9 items-center justify-center rounded-full bg-white/[0.06]">
           <Icon color="#E5E7EB" size={18} />
         </View>
         <View className="flex-1">
           <View className="flex-row items-start justify-between gap-2">
-            <Text className="flex-1 text-base font-semibold">{item.title}</Text>
+            <Text
+              className={cn(
+                "flex-1 text-base font-semibold",
+                item.isHighlighted && "text-primary",
+              )}
+            >
+              {item.title}
+            </Text>
             <Text className="text-xs text-muted-foreground">{item.time}</Text>
           </View>
           <Text className="mt-0.5 text-sm leading-5 text-muted-foreground">
@@ -93,37 +151,31 @@ function FeedEntry({ item }: { item: ActivityItem }) {
       </View>
 
       <View className="flex-row items-center gap-2">
-        <Avatar initials={item.user.initials} size={20} />
-        <Text className="text-sm text-muted-foreground">{item.user.name}</Text>
+        <Avatar initials={item.userInitials} size={20} />
+        <Text className="text-sm text-muted-foreground">{item.userName}</Text>
         <View className="ml-auto flex-row items-center gap-1.5">
-          {item.highlight ? (
-            <View className="rounded-md bg-cyan-500/15 px-2 py-1">
-              <Text className="text-xs font-semibold text-cyan-400">
-                {item.highlight}
-              </Text>
+          {(item.tags ?? []).map((tag) => (
+            <View
+              key={tag}
+              className="rounded-md border border-border bg-white/5 px-2 py-1"
+            >
+              <Text className="text-xs text-foreground">{tag}</Text>
             </View>
-          ) : (
-            item.tags?.map((tag) => (
-              <View
-                key={tag}
-                className="rounded-md border border-border bg-white/5 px-2 py-1"
-              >
-                <Text className="text-xs text-foreground">{tag}</Text>
-              </View>
-            ))
-          )}
+          ))}
         </View>
       </View>
     </View>
   );
 }
 
-// ── Team member row ───────────────────────────────────────────────────────────
-
-function MemberRow({ member }: { member: TeamMember }) {
+function MemberRow({ member }: { member: ApiTeamMember }) {
   return (
     <View className="flex-row items-center gap-3">
-      <Avatar initials={member.initials} size={36} dot={member.online ? "online" : "offline"} />
+      <Avatar
+        initials={member.initials}
+        size={36}
+        dot={member.isOnline ? "online" : "offline"}
+      />
       <View className="flex-1">
         <Text className="text-sm font-medium">{member.name}</Text>
         <Text className="text-xs text-muted-foreground">{member.status}</Text>
@@ -135,11 +187,24 @@ function MemberRow({ member }: { member: TeamMember }) {
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function ActivityHubView() {
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
   const [filter, setFilter] = useState<Filter>("all");
-  const [spinning, setSpinning] = useState(false);
 
-  const items =
-    filter === "all" ? ACTIVITIES : ACTIVITIES.filter((a) => a.category === filter);
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["activity-hub", orgId],
+    queryFn: () => api.get<ActivityHubData>(`/organizations/${orgId}/activity-hub`),
+    enabled: !!orgId,
+  });
+
+  const activities = data?.activities ?? [];
+  const teamMembers = data?.teamMembers ?? [];
+  const summary = data?.summary ?? { visits: 0, orders: 0, newListings: 0, revenue: "" };
+  const onlineCount = data?.onlineCount ?? teamMembers.filter((m) => m.isOnline).length;
+  const totalCount = data?.totalCount ?? teamMembers.length;
+  const headerAvatars = teamMembers.filter((m) => m.isOnline).slice(0, 3);
+
+  const items = activities.filter((a) => tabMatches(filter, a.type));
 
   return (
     <View className="gap-6">
@@ -157,9 +222,13 @@ export function ActivityHubView() {
           </View>
           <View className="flex-row items-center gap-2">
             <View className="flex-row">
-              {["SJ", "MC", "JR"].map((i, idx) => (
-                <View key={i} style={{ marginLeft: idx === 0 ? 0 : -8 }} className="rounded-full border-2 border-background">
-                  <Avatar initials={i} size={28} />
+              {headerAvatars.map((m, idx) => (
+                <View
+                  key={m.userId}
+                  style={{ marginLeft: idx === 0 ? 0 : -8 }}
+                  className="rounded-full border-2 border-background"
+                >
+                  <Avatar initials={m.initials} size={28} />
                 </View>
               ))}
             </View>
@@ -174,11 +243,7 @@ export function ActivityHubView() {
           {FILTERS.map(({ key, label, icon: Icon }) => {
             const active = key === filter;
             const isAll = key === "all";
-            const tint = active
-              ? isAll
-                ? "#000000"
-                : "#FFFFFF"
-              : "#94A3B8";
+            const tint = active ? (isAll ? "#000000" : "#FFFFFF") : "#94A3B8";
             return (
               <Pressable
                 key={key}
@@ -219,17 +284,18 @@ export function ActivityHubView() {
             </View>
           </View>
           <Pressable
-            onPress={() => {
-              setSpinning(true);
-              setTimeout(() => setSpinning(false), 600);
-            }}
+            onPress={() => refetch()}
             className="h-9 w-9 items-center justify-center rounded-md border border-border bg-secondary active:opacity-80"
           >
-            <RefreshCw color={spinning ? "#22D3EE" : "#94A3B8"} size={16} />
+            <RefreshCw color={isFetching ? "#22D3EE" : "#94A3B8"} size={16} />
           </Pressable>
         </View>
 
-        {items.length > 0 ? (
+        {isLoading ? (
+          <Text className="py-8 text-center text-sm text-muted-foreground">
+            Loading activity…
+          </Text>
+        ) : items.length > 0 ? (
           items.map((item) => <FeedEntry key={item.id} item={item} />)
         ) : (
           <Text className="py-8 text-center text-sm text-muted-foreground">
@@ -243,13 +309,17 @@ export function ActivityHubView() {
         <View className="flex-row items-center justify-between">
           <Text className="text-lg font-bold">Team Online</Text>
           <View className="rounded-md bg-secondary px-2 py-0.5">
-            <Text className="text-xs font-medium">{TEAM_ONLINE_LABEL}</Text>
+            <Text className="text-xs font-medium">
+              {onlineCount}/{totalCount}
+            </Text>
           </View>
         </View>
         <View className="gap-4">
-          {TEAM_MEMBERS.map((m) => (
-            <MemberRow key={m.name} member={m} />
-          ))}
+          {teamMembers.length === 0 ? (
+            <Text className="text-sm text-muted-foreground">No team members.</Text>
+          ) : (
+            teamMembers.map((m) => <MemberRow key={m.userId} member={m} />)
+          )}
         </View>
       </View>
 
@@ -258,11 +328,11 @@ export function ActivityHubView() {
         <Text className="text-xl font-bold">Today&apos;s Summary</Text>
         <View className="flex-row gap-3">
           <View className="flex-1 items-center gap-1 rounded-2xl border border-border bg-white/[0.02] py-6">
-            <Text className="text-3xl font-bold">{TODAY_SUMMARY.visits}</Text>
+            <Text className="text-3xl font-bold">{summary.visits}</Text>
             <Text className="text-xs tracking-wide text-muted-foreground">VISITS</Text>
           </View>
           <View className="flex-1 items-center gap-1 rounded-2xl border border-border bg-white/[0.02] py-6">
-            <Text className="text-3xl font-bold">{TODAY_SUMMARY.orders}</Text>
+            <Text className="text-3xl font-bold">{summary.orders}</Text>
             <Text className="text-xs tracking-wide text-muted-foreground">ORDERS</Text>
           </View>
         </View>
