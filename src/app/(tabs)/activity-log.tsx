@@ -12,23 +12,97 @@ import { IntegrationsTab } from "@/components/performance/integrations-tab";
 import { VipTab } from "@/components/performance/vip-tab";
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
 import { Text } from "@/components/ui/text";
+import { usePerformanceDashboard } from "@/hooks/use-performance-dashboard";
 import { cn } from "@/lib/utils";
 import {
-  ACHIEVEMENTS,
-  BONUS_TILES,
-  PERF_STATS,
   PERF_TABS,
   PERIODS,
-  TEAM_MEMBERS,
   TIER_STYLE,
+  type StatTile,
+  type Tier,
   type TeamMember,
 } from "@/lib/performance-data";
+import type { ApiPerformanceData } from "@/types/performance";
 
 const NAVY: GradientColors = ["#132B5C", "#0B1833"];
 const GREEN: GradientColors = ["#15532B", "#0B2A16"];
 
+const BG_HEX: Record<string, string> = {
+  "bg-yellow-500": "#EAB308",
+  "bg-amber-500": "#F59E0B",
+  "bg-green-500": "#22C55E",
+  "bg-blue-500": "#3B82F6",
+  "bg-purple-500": "#A855F7",
+  "bg-orange-500": "#F97316",
+  "bg-pink-500": "#EC4899",
+  "bg-red-500": "#EF4444",
+  "bg-teal-500": "#14B8A6",
+};
+
+interface Achievement {
+  title: string;
+  member: string;
+  emoji: string;
+  color: string;
+}
+interface BonusTile {
+  label: string;
+  value: string;
+  tone: "navy" | "green";
+}
+
+const tierByRank = (rank: number): Tier =>
+  rank === 0 ? "gold" : rank === 1 ? "silver" : "bronze";
+
+function mapPerformance(d: ApiPerformanceData, symbol: string) {
+  const money0 = (n: number) => `${symbol}${Math.round(n).toLocaleString("en-US")}`;
+  const money2 = (n: number) => `${symbol}${n.toFixed(2)}`;
+
+  const sorted = [...d.members].sort((a, b) => b.score - a.score);
+  const members: TeamMember[] = sorted.map((m, i) => ({
+    id: m.id,
+    name: m.name,
+    initials: m.initials,
+    score: m.score,
+    revenue: m.revenue,
+    visits: m.visits,
+    orders: m.orders,
+    targetPct: m.targetPct,
+    tier: tierByRank(i),
+  }));
+
+  const achievements: Achievement[] = d.achievements.map((a) => ({
+    title: a.title,
+    member: a.member,
+    emoji: a.emoji,
+    color: BG_HEX[a.bgColor] ?? "#F59E0B",
+  }));
+
+  const onTrack = d.kpis.filter(
+    (k) => k.targetValue > 0 && k.currentValue >= k.targetValue,
+  ).length;
+  const totalRevenue = d.members.reduce((s, m) => s + m.revenue, 0);
+  const stats: StatTile[] = [
+    { label: "Top Performer", value: sorted[0]?.name ?? "—" },
+    { label: "KPIs on Track", value: String(onTrack), suffix: `/${d.kpis.length}` },
+    { label: "Total Revenue", value: money0(totalRevenue) },
+    { label: "Active Members", value: String(d.members.length), suffix: "All Online" },
+  ];
+
+  const bonus: BonusTile[] = [
+    { label: "Cases Sold", value: String(d.bonus.casesSold), tone: "navy" },
+    { label: "Total Cost", value: money0(d.bonus.totalCost), tone: "navy" },
+    { label: "Cost/Case", value: money2(d.bonus.costPerCase), tone: "green" },
+    { label: "Target", value: money2(d.bonus.targetPerCase), tone: "green" },
+  ];
+
+  return { members, achievements, stats, bonus };
+}
+
 export default function ActivityLogScreen() {
   const [tab, setTab] = useState<string>("Leaderboard");
+  const { data, symbol } = usePerformanceDashboard(30);
+  const m = data ? mapPerformance(data, symbol) : null;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -48,7 +122,7 @@ export default function ActivityLogScreen() {
         </View>
 
         {/* Stat tiles */}
-        <StatTiles />
+        <StatTiles stats={m?.stats ?? []} />
 
         {/* Tab row */}
         <ScrollView
@@ -80,7 +154,19 @@ export default function ActivityLogScreen() {
           })}
         </ScrollView>
 
-        {tab === "Leaderboard" ? <Leaderboard /> : null}
+        {tab === "Leaderboard" ? (
+          m ? (
+            <Leaderboard
+              members={m.members}
+              achievements={m.achievements}
+              bonus={m.bonus}
+            />
+          ) : (
+            <Text className="py-16 text-center text-sm text-muted-foreground">
+              Loading leaderboard…
+            </Text>
+          )
+        ) : null}
         {tab === "Depletions" ? <DepletionsTab /> : null}
         {tab === "VIP Intelligence" ? <VipTab /> : null}
         {tab === "Custom KPIs" ? <CustomKpisTab /> : null}
@@ -92,8 +178,8 @@ export default function ActivityLogScreen() {
   );
 }
 
-function StatTiles() {
-  const rows = [PERF_STATS.slice(0, 2), PERF_STATS.slice(2, 4)];
+function StatTiles({ stats }: { stats: StatTile[] }) {
+  const rows = [stats.slice(0, 2), stats.slice(2, 4)];
   return (
     <View className="gap-3">
       {rows.map((row, i) => (
@@ -121,9 +207,17 @@ function StatTiles() {
   );
 }
 
-function Leaderboard() {
+function Leaderboard({
+  members,
+  achievements,
+  bonus,
+}: {
+  members: TeamMember[];
+  achievements: Achievement[];
+  bonus: BonusTile[];
+}) {
   const [period, setPeriod] = useState<string>("Daily");
-  const sorted = [...TEAM_MEMBERS].sort((a, b) => b.score - a.score);
+  const sorted = members;
 
   return (
     <View className="gap-5">
@@ -162,52 +256,64 @@ function Leaderboard() {
       </View>
 
       {/* Podium */}
-      <View className="flex-row items-start justify-center gap-5 py-2">
-        <View className="mt-6">
-          <PodiumSlot member={sorted[1]} place={2} />
+      {sorted.length > 0 ? (
+        <View className="flex-row items-start justify-center gap-5 py-2">
+          {sorted[1] ? (
+            <View className="mt-6">
+              <PodiumSlot member={sorted[1]} place={2} />
+            </View>
+          ) : null}
+          <PodiumSlot member={sorted[0]} place={1} />
+          {sorted[2] ? (
+            <View className="mt-6">
+              <PodiumSlot member={sorted[2]} place={3} />
+            </View>
+          ) : null}
         </View>
-        <PodiumSlot member={sorted[0]} place={1} />
-        <View className="mt-6">
-          <PodiumSlot member={sorted[2]} place={3} />
-        </View>
-      </View>
+      ) : null}
 
       {/* Member cards */}
       <View className="gap-3">
-        {sorted.map((m) => (
-          <MemberCard key={m.id} member={m} />
-        ))}
+        {sorted.length === 0 ? (
+          <Text className="py-6 text-center text-sm text-muted-foreground">
+            No team members yet.
+          </Text>
+        ) : (
+          sorted.map((m) => <MemberCard key={m.id} member={m} />)
+        )}
       </View>
 
       {/* Achievements */}
-      <View className="gap-3">
-        {ACHIEVEMENTS.map((a) => (
-          <View
-            key={a.title}
-            className="items-center gap-2 rounded-2xl border border-border bg-card p-4"
-          >
+      {achievements.length > 0 ? (
+        <View className="gap-3">
+          {achievements.map((a) => (
             <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: a.color,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              key={a.title}
+              className="items-center gap-2 rounded-2xl border border-border bg-card p-4"
             >
-              <a.icon color="#FFFFFF" size={18} />
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: a.color,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>{a.emoji}</Text>
+              </View>
+              <Text className="text-sm font-semibold">{a.title}</Text>
+              <Text className="text-xs text-muted-foreground">{a.member}</Text>
             </View>
-            <Text className="text-sm font-semibold">{a.title}</Text>
-            <Text className="text-xs text-muted-foreground">{a.member}</Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      ) : null}
 
       {/* Bonus tracker */}
       <View className="gap-3">
         <Text className="text-xl font-bold">Your Bonus Tracker</Text>
-        {[BONUS_TILES.slice(0, 2), BONUS_TILES.slice(2, 4)].map((row, i) => (
+        {[bonus.slice(0, 2), bonus.slice(2, 4)].map((row, i) => (
           <View key={i} className="flex-row gap-3">
             {row.map((tile) => (
               <StatCard

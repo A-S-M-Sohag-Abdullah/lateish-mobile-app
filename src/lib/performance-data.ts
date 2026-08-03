@@ -27,13 +27,6 @@ export interface StatTile {
   value: string;
   suffix?: string;
 }
-export const PERF_STATS: StatTile[] = [
-  { label: "Top Performer", value: "Sarah Johnson" },
-  { label: "KPIs on Track", value: "12", suffix: "/15" },
-  { label: "Team Growth", value: "24%" },
-  { label: "Active Members", value: "18", suffix: "All Online" },
-];
-
 export const PERF_TABS = [
   "Leaderboard",
   "Depletions",
@@ -58,42 +51,6 @@ export interface TeamMember {
   tier: Tier;
 }
 
-export const TEAM_MEMBERS: TeamMember[] = [
-  {
-    id: "m1",
-    name: "Sarah Johnson",
-    initials: "S",
-    score: 92,
-    revenue: 18500,
-    visits: 28,
-    orders: 12,
-    targetPct: 92,
-    tier: "gold",
-  },
-  {
-    id: "m2",
-    name: "Emma Wilson",
-    initials: "E",
-    score: 89,
-    revenue: 18500,
-    visits: 28,
-    orders: 12,
-    targetPct: 92,
-    tier: "silver",
-  },
-  {
-    id: "m3",
-    name: "Mike Chen",
-    initials: "M",
-    score: 85,
-    revenue: 18500,
-    visits: 28,
-    orders: 12,
-    targetPct: 92,
-    tier: "bronze",
-  },
-];
-
 /** Ring / crown / gradient colours per tier. */
 export const TIER_STYLE: Record<
   Tier,
@@ -103,33 +60,6 @@ export const TIER_STYLE: Record<
   silver: { ring: "#9CA3AF", crown: "#E5E7EB", gradient: ["#24272C", "#141619"] },
   bronze: { ring: "#F59E0B", crown: "#22C55E", gradient: ["#123021", "#0E1712"] },
 };
-
-export interface AchievementItem {
-  title: string;
-  member: string;
-  icon: LucideIcon;
-  color: string;
-}
-export const ACHIEVEMENTS: AchievementItem[] = [
-  { title: "Top Performer", member: "Sarah Johnson", icon: Trophy, color: "#F59E0B" },
-  { title: "Revenue Champion", member: "Sarah Johnson", icon: DollarSign, color: "#22C55E" },
-  { title: "Visit Master", member: "Mike Chen", icon: Target, color: "#3B82F6" },
-  { title: "Conversion King", member: "Sarah Johnson", icon: Crown, color: "#A855F7" },
-  { title: "Consistency Award", member: "Emma Wilson", icon: Star, color: "#F97316" },
-  { title: "Most Improved", member: "Emma Wilson", icon: TrendingUp, color: "#EC4899" },
-];
-
-export interface BonusTile {
-  label: string;
-  value: string;
-  tone: "navy" | "green";
-}
-export const BONUS_TILES: BonusTile[] = [
-  { label: "Cases Sold", value: "0", tone: "navy" },
-  { label: "Total Cost", value: "$3000", tone: "navy" },
-  { label: "Cost/Case", value: "$0", tone: "green" },
-  { label: "Target", value: "$0", tone: "green" },
-];
 
 // ── Depletions tab ───────────────────────────────────────────────────────────
 
