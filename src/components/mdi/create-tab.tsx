@@ -10,7 +10,7 @@ import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
-import { ALL_CHANNELS } from "@/lib/channels";
+import { OFF_PREMISE_CHANNELS, ON_PREMISE_CHANNELS } from "@/lib/channels";
 import {
   ACCOUNT_TYPES,
   BUYER_ROLES,
@@ -29,8 +29,6 @@ interface ApiSku {
 const CHANNEL_PLACEHOLDER = "Select primary channel";
 const BRAND_PLACEHOLDER = "Select brand";
 const SKU_PLACEHOLDER = "Select SKU";
-const channelSlug = (label: string) =>
-  ALL_CHANNELS.find((c) => c.label === label)?.slug ?? null;
 
 function Section({ title }: { title: string }) {
   return <Text className="pt-2 text-xl font-bold">{title}</Text>;
@@ -62,8 +60,6 @@ export function CreateTab({ onCreated }: { onCreated?: () => void }) {
   const orgId = currentOrg?.id ?? "";
   const queryClient = useQueryClient();
 
-  const channelOptions = [CHANNEL_PLACEHOLDER, ...ALL_CHANNELS.map((c) => c.label)];
-
   const [form, setForm] = useState({
     accountType: "On premise",
     primaryChannel: CHANNEL_PLACEHOLDER,
@@ -88,6 +84,15 @@ export function CreateTab({ onCreated }: { onCreated?: () => void }) {
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
   const [confirmed, setConfirmed] = useState(true);
+
+  // Channels are scoped to the account type (also avoids the duplicate "Other").
+  const channelPool =
+    form.accountType === "On premise"
+      ? ON_PREMISE_CHANNELS
+      : OFF_PREMISE_CHANNELS;
+  const channelOptions = [CHANNEL_PLACEHOLDER, ...channelPool.map((c) => c.label)];
+  const channelSlug = (label: string) =>
+    channelPool.find((c) => c.label === label)?.slug ?? null;
 
   const { data: brands = [] } = useQuery({
     queryKey: ["brands", orgId],
@@ -182,7 +187,14 @@ export function CreateTab({ onCreated }: { onCreated?: () => void }) {
         <Dropdown
           options={ACCOUNT_TYPES}
           value={form.accountType}
-          onChange={set("accountType")}
+          onChange={(v) =>
+            setForm((f) => ({
+              ...f,
+              accountType: v,
+              primaryChannel: CHANNEL_PLACEHOLDER,
+              secondaryChannel: CHANNEL_PLACEHOLDER,
+            }))
+          }
           size="md"
         />
       </Field>
