@@ -606,46 +606,46 @@ function PortfolioTab() {
       {chosen.length > 0 ? (
         <View className="gap-3">
           <Text className="text-base font-bold">Head-to-Head Metrics</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View>
-              <View className="flex-row border-b border-border pb-2">
+          <View>
+            <View className="flex-row border-b border-border pb-2">
+              <Text
+                style={{ flex: 1.4 }}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Metric
+              </Text>
+              {chosen.map((t) => (
                 <Text
-                  style={{ width: 120 }}
-                  className="text-xs font-medium text-muted-foreground"
+                  key={t.id}
+                  style={{ flex: 1 }}
+                  className="text-right text-xs font-medium text-muted-foreground"
+                  numberOfLines={1}
                 >
-                  Metric
+                  {t.name}
+                </Text>
+              ))}
+            </View>
+            {HEAD_ROWS.map((label) => (
+              <View
+                key={label}
+                className="flex-row items-center border-b border-border/50 py-3"
+              >
+                <Text style={{ flex: 1.4 }} className="text-sm text-muted-foreground">
+                  {label}
                 </Text>
                 {chosen.map((t) => (
                   <Text
                     key={t.id}
-                    style={{ width: 96 }}
-                    className="text-right text-xs font-medium text-muted-foreground"
+                    style={{ flex: 1 }}
+                    className="text-right text-sm font-medium"
+                    numberOfLines={1}
                   >
-                    {t.name}
+                    {t.head[label]}
                   </Text>
                 ))}
               </View>
-              {HEAD_ROWS.map((label) => (
-                <View
-                  key={label}
-                  className="flex-row items-center border-b border-border/50 py-3"
-                >
-                  <Text style={{ width: 120 }} className="text-sm text-muted-foreground">
-                    {label}
-                  </Text>
-                  {chosen.map((t) => (
-                    <Text
-                      key={t.id}
-                      style={{ width: 96 }}
-                      className="text-right text-sm font-medium"
-                    >
-                      {t.head[label]}
-                    </Text>
-                  ))}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
+            ))}
+          </View>
         </View>
       ) : null}
     </View>
