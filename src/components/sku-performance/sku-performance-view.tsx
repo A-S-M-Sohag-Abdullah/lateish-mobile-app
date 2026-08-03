@@ -14,9 +14,9 @@ import { Pressable, View } from "react-native";
 
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
 import { Text } from "@/components/ui/text";
+import { useSkuPerformance } from "@/hooks/use-sku-performance";
 import { cn } from "@/lib/utils";
 import {
-  SKU_PERFORMANCE as DATA,
   type FamilyStatus,
   type ProductFamily,
   type SkuItem,
@@ -210,6 +210,7 @@ export function SkuPerformanceView() {
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const [laggingOnly, setLaggingOnly] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>("family");
+  const { data, isLoading } = useSkuPerformance(30);
 
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -219,9 +220,17 @@ export function SkuPerformanceView() {
       return next;
     });
 
+  if (isLoading || !data) {
+    return (
+      <Text className="py-16 text-center text-sm text-muted-foreground">
+        {isLoading ? "Loading SKU performance…" : "No SKU performance yet."}
+      </Text>
+    );
+  }
+
   const isLagging = (f: ProductFamily) =>
     f.status === "Lagging" || f.skus.some((s) => s.status === "Below Target");
-  const families = laggingOnly ? DATA.families.filter(isLagging) : DATA.families;
+  const families = laggingOnly ? data.families.filter(isLagging) : data.families;
   const flatSkus = families.flatMap((f) => f.skus);
 
   return (
@@ -229,22 +238,22 @@ export function SkuPerformanceView() {
       {/* Stat cards */}
       <View className="gap-3">
         <View className="flex-row gap-3">
-          <StatCard label="Total Cases" value={DATA.totalCases.toLocaleString()} colors={NAVY} className="h-28" />
-          <StatCard label="Active SKUs" value={`${DATA.activeSKUs}`} colors={NAVY} className="h-28" />
+          <StatCard label="Total Cases" value={data.totalCases.toLocaleString()} colors={NAVY} className="h-28" />
+          <StatCard label="Active SKUs" value={`${data.activeSKUs}`} colors={NAVY} className="h-28" />
         </View>
         <View className="flex-row gap-3">
-          <StatCard label="Total Listings" value={`${DATA.totalListings}`} colors={NAVY} className="h-28" />
-          <StatCard label="Lagging SKUs" value={`${DATA.laggingSKUs}`} colors={AMBER} className="h-28" />
+          <StatCard label="Total Listings" value={`${data.totalListings}`} colors={NAVY} className="h-28" />
+          <StatCard label="Lagging SKUs" value={`${data.laggingSKUs}`} colors={AMBER} className="h-28" />
         </View>
         <View className="flex-row gap-3">
           <StatCard
             label="Average Velocity"
-            value={`${DATA.avgVelocity}% c/a/w`}
+            value={`${data.avgVelocity}% c/a/w`}
             valueClassName="text-xl"
             colors={GREEN}
             className="h-28"
           />
-          <StatCard label="Unquantified" value={`${DATA.unquantified}`} colors={NAVY} className="h-28" />
+          <StatCard label="Unquantified" value={`${data.unquantified}`} colors={NAVY} className="h-28" />
         </View>
       </View>
 
@@ -257,10 +266,10 @@ export function SkuPerformanceView() {
               <Text className="text-sm font-medium text-green-500">Top Performer</Text>
             </View>
             <Text className="text-sm font-semibold" numberOfLines={2}>
-              {DATA.topPerformer.name}
+              {data.topPerformer.name}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {DATA.topPerformer.cases} cases • {DATA.topPerformer.targetPct}% of target
+              {data.topPerformer.cases} cases • {data.topPerformer.targetPct}% of target
             </Text>
           </View>
 
@@ -270,10 +279,10 @@ export function SkuPerformanceView() {
               <Text className="text-sm font-medium text-red-500">Needs Attention</Text>
             </View>
             <Text className="text-sm font-semibold" numberOfLines={2}>
-              {DATA.needsAttention.name}
+              {data.needsAttention.name}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {DATA.needsAttention.cases} cases • {DATA.needsAttention.targetPct}% of target
+              {data.needsAttention.cases} cases • {data.needsAttention.targetPct}% of target
             </Text>
           </View>
         </View>
