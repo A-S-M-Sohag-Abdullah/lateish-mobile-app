@@ -46,12 +46,46 @@ export interface ApiPerfKpi {
   trendData: { month: string; value: number }[];
 }
 
+export interface DepletionsData {
+  summary: {
+    realisedNsv: number;
+    realisedNsvChangePct: number;
+    expectedNsv: number;
+    totalCases: number;
+    distributors: number;
+    markets: number;
+    skus: number;
+  };
+  monthlyTrend: { month: string; cases: number; nsv: number }[];
+  distributors: {
+    id: string;
+    name: string;
+    cases: number;
+    healthScore: number;
+    lastIngestion: string;
+    records: number;
+    status: string;
+  }[];
+  markets: { id: string; name: string; cases: number; nsv: number }[];
+  skus: { id: string; sku: string; name: string; cases: number; nsv: number }[];
+  records: {
+    id: string;
+    date: string;
+    distributor: string;
+    market: string;
+    sku: string;
+    cases: number;
+    nsv: number;
+    corridor: string;
+  }[];
+}
+
 export interface ApiPerformanceData {
   members: ApiPerfMember[];
   achievements: ApiPerfAchievement[];
   bonus: ApiBonusTracker;
   kpis: ApiPerfKpi[];
-  depletions?: unknown;
+  depletions: DepletionsData;
   vip?: unknown;
   integrations?: unknown;
 }
