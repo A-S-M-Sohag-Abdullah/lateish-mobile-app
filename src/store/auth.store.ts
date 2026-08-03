@@ -97,7 +97,10 @@ function profileFromSupabaseUser(u: User | null): SessionUser | null {
       "",
     first_name: (meta.first_name as string | null) ?? null,
     last_name: (meta.last_name as string | null) ?? null,
-    avatar_url: (meta.avatar_url as string | null) ?? null,
+    avatar_url:
+      (meta.avatar_url as string | null) ??
+      (meta.picture as string | null) ??
+      null,
   };
 }
 

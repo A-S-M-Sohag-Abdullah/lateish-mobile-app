@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import {
   Activity,
   MapPin,
@@ -19,6 +20,7 @@ import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth.store";
 
 type ActivityType =
   | "win"
@@ -46,6 +48,7 @@ interface ApiTeamMember {
   name: string;
   status: string;
   isOnline: boolean;
+  avatarUrl: string | null;
 }
 interface ActivityHubData {
   onlineCount: number;
@@ -90,19 +93,25 @@ function Avatar({
   initials,
   size = 20,
   dot,
+  uri,
 }: {
   initials: string;
   size?: number;
   dot?: "online" | "offline";
+  uri?: string | null;
 }) {
   return (
     <View
       style={{ width: size, height: size }}
-      className="items-center justify-center rounded-full bg-white/10"
+      className="items-center justify-center overflow-hidden rounded-full bg-white/10"
     >
-      <Text className="font-semibold text-white" style={{ fontSize: size * 0.4 }}>
-        {initials}
-      </Text>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} contentFit="cover" />
+      ) : (
+        <Text className="font-semibold text-white" style={{ fontSize: size * 0.4 }}>
+          {initials}
+        </Text>
+      )}
       {dot ? (
         <View
           className={cn(
@@ -175,6 +184,7 @@ function MemberRow({ member }: { member: ApiTeamMember }) {
         initials={member.initials}
         size={36}
         dot={member.isOnline ? "online" : "offline"}
+        uri={member.avatarUrl}
       />
       <View className="flex-1">
         <Text className="text-sm font-medium">{member.name}</Text>
@@ -190,6 +200,8 @@ export function ActivityHubView() {
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
   const { onlineUserIds } = usePresence();
+  const myUserId = useAuthStore((s) => s.session?.user?.id);
+  const myAvatar = useAuthStore((s) => s.profile?.avatar_url ?? null);
   const [filter, setFilter] = useState<Filter>("all");
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -199,10 +211,16 @@ export function ActivityHubView() {
   });
 
   const activities = data?.activities ?? [];
-  // Override isOnline / status from live Supabase Realtime presence.
+  // Override isOnline / status from live Supabase Realtime presence, and fall
+  // back to my own auth avatar (e.g. Google picture) for my row.
   const teamMembers = (data?.teamMembers ?? []).map((m) => {
     const isOnline = onlineUserIds.has(m.userId);
-    return { ...m, isOnline, status: isOnline ? "Online now" : m.status };
+    return {
+      ...m,
+      isOnline,
+      status: isOnline ? "Online now" : m.status,
+      avatarUrl: m.avatarUrl ?? (m.userId === myUserId ? myAvatar : null),
+    };
   });
   const summary = data?.summary ?? { visits: 0, orders: 0, newListings: 0, revenue: "" };
   const onlineCount = teamMembers.filter((m) => m.isOnline).length;
@@ -232,7 +250,7 @@ export function ActivityHubView() {
                 style={{ marginLeft: idx === 0 ? 0 : -8 }}
                 className="rounded-full border-2 border-background"
               >
-                <Avatar initials={m.initials} size={28} />
+                <Avatar initials={m.initials} size={28} uri={m.avatarUrl} />
               </View>
             ))}
           </View>

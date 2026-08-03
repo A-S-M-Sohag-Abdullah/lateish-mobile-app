@@ -13,6 +13,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react-native";
+import { Image } from "expo-image";
 import { Fragment } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
@@ -125,8 +126,16 @@ export function ProfilePage() {
         <View className="gap-2">
           <Text className="text-sm text-muted-foreground">Profile Settings</Text>
           <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-white/[0.03] p-4">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-[#1C3A69]">
-              <Text className="text-lg font-semibold text-white">{initials}</Text>
+            <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#1C3A69]">
+              {profile?.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={{ width: 56, height: 56 }}
+                  contentFit="cover"
+                />
+              ) : (
+                <Text className="text-lg font-semibold text-white">{initials}</Text>
+              )}
             </View>
             <View className="flex-1">
               <Text className="text-lg font-bold">{name}</Text>
