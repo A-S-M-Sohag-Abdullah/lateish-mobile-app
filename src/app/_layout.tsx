@@ -19,6 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BrandSplash } from "@/components/brand/splash";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { Sidebar } from "@/components/layout/sidebar";
+import { PresenceProvider } from "@/components/providers/presence-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider, useTheme } from "@/contexts/theme-context";
 import { useThemeColors } from "@/hooks/use-theme-colors";
@@ -135,16 +136,18 @@ function AppShell() {
       {/* Mounted underneath the splash so the first screen is laid out and
           painted before the fade begins. */}
       {ready ? (
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="setup" />
-        </Stack>
+        <PresenceProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="setup" />
+          </Stack>
+        </PresenceProvider>
       ) : null}
 
       {/* Hosted here (above the navigator) so the drawer overlays every route,

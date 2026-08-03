@@ -14,6 +14,7 @@ import {
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { usePresence } from "@/components/providers/presence-provider";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { api } from "@/lib/api";
@@ -188,6 +189,7 @@ function MemberRow({ member }: { member: ApiTeamMember }) {
 export function ActivityHubView() {
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
+  const { onlineUserIds } = usePresence();
   const [filter, setFilter] = useState<Filter>("all");
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -197,9 +199,13 @@ export function ActivityHubView() {
   });
 
   const activities = data?.activities ?? [];
-  const teamMembers = data?.teamMembers ?? [];
+  // Override isOnline / status from live Supabase Realtime presence.
+  const teamMembers = (data?.teamMembers ?? []).map((m) => {
+    const isOnline = onlineUserIds.has(m.userId);
+    return { ...m, isOnline, status: isOnline ? "Online now" : m.status };
+  });
   const summary = data?.summary ?? { visits: 0, orders: 0, newListings: 0, revenue: "" };
-  const onlineCount = data?.onlineCount ?? teamMembers.filter((m) => m.isOnline).length;
+  const onlineCount = teamMembers.filter((m) => m.isOnline).length;
   const totalCount = data?.totalCount ?? teamMembers.length;
   const headerAvatars = teamMembers.filter((m) => m.isOnline).slice(0, 3);
 
