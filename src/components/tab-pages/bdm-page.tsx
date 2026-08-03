@@ -382,111 +382,148 @@ function InvestmentTab() {
       </View>
 
       {/* Projection */}
-      <Text className="text-xl font-bold">12-Month CPC & Margin Projection</Text>
+      <View className="gap-1">
+        <Text className="text-xl font-bold">12-Month Projection</Text>
+        <Text className="text-sm text-muted-foreground">
+          CPC trajectory and cumulative margin
+        </Text>
+      </View>
       <InvestmentChart cpc={sim.cpc} margin={sim.margin} />
     </View>
   );
 }
 
-const IC_H = 230;
-const IC_PAD_T = 10;
+const IC_H = 250;
+const IC_PAD_T = 12;
 const IC_PAD_B = 26;
-const IC_PAD_L = 34;
+const IC_PAD_L = 30;
+const IC_PAD_R = 40;
+const IC_CPC = "#3B82F6";
+const IC_MARGIN = "#22C55E";
+const IC_FRACTIONS = [0, 0.25, 0.5, 0.75, 1];
 
+/**
+ * Dual-axis projection — mirrors the web sim chart: CPC (blue) on the left axis
+ * fixed to 0–60, cumulative margin (green) on an auto-scaled right axis in $k,
+ * with a red dashed zero line for margin.
+ */
 function InvestmentChart({ cpc, margin }: { cpc: number[]; margin: number[] }) {
   const [w, setW] = useState(0);
   const plotH = IC_H - IC_PAD_T - IC_PAD_B;
   const n = cpc.length;
-  // CPC drives the axis; cumulative margin is scaled onto the same axis so both
-  // trend lines stay visible (margin is in currency, CPC in $/case).
-  const axisMax = Math.max(1, ...cpc.map((v) => Math.ceil(v)));
-  const maxMargin = Math.max(1, ...margin.map((v) => Math.abs(v)));
-  const marginScaled = margin.map((v) => (v / maxMargin) * axisMax);
-  const yValues = [1, 0.75, 0.5, 0.25, 0].map((f) => Math.round(axisMax * f));
 
-  const innerW = Math.max(0, w - IC_PAD_L - 8);
-  const x = (i: number) => IC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
-  const y = (v: number) => IC_PAD_T + (1 - v / axisMax) * plotH;
-  const y0 = IC_PAD_T + plotH;
+  const cpcMax = 60; // matches the web's fixed left-axis domain
+  const mMax = Math.max(1, ...margin);
+  const mMin = Math.min(0, ...margin);
+  const mRange = mMax - mMin || 1;
 
-  const cpcPts = cpc.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const marginPts = marginScaled.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const plotW = Math.max(0, w - IC_PAD_L - IC_PAD_R);
+  const x = (i: number) => IC_PAD_L + (n <= 1 ? 0 : (i * plotW) / (n - 1));
+  const yL = (v: number) => IC_PAD_T + (1 - v / cpcMax) * plotH;
+  const yR = (v: number) => IC_PAD_T + (1 - (v - mMin) / mRange) * plotH;
+  const rightAxisX = IC_PAD_L + plotW;
+
+  const cpcPts = cpc.map((v, i) => `${x(i)},${yL(v)}`).join(" ");
+  const marginPts = margin.map((v, i) => `${x(i)},${yR(v)}`).join(" ");
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       {w > 0 && n > 0 ? (
         <Svg width={w} height={IC_H}>
-          {yValues.map((v) => (
-            <Line
-              key={`g${v}`}
-              x1={IC_PAD_L}
-              x2={w}
-              y1={y(v)}
-              y2={y(v)}
-              stroke="rgba(255,255,255,0.06)"
-              strokeWidth={1}
-            />
-          ))}
-          {yValues.map((v) => (
+          {/* gridlines + left (CPC) / right (margin) axis labels */}
+          {IC_FRACTIONS.map((f, i) => {
+            const gy = IC_PAD_T + f * plotH;
+            return (
+              <Line
+                key={`g${i}`}
+                x1={IC_PAD_L}
+                x2={rightAxisX}
+                y1={gy}
+                y2={gy}
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth={1}
+              />
+            );
+          })}
+          {IC_FRACTIONS.map((f, i) => (
             <SvgText
-              key={`yl${v}`}
+              key={`ylL${i}`}
               x={IC_PAD_L - 6}
-              y={y(v) + 3}
-              fontSize={10}
-              fill="#94A3B8"
+              y={IC_PAD_T + f * plotH + 3}
+              fontSize={9}
+              fill={IC_CPC}
               textAnchor="end"
             >
-              {`$${v}`}
+              {`$${Math.round(cpcMax * (1 - f))}`}
             </SvgText>
           ))}
-          {cpc.map((_, i) => (
+          {IC_FRACTIONS.map((f, i) => (
+            <SvgText
+              key={`ylR${i}`}
+              x={rightAxisX + 4}
+              y={IC_PAD_T + f * plotH + 3}
+              fontSize={9}
+              fill={IC_MARGIN}
+              textAnchor="start"
+            >
+              {`$${Math.round((mMax - f * mRange) / 1000)}k`}
+            </SvgText>
+          ))}
+
+          {/* red dashed margin zero-line */}
+          {mMin < 0 && mMax > 0 ? (
             <Line
-              key={`v${i}`}
-              x1={x(i)}
-              x2={x(i)}
-              y1={IC_PAD_T}
-              y2={y0}
-              stroke="rgba(255,255,255,0.06)"
-              strokeWidth={1}
+              x1={IC_PAD_L}
+              x2={rightAxisX}
+              y1={yR(0)}
+              y2={yR(0)}
+              stroke="#EF4444"
+              strokeWidth={1.5}
               strokeDasharray="4 4"
             />
-          ))}
-          {/* red baseline at 0 */}
-          <Line
-            x1={IC_PAD_L}
-            x2={w}
-            y1={y(0)}
-            y2={y(0)}
-            stroke="#EF4444"
-            strokeWidth={1}
-            strokeDasharray="5 4"
-          />
-          {/* CPC (white) */}
-          <Polyline points={cpcPts} fill="none" stroke="#FFFFFF" strokeWidth={2.5} />
+          ) : null}
+
+          {/* CPC (blue, left axis) */}
+          <Polyline points={cpcPts} fill="none" stroke={IC_CPC} strokeWidth={2.5} />
           {cpc.map((v, i) => (
-            <Circle key={`c${i}`} cx={x(i)} cy={y(v)} r={3.5} fill="#FFFFFF" />
+            <Circle key={`c${i}`} cx={x(i)} cy={yL(v)} r={3} fill={IC_CPC} />
           ))}
-          {/* Margin (green) */}
-          <Polyline points={marginPts} fill="none" stroke="#22C55E" strokeWidth={2.5} />
-          {marginScaled.map((v, i) => (
-            <Circle key={`m${i}`} cx={x(i)} cy={y(v)} r={3.5} fill="#22C55E" />
+          {/* Cumulative margin (green, right axis) */}
+          <Polyline points={marginPts} fill="none" stroke={IC_MARGIN} strokeWidth={2.5} />
+          {margin.map((v, i) => (
+            <Circle key={`m${i}`} cx={x(i)} cy={yR(v)} r={3} fill={IC_MARGIN} />
           ))}
-          {cpc.map((_, i) => (
-            <SvgText
-              key={`x${i}`}
-              x={x(i)}
-              y={IC_H - 6}
-              fontSize={10}
-              fill="#94A3B8"
-              textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
-            >
-              {`M${i + 1}`}
-            </SvgText>
-          ))}
+
+          {/* x labels — every other month to avoid crowding */}
+          {cpc.map((_, i) =>
+            i % 2 === 0 || i === n - 1 ? (
+              <SvgText
+                key={`x${i}`}
+                x={x(i)}
+                y={IC_H - 6}
+                fontSize={9}
+                fill="#94A3B8"
+                textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+              >
+                {`M${i + 1}`}
+              </SvgText>
+            ) : null,
+          )}
         </Svg>
       ) : (
         <View style={{ height: IC_H }} />
       )}
+      {/* legend */}
+      <View className="mt-1 flex-row justify-center gap-4">
+        <View className="flex-row items-center gap-1.5">
+          <View style={{ width: 12, height: 3, borderRadius: 2, backgroundColor: IC_CPC }} />
+          <Text className="text-xs text-muted-foreground">CPC</Text>
+        </View>
+        <View className="flex-row items-center gap-1.5">
+          <View style={{ width: 12, height: 3, borderRadius: 2, backgroundColor: IC_MARGIN }} />
+          <Text className="text-xs text-muted-foreground">Cumulative Margin</Text>
+        </View>
+      </View>
     </View>
   );
 }
