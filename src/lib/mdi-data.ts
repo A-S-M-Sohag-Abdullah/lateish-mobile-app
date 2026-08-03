@@ -57,40 +57,6 @@ export const CONFIDENCE_SCORES = ["High", "Medium", "Low"] as const;
 
 export const QUANTITIES = ["6", "12", "18", "24", "30", "48"] as const;
 
-export const SALES_CHANNELS = [
-  "Select primary channel",
-  "Modern Cocktail Bar",
-  "Aspiring Cocktail Bar",
-  "High-Volume Cocktail Bar",
-  "Hatted / Starred Restaurant",
-  "Elevated Dining",
-  "Traditional Pub",
-  "Specialist Retailer",
-  "Luxury / Prestige Retail",
-] as const;
-
-export const SKUS = [
-  "Select SKU",
-  "Broken Barrier Gin 70cl",
-  "Esther Rum 70cl",
-  "Premium Vodka 70cl",
-  "Heritage Whisky 70cl",
-] as const;
-
-export const DISTRIBUTORS = [
-  "Select distributor",
-  "Metro Beverage Co.",
-  "Coastal Distributors",
-  "Premier Wine & Spirits",
-] as const;
-
-export const PRICE_BANDS = [
-  "Select price band",
-  "£ Value",
-  "££ Mid",
-  "£££ Premium",
-] as const;
-
 // ── Analytics tab — shared section shapes ────────────────────────────────────
 
 export interface StatTile {

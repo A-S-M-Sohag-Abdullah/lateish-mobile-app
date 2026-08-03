@@ -92,7 +92,9 @@ export default function MdiScreen() {
 
         {/* Active tab */}
         {tab === "All Intents" ? <IntentsTab /> : null}
-        {tab === "Create" ? <CreateTab /> : null}
+        {tab === "Create" ? (
+          <CreateTab onCreated={() => setTab("All Intents")} />
+        ) : null}
         {tab === "Analytics" ? <AnalyticsTab /> : null}
       </ScrollView>
 
