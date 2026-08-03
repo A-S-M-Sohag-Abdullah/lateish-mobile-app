@@ -6,7 +6,6 @@ import {
   Calendar,
   ChartColumn,
   Check,
-  CircleCheck,
   MapPin,
   Target as TargetIcon,
   TrendingDown,
@@ -24,7 +23,7 @@ import Svg, {
 
 import Slider from "@react-native-community/slider";
 
-import { CustomKpisTab } from "@/components/performance/custom-kpis-tab";
+import { CostAccountabilitySection } from "@/components/bdm-efficiency/cost-accountability-section";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Progress } from "@/components/ui/progress";
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
@@ -33,7 +32,11 @@ import { useThemeColors } from "@/hooks/use-theme-colors";
 import { usePagerLock } from "@/store/pager-lock.store";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { cn } from "@/lib/utils";
-import { currencySymbol, useBdmEfficiency } from "@/hooks/use-bdm-efficiency";
+import {
+  currencySymbol,
+  periodDaysFor,
+  useBdmEfficiency,
+} from "@/hooks/use-bdm-efficiency";
 import { EMPTY_BDM, mapBdmData, type MappedBdm } from "@/lib/bdm-map";
 import {
   BDM_INNER_TABS,
@@ -41,7 +44,6 @@ import {
   BDM_PERIODS,
   BDM_SCORE_MAX,
   BENCHMARKING_TABS,
-  COST_ACCT_TABS,
   FORECAST_PERIODS,
   RADAR_AXES,
   type AttrSummary,
@@ -71,11 +73,12 @@ export function BdmPage() {
   const [outer, setOuter] = useState<string>("Efficiency ROI");
   const [inner, setInner] = useState<string>("Efficiency");
   const [benchInner, setBenchInner] = useState<string>("Benchmarks");
-  const [costInner, setCostInner] = useState<string>("Overview");
   const [forecastPeriod, setForecastPeriod] = useState<string>("6mo");
   const [period, setPeriod] = useState<string>("This Month");
   const [anon, setAnon] = useState(true);
 
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
   const { data, symbol } = useBdmEfficiency(period);
   const bdm = useMemo(
     () => (data ? mapBdmData(data, symbol) : EMPTY_BDM),
@@ -200,7 +203,11 @@ export function BdmPage() {
         ) : outer === "Benchmarking" ? (
           <BenchmarkingTab inner={benchInner} onChange={setBenchInner} />
         ) : outer === "Cost Accountability" ? (
-          <CostAccountabilityTab inner={costInner} onChange={setCostInner} />
+          <CostAccountabilitySection
+            orgId={orgId}
+            periodDays={periodDaysFor(period)}
+            symbol={symbol}
+          />
         ) : outer === "Forecasting" ? (
           <ForecastingTab period={forecastPeriod} onPeriod={setForecastPeriod} />
         ) : outer === "Portfolio" ? (
@@ -854,74 +861,6 @@ function ForecastChart() {
       ) : (
         <View style={{ height: FC_H }} />
       )}
-    </View>
-  );
-}
-
-// ── Cost Accountability outer tab ────────────────────────────────────────────
-
-function CostAccountabilityTab({
-  inner,
-  onChange,
-}: {
-  inner: string;
-  onChange: (t: string) => void;
-}) {
-  return (
-    <View className="gap-5">
-      <TabRow tabs={COST_ACCT_TABS} value={inner} onChange={onChange} />
-
-      {inner === "Overview" ? (
-        <View className="gap-4">
-          {/* Reuses the Custom KPI Tracker from the Activity Log page. */}
-          <CustomKpisTab />
-          <View className="items-center gap-3 rounded-2xl border border-border bg-card p-6">
-            <CircleCheck color="#22C55E" size={40} />
-            <Text className="text-sm text-muted-foreground">
-              No alerts - all BDM costs are on track!
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <CostEmptyState name={inner} />
-      )}
-    </View>
-  );
-}
-
-const COST_EMPTY: Record<
-  string,
-  { lines: string[]; emphasis?: boolean }
-> = {
-  "Log Cost": { lines: ["Select a specific BDM to log costs"], emphasis: true },
-  Trends: {
-    lines: [
-      "No historical data available yet",
-      "Start tracking BDM costs to see trends",
-    ],
-  },
-  Compare: { lines: ["Select a specific BDM to compare"] },
-  Milestone: { lines: ["Select a specific BDM to manage milestones"] },
-  Reports: { lines: ["Select a specific BDM to manage reports"] },
-};
-
-function CostEmptyState({ name }: { name: string }) {
-  const cfg = COST_EMPTY[name] ?? { lines: [`No ${name} data yet`] };
-  return (
-    <View className="items-center gap-1 py-32">
-      {cfg.lines.map((line, i) => (
-        <Text
-          key={i}
-          className={cn(
-            "text-center",
-            cfg.emphasis
-              ? "text-2xl font-bold"
-              : "text-base text-muted-foreground",
-          )}
-        >
-          {line}
-        </Text>
-      ))}
     </View>
   );
 }

@@ -30,15 +30,6 @@ export const BDM_PERIODS = [
   "This Year",
 ] as const;
 
-export const COST_ACCT_TABS = [
-  "Overview",
-  "Log Cost",
-  "Trends",
-  "Compare",
-  "Milestone",
-  "Reports",
-] as const;
-
 export const BENCHMARKING_TABS = [
   "Benchmarks",
   "What Works",

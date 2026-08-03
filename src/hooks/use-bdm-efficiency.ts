@@ -23,6 +23,8 @@ const CURRENCY_SYMBOL: Record<string, string> = {
 export const currencySymbol = (currency?: string) =>
   CURRENCY_SYMBOL[currency ?? ""] ?? "£";
 
+export const periodDaysFor = (label: string) => PERIOD_DAYS[label] ?? 30;
+
 /**
  * Fetches the single `bdm-efficiency` payload that powers every tab of the BDM
  * screen. Mirrors the web app's `bdmEfficiencyApi.get`.
