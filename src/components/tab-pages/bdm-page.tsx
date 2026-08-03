@@ -11,7 +11,7 @@ import {
   Target as TargetIcon,
   TrendingDown,
 } from "lucide-react-native";
-import { useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Svg, {
   Circle,
@@ -31,65 +31,19 @@ import { StatCard, type GradientColors } from "@/components/ui/stat-card";
 import { Text } from "@/components/ui/text";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { usePagerLock } from "@/store/pager-lock.store";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { cn } from "@/lib/utils";
+import { currencySymbol, useBdmEfficiency } from "@/hooks/use-bdm-efficiency";
+import { EMPTY_BDM, mapBdmData, type MappedBdm } from "@/lib/bdm-map";
 import {
   BDM_INNER_TABS,
   BDM_OUTER_TABS,
   BDM_PERIODS,
   BDM_SCORE_MAX,
-  BDM_STATS,
-  BDM_TERRITORIES,
-  ATTR_BAR_TICKS,
-  ATTR_BARS,
-  ATTR_BREAKDOWN,
-  ATTR_SUMMARY,
-  CHANNEL_AXIS_MAX,
-  CHANNEL_BARS,
-  CHANNEL_SUMMARY,
-  CHANNEL_TABLE,
-  CHANNEL_TICKS,
-  CPC_AXIS_MAX,
-  CPC_TARGET,
-  CPC_TRAJECTORY,
-  CPC_TREND,
-  CPC_X_LABELS,
-  CPC_Y_TICKS,
-  COSTS_TABLE,
-  BDM_PERFORMANCE,
   BENCHMARKING_TABS,
-  COMPARE_BDMS,
-  COMPARE_TABLE,
-  CONVERGENCE,
   COST_ACCT_TABS,
-  CURRENT_CPC,
-  RADAR_ALPHA,
-  RADAR_AXES,
-  RADAR_BETA,
-  RADAR_TOP25,
-  FORECAST_AXIS_MAX,
-  FORECAST_LINE,
   FORECAST_PERIODS,
-  FORECAST_TARGET,
-  FORECAST_X_LABELS,
-  FORECAST_Y_VALUES,
-  GOAL_SETTINGS,
-  INVEST_AXIS_MAX,
-  INVEST_CPC,
-  INVEST_MARGIN,
-  INVEST_OUTPUTS,
-  INVEST_SLIDERS,
-  INVEST_X_LABELS,
-  INVEST_Y_VALUES,
-  TARGET_CPC,
-  WHAT_GOOD_LOOKS_LIKE,
-  WHAT_WORKS_ROWS,
-  EFFICIENCY_TREND,
-  SCATTER_AXIS_MAX,
-  SCATTER_X_LABELS,
-  SCATTER_Y_TICKS,
-  TREND_SCATTER,
-  MARKET_TIERS,
-  NORM_ROWS,
+  RADAR_AXES,
   type AttrSummary,
   type Maturity,
   type MarketTier,
@@ -107,6 +61,11 @@ const MATURITY: Record<Maturity, { bg: string; text: string }> = {
   Emerging: { bg: "bg-amber-500/15", text: "text-amber-400" },
 };
 
+// The mapped BDM payload is shared with every tab via context so the existing
+// markup keeps rendering the same shapes, now sourced from the live endpoint.
+const BdmDataContext = createContext<MappedBdm>(EMPTY_BDM);
+const useBdm = () => useContext(BdmDataContext);
+
 export function BdmPage() {
   const colors = useThemeColors();
   const [outer, setOuter] = useState<string>("Efficiency ROI");
@@ -117,12 +76,19 @@ export function BdmPage() {
   const [period, setPeriod] = useState<string>("This Month");
   const [anon, setAnon] = useState(true);
 
-  const statRows = [];
-  for (let i = 0; i < BDM_STATS.length; i += 2) {
-    statRows.push(BDM_STATS.slice(i, i + 2));
+  const { data, symbol } = useBdmEfficiency(period);
+  const bdm = useMemo(
+    () => (data ? mapBdmData(data, symbol) : EMPTY_BDM),
+    [data, symbol],
+  );
+
+  const statRows: MappedBdm["stats"][] = [];
+  for (let i = 0; i < bdm.stats.length; i += 2) {
+    statRows.push(bdm.stats.slice(i, i + 2));
   }
 
   return (
+    <BdmDataContext.Provider value={bdm}>
     <View className="flex-1 bg-background">
       <ScrollView
         contentContainerClassName="gap-5 px-4 pb-16 pt-3"
@@ -213,7 +179,7 @@ export function BdmPage() {
                     adjusted for market maturity
                   </Text>
                 </View>
-                {BDM_TERRITORIES.map((t) => (
+                {bdm.territories.map((t) => (
                   <TerritoryCard key={t.name} territory={t} />
                 ))}
               </View>
@@ -246,18 +212,73 @@ export function BdmPage() {
         )}
       </ScrollView>
     </View>
+    </BdmDataContext.Provider>
   );
 }
 
 // ── Investment (simulator) outer tab ─────────────────────────────────────────
 
 function InvestmentTab() {
-  const outRows = [INVEST_OUTPUTS.slice(0, 2), INVEST_OUTPUTS.slice(2, 4)];
-  const [values, setValues] = useState(() =>
-    INVEST_SLIDERS.map((s) => s.value),
-  );
+  const { currentOrg } = useOrganizations();
+  const symbol = currencySymbol(currentOrg?.currency);
+  const { investSliders } = useBdm();
+  const [values, setValues] = useState<number[]>([]);
+  useEffect(() => {
+    setValues(investSliders.map((s) => s.value));
+  }, [investSliders]);
   // Freeze the pager while dragging a slider so the screen doesn't swipe.
   const setLocked = usePagerLock((s) => s.setLocked);
+
+  // Client-side "what-if" projection — mirrors the web simulator formula.
+  const [retainer, startCases, commission, growthPct, travel, nsv] = [
+    values[0] ?? 0,
+    values[1] ?? 0,
+    values[2] ?? 0,
+    values[3] ?? 0,
+    values[4] ?? 0,
+    values[5] ?? 0,
+  ];
+  const sim = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, i) => {
+      const n = i + 1;
+      const cases = Math.round(startCases * Math.pow(1 + growthPct / 100, n - 1));
+      const bdmCost = retainer + travel + commission * cases;
+      const cpc = cases > 0 ? bdmCost / cases : 0;
+      const revenue = cases * nsv;
+      return { cpc: Math.round(cpc * 100) / 100, margin: revenue - bdmCost, revenue };
+    });
+    let cum = 0;
+    const cpc: number[] = [];
+    const margin: number[] = [];
+    let breakEven: number | null = null;
+    months.forEach((m, i) => {
+      cum += m.margin;
+      cpc.push(m.cpc);
+      margin.push(cum);
+      if (breakEven === null && cum > 0) breakEven = i + 1;
+    });
+    const totalRevenue = months.reduce((s, m) => s + m.revenue, 0);
+    return {
+      cpc,
+      margin,
+      breakEven,
+      cpcM6: months[5]?.cpc ?? 0,
+      finalMargin: cum,
+      marginalReturn: retainer > 0 ? Math.round(totalRevenue / (retainer * 12)) : 0,
+    };
+  }, [retainer, startCases, commission, growthPct, travel, nsv]);
+
+  const outputs = [
+    { label: "Break even month", value: sim.breakEven ? `Month ${sim.breakEven}` : "Never" },
+    { label: "CPC at Month 6", value: sim.cpcM6.toFixed(2) },
+    {
+      label: "12-Month Margin",
+      value: `${symbol}${Math.round(sim.finalMargin).toLocaleString("en-US")}`,
+      green: true,
+    },
+    { label: "Marginal Return", value: `${sim.marginalReturn}x` },
+  ];
+  const outRows = [outputs.slice(0, 2), outputs.slice(2, 4)];
 
   return (
     <View className="gap-5">
@@ -266,7 +287,7 @@ function InvestmentTab() {
 
       {/* Sliders */}
       <View className="gap-5">
-        {INVEST_SLIDERS.map((s, idx) => (
+        {investSliders.map((s, idx) => (
           <View
             key={s.label}
             className="gap-1"
@@ -292,7 +313,7 @@ function InvestmentTab() {
             />
             <Text className="text-sm font-medium">
               {s.prefix}
-              {values[idx].toLocaleString("en-US")}
+              {(values[idx] ?? s.value).toLocaleString("en-US")}
               {s.suffix}
             </Text>
           </View>
@@ -319,7 +340,7 @@ function InvestmentTab() {
 
       {/* Projection */}
       <Text className="text-xl font-bold">12-Month CPC & Margin Projection</Text>
-      <InvestmentChart />
+      <InvestmentChart cpc={sim.cpc} margin={sim.margin} />
     </View>
   );
 }
@@ -329,23 +350,30 @@ const IC_PAD_T = 10;
 const IC_PAD_B = 26;
 const IC_PAD_L = 34;
 
-function InvestmentChart() {
+function InvestmentChart({ cpc, margin }: { cpc: number[]; margin: number[] }) {
   const [w, setW] = useState(0);
   const plotH = IC_H - IC_PAD_T - IC_PAD_B;
-  const n = INVEST_CPC.length;
+  const n = cpc.length;
+  // CPC drives the axis; cumulative margin is scaled onto the same axis so both
+  // trend lines stay visible (margin is in currency, CPC in $/case).
+  const axisMax = Math.max(1, ...cpc.map((v) => Math.ceil(v)));
+  const maxMargin = Math.max(1, ...margin.map((v) => Math.abs(v)));
+  const marginScaled = margin.map((v) => (v / maxMargin) * axisMax);
+  const yValues = [1, 0.75, 0.5, 0.25, 0].map((f) => Math.round(axisMax * f));
+
   const innerW = Math.max(0, w - IC_PAD_L - 8);
   const x = (i: number) => IC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
-  const y = (v: number) => IC_PAD_T + (1 - v / INVEST_AXIS_MAX) * plotH;
+  const y = (v: number) => IC_PAD_T + (1 - v / axisMax) * plotH;
   const y0 = IC_PAD_T + plotH;
 
-  const cpcPts = INVEST_CPC.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const marginPts = INVEST_MARGIN.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const cpcPts = cpc.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const marginPts = marginScaled.map((v, i) => `${x(i)},${y(v)}`).join(" ");
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && n > 0 ? (
         <Svg width={w} height={IC_H}>
-          {INVEST_Y_VALUES.map((v) => (
+          {yValues.map((v) => (
             <Line
               key={`g${v}`}
               x1={IC_PAD_L}
@@ -356,7 +384,7 @@ function InvestmentChart() {
               strokeWidth={1}
             />
           ))}
-          {INVEST_Y_VALUES.map((v) => (
+          {yValues.map((v) => (
             <SvgText
               key={`yl${v}`}
               x={IC_PAD_L - 6}
@@ -368,7 +396,7 @@ function InvestmentChart() {
               {`$${v}`}
             </SvgText>
           ))}
-          {INVEST_X_LABELS.map((_, i) => (
+          {cpc.map((_, i) => (
             <Line
               key={`v${i}`}
               x1={x(i)}
@@ -392,24 +420,24 @@ function InvestmentChart() {
           />
           {/* CPC (white) */}
           <Polyline points={cpcPts} fill="none" stroke="#FFFFFF" strokeWidth={2.5} />
-          {INVEST_CPC.map((v, i) => (
+          {cpc.map((v, i) => (
             <Circle key={`c${i}`} cx={x(i)} cy={y(v)} r={3.5} fill="#FFFFFF" />
           ))}
           {/* Margin (green) */}
           <Polyline points={marginPts} fill="none" stroke="#22C55E" strokeWidth={2.5} />
-          {INVEST_MARGIN.map((v, i) => (
+          {marginScaled.map((v, i) => (
             <Circle key={`m${i}`} cx={x(i)} cy={y(v)} r={3.5} fill="#22C55E" />
           ))}
-          {INVEST_X_LABELS.map((lbl, i) => (
+          {cpc.map((_, i) => (
             <SvgText
-              key={lbl}
+              key={`x${i}`}
               x={x(i)}
               y={IC_H - 6}
               fontSize={10}
               fill="#94A3B8"
               textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
             >
-              {lbl}
+              {`M${i + 1}`}
             </SvgText>
           ))}
         </Svg>
@@ -423,18 +451,17 @@ function InvestmentChart() {
 // ── Portfolio outer tab ──────────────────────────────────────────────────────
 
 function PortfolioTab() {
-  const [selected, setSelected] = useState(() =>
-    COMPARE_BDMS.map((b) => b.checked),
-  );
+  const { compareBdms, compareTable, portfolioNames } = useBdm();
+  const [selected, setSelected] = useState<boolean[]>([]);
+  useEffect(() => {
+    setSelected(compareBdms.map((b) => b.checked));
+  }, [compareBdms]);
 
   return (
     <View className="gap-5">
       <Text className="text-xl font-bold">Select BDMs to compare (max4)</Text>
       <View className="gap-3">
-        {[
-          COMPARE_BDMS.slice(0, 2),
-          COMPARE_BDMS.slice(2, 4),
-        ].map((row, ri) => (
+        {[compareBdms.slice(0, 2), compareBdms.slice(2, 4)].map((row, ri) => (
           <View key={ri} className="flex-row gap-3">
             {row.map((b, ci) => {
               const idx = ri * 2 + ci;
@@ -476,8 +503,8 @@ function PortfolioTab() {
       <Text className="text-xl font-bold">Multi-Dimensional Comparison</Text>
       <RadarChart />
       <View className="flex-row items-center justify-center gap-4">
-        <Text className="text-sm">Territory Alpha</Text>
-        <Text className="text-sm">Territory Beta</Text>
+        <Text className="text-sm">{portfolioNames[0]}</Text>
+        <Text className="text-sm">{portfolioNames[1]}</Text>
         <View className="flex-row items-center gap-1.5">
           <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: "#22C55E" }} />
           <Text className="text-sm text-green-500">Top 25%</Text>
@@ -491,13 +518,13 @@ function PortfolioTab() {
             Metric
           </Text>
           <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
-            Territory Alpha
+            {portfolioNames[0]}
           </Text>
           <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
-            Territory Beta
+            {portfolioNames[1]}
           </Text>
         </View>
-        {COMPARE_TABLE.map((r) => (
+        {compareTable.map((r) => (
           <View
             key={r.metric}
             className="flex-row items-center border-b border-border/50 py-3"
@@ -521,6 +548,7 @@ function PortfolioTab() {
 const RADAR_RINGS = [0.25, 0.5, 0.75, 1];
 
 function RadarChart() {
+  const { radarAlpha, radarBeta, radarTop25 } = useBdm();
   const [w, setW] = useState(0);
   const size = w;
   const cx = size / 2;
@@ -592,7 +620,7 @@ function RadarChart() {
           })}
           {/* Top 25% (green dashed) */}
           <Polygon
-            points={poly(RADAR_TOP25)}
+            points={poly(radarTop25)}
             fill="none"
             stroke="#22C55E"
             strokeWidth={1.5}
@@ -600,14 +628,14 @@ function RadarChart() {
           />
           {/* Beta */}
           <Polygon
-            points={poly(RADAR_BETA)}
+            points={poly(radarBeta)}
             fill="rgba(56,189,248,0.08)"
             stroke="#38BDF8"
             strokeWidth={1.5}
           />
           {/* Alpha */}
           <Polygon
-            points={poly(RADAR_ALPHA)}
+            points={poly(radarAlpha)}
             fill="rgba(255,255,255,0.06)"
             stroke="#FFFFFF"
             strokeWidth={2}
@@ -649,6 +677,7 @@ function ForecastingTab({
   onPeriod: (p: string) => void;
 }) {
   const colors = useThemeColors();
+  const { currentCpc, convergence, targetCpc } = useBdm();
   return (
     <View className="gap-5">
       {/* period selector */}
@@ -692,9 +721,9 @@ function ForecastingTab({
         <View className="flex-row gap-3">
           <View className="flex-1 gap-1 rounded-2xl border border-border bg-card p-4">
             <Text className="text-sm text-muted-foreground">Current CPC</Text>
-            <Text className="text-2xl font-bold">{CURRENT_CPC.value}</Text>
+            <Text className="text-2xl font-bold">{currentCpc.value}</Text>
             <Text className="text-xs text-muted-foreground">
-              {CURRENT_CPC.note}
+              {currentCpc.note}
             </Text>
           </View>
           <View className="flex-1 gap-1 rounded-2xl border border-border bg-card p-4">
@@ -702,7 +731,7 @@ function ForecastingTab({
               <Calendar color={colors.mutedForeground} size={14} />
               <Text className="text-sm text-muted-foreground">Convergence</Text>
             </View>
-            <Text className="text-base font-bold">{CONVERGENCE}</Text>
+            <Text className="text-base font-bold">{convergence}</Text>
           </View>
         </View>
         <View className="flex-row gap-3">
@@ -712,11 +741,11 @@ function ForecastingTab({
               <Text className="text-sm text-muted-foreground">Target CPC</Text>
             </View>
             <Text className="text-2xl font-bold text-green-500">
-              {TARGET_CPC.value}
+              {targetCpc.value}
             </Text>
             <View className="self-start rounded-md bg-secondary px-2 py-0.5">
               <Text className="text-xs text-muted-foreground">
-                {TARGET_CPC.gap}
+                {targetCpc.gap}
               </Text>
             </View>
           </View>
@@ -733,26 +762,33 @@ const FC_PAD_B = 30;
 const FC_PAD_L = 34;
 
 function ForecastChart() {
+  const {
+    forecastLine,
+    forecastTarget,
+    forecastAxisMax,
+    forecastYValues,
+    forecastXLabels,
+  } = useBdm();
   const [w, setW] = useState(0);
   const plotH = FC_H - FC_PAD_T - FC_PAD_B;
-  const n = FORECAST_LINE.length;
+  const n = forecastLine.length;
   const innerW = Math.max(0, w - FC_PAD_L - 8);
   const x = (i: number) => FC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
-  const y = (v: number) => FC_PAD_T + (1 - v / FORECAST_AXIS_MAX) * plotH;
+  const y = (v: number) => FC_PAD_T + (1 - v / forecastAxisMax) * plotH;
   const y0 = FC_PAD_T + plotH;
-  const months = FORECAST_X_LABELS.length;
+  const months = forecastXLabels.length;
   const mx = (m: number) =>
     FC_PAD_L + (months <= 1 ? 0 : (m * innerW) / (months - 1));
 
-  const linePts = FORECAST_LINE.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const areaPts = `${x(0)},${y0} ${linePts} ${x(n - 1)},${y0}`;
+  const linePts = forecastLine.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const areaPts = n > 0 ? `${x(0)},${y0} ${linePts} ${x(n - 1)},${y0}` : "";
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && n > 0 ? (
         <Svg width={w} height={FC_H}>
           {/* horizontal gridlines + y labels */}
-          {FORECAST_Y_VALUES.map((v) => (
+          {forecastYValues.map((v) => (
             <Line
               key={`g${v}`}
               x1={FC_PAD_L}
@@ -763,7 +799,7 @@ function ForecastChart() {
               strokeWidth={1}
             />
           ))}
-          {FORECAST_Y_VALUES.map((v) => (
+          {forecastYValues.map((v) => (
             <SvgText
               key={`yl${v}`}
               x={FC_PAD_L - 6}
@@ -776,7 +812,7 @@ function ForecastChart() {
             </SvgText>
           ))}
           {/* vertical dashed gridlines */}
-          {FORECAST_X_LABELS.map((_, m) => (
+          {forecastXLabels.map((_, m) => (
             <Line
               key={`v${m}`}
               x1={mx(m)}
@@ -795,14 +831,14 @@ function ForecastChart() {
           <Line
             x1={FC_PAD_L}
             x2={w}
-            y1={y(FORECAST_TARGET)}
-            y2={y(FORECAST_TARGET)}
+            y1={y(forecastTarget)}
+            y2={y(forecastTarget)}
             stroke="#22C55E"
             strokeWidth={1.5}
             strokeDasharray="6 4"
           />
           {/* x month labels */}
-          {FORECAST_X_LABELS.map((lbl, m) => (
+          {forecastXLabels.map((lbl, m) => (
             <SvgText
               key={lbl}
               x={mx(m)}
@@ -899,6 +935,7 @@ function BenchmarkingTab({
   inner: string;
   onChange: (t: string) => void;
 }) {
+  const { whatGoodLooksLike } = useBdm();
   return (
     <View className="gap-5">
       <TabRow tabs={BENCHMARKING_TABS} value={inner} onChange={onChange} />
@@ -908,7 +945,7 @@ function BenchmarkingTab({
           <Text className="text-lg font-bold text-amber-400">
             What Good Looks Like
           </Text>
-          {WHAT_GOOD_LOOKS_LIKE.map((p, i) => (
+          {whatGoodLooksLike.map((p, i) => (
             <Text key={i} className="text-base leading-6">
               {p}
             </Text>
@@ -927,6 +964,7 @@ function BenchmarkingTab({
 
 function GoalSettingsView() {
   const colors = useThemeColors();
+  const { goalSettings } = useBdm();
   return (
     <View className="gap-4">
       <View className="gap-1">
@@ -942,7 +980,7 @@ function GoalSettingsView() {
         </Text>
       </View>
 
-      {GOAL_SETTINGS.map((g, i) => (
+      {goalSettings.map((g, i) => (
         <View
           key={i}
           className="gap-3 rounded-2xl border border-border bg-card p-4"
@@ -997,6 +1035,7 @@ const UPLIFT_TONE: Record<
 };
 
 function WhatWorks() {
+  const { whatWorksRows } = useBdm();
   return (
     <View className="gap-4">
       <View className="gap-1">
@@ -1024,7 +1063,7 @@ function WhatWorks() {
             Days to Impact
           </Text>
         </View>
-        {WHAT_WORKS_ROWS.map((r) => {
+        {whatWorksRows.map((r) => {
           const t = UPLIFT_TONE[r.tone];
           return (
             <View
@@ -1166,6 +1205,7 @@ function TerritoryCard({ territory: t }: { territory: Territory }) {
 // ── Costs inner tab ──────────────────────────────────────────────────────────
 
 function CostsTab() {
+  const { costsTable } = useBdm();
   return (
     <View>
       <View className="flex-row border-b border-border pb-2">
@@ -1182,7 +1222,7 @@ function CostsTab() {
           Cost/Menu
         </Text>
       </View>
-      {COSTS_TABLE.map((r) => (
+      {costsTable.map((r) => (
         <View
           key={r.bdm}
           className="flex-row items-center border-b border-border/50 py-3"
@@ -1215,6 +1255,7 @@ function CostsTab() {
 
 function TrendsTab() {
   const colors = useThemeColors();
+  const { cpcTrend, efficiencyTrend, bdmPerformance } = useBdm();
   return (
     <View className="gap-4">
       {/* CPC Trend */}
@@ -1224,13 +1265,13 @@ function TrendsTab() {
           <ArrowUpRight color="#22C55E" size={18} />
         </View>
         <View className="flex-row items-baseline gap-2">
-          <Text className="text-2xl font-bold">{CPC_TREND.value}</Text>
+          <Text className="text-2xl font-bold">{cpcTrend.value}</Text>
           <Text className="text-sm text-muted-foreground">
-            → {CPC_TREND.target} target
+            → {cpcTrend.target} target
           </Text>
         </View>
         <Text className="text-xs text-muted-foreground">
-          {CPC_TREND.subtitle}
+          {cpcTrend.subtitle}
         </Text>
       </View>
 
@@ -1241,15 +1282,15 @@ function TrendsTab() {
           <ArrowUpRight color="#22C55E" size={18} />
         </View>
         <View className="flex-row items-center gap-2">
-          <Text className="text-2xl font-bold">{EFFICIENCY_TREND.value}</Text>
+          <Text className="text-2xl font-bold">{efficiencyTrend.value}</Text>
           <View className="rounded-md bg-green-500/15 px-2 py-0.5">
             <Text className="text-xs font-medium text-green-400">
-              {EFFICIENCY_TREND.change}
+              {efficiencyTrend.change}
             </Text>
           </View>
         </View>
         <Text className="text-xs text-muted-foreground">
-          {EFFICIENCY_TREND.subtitle}
+          {efficiencyTrend.subtitle}
         </Text>
       </View>
 
@@ -1260,9 +1301,9 @@ function TrendsTab() {
           <ChartColumn color={colors.mutedForeground} size={18} />
         </View>
         <View className="flex-row">
-          <PerfStat value={BDM_PERFORMANCE.improving} label="Improving" color="text-green-400" />
-          <PerfStat value={BDM_PERFORMANCE.declining} label="Declining" color="text-red-400" />
-          <PerfStat value={BDM_PERFORMANCE.stable} label="Stable" color="text-muted-foreground" />
+          <PerfStat value={bdmPerformance.improving} label="Improving" color="text-green-400" />
+          <PerfStat value={bdmPerformance.declining} label="Declining" color="text-red-400" />
+          <PerfStat value={bdmPerformance.stable} label="Stable" color="text-muted-foreground" />
         </View>
       </View>
 
@@ -1310,21 +1351,22 @@ const LC_PAD_B = 22;
 const LC_PAD_L = 36;
 
 function TrajectoryChart() {
+  const { cpcTrajectory, cpcAxisMax, cpcYTicks, cpcTarget, cpcXLabels } = useBdm();
   const [w, setW] = useState(0);
   const plotH = LC_H - LC_PAD_T - LC_PAD_B;
-  const n = CPC_TRAJECTORY.length;
+  const n = cpcTrajectory.length;
   const innerW = Math.max(0, w - LC_PAD_L - 8);
   const x = (i: number) => LC_PAD_L + (n <= 1 ? 0 : (i * innerW) / (n - 1));
-  const y = (v: number) => LC_PAD_T + (1 - v / CPC_AXIS_MAX) * plotH;
+  const y = (v: number) => LC_PAD_T + (1 - v / cpcAxisMax) * plotH;
   const y0 = LC_PAD_T + plotH;
   const fractions = [0, 0.25, 0.5, 0.75, 1];
 
-  const linePts = CPC_TRAJECTORY.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const areaPts = `${x(0)},${y0} ${linePts} ${x(n - 1)},${y0}`;
+  const linePts = cpcTrajectory.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const areaPts = n > 0 ? `${x(0)},${y0} ${linePts} ${x(n - 1)},${y0}` : "";
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && n > 0 ? (
         <Svg width={w} height={LC_H}>
           {fractions.map((g, i) => (
             <Line
@@ -1346,7 +1388,7 @@ function TrajectoryChart() {
               fill="#94A3B8"
               textAnchor="end"
             >
-              {CPC_Y_TICKS[i]}
+              {cpcYTicks[i]}
             </SvgText>
           ))}
           {/* area + line */}
@@ -1356,21 +1398,21 @@ function TrajectoryChart() {
           <Line
             x1={LC_PAD_L}
             x2={w}
-            y1={y(CPC_TARGET)}
-            y2={y(CPC_TARGET)}
+            y1={y(cpcTarget)}
+            y2={y(cpcTarget)}
             stroke="#22C55E"
             strokeWidth={1.5}
             strokeDasharray="6 4"
           />
           {/* x labels */}
-          {CPC_X_LABELS.map((lbl, i) => (
+          {cpcXLabels.map((lbl, i) => (
             <SvgText
-              key={lbl}
-              x={LC_PAD_L + (i / (CPC_X_LABELS.length - 1)) * innerW}
+              key={`${lbl}-${i}`}
+              x={LC_PAD_L + (cpcXLabels.length <= 1 ? 0 : (i / (cpcXLabels.length - 1)) * innerW)}
               y={LC_H - 6}
               fontSize={10}
               fill="#94A3B8"
-              textAnchor={i === 0 ? "start" : i === CPC_X_LABELS.length - 1 ? "end" : "middle"}
+              textAnchor={i === 0 ? "start" : i === cpcXLabels.length - 1 ? "end" : "middle"}
             >
               {lbl}
             </SvgText>
@@ -1389,17 +1431,18 @@ const SC_PAD_B = 22;
 const SC_PAD_L = 32;
 
 function ScatterChart() {
+  const { trendScatter, scatterAxisMax, scatterYTicks, scatterXLabels } = useBdm();
   const [w, setW] = useState(0);
   const plotH = SC_H - SC_PAD_T - SC_PAD_B;
-  const months = SCATTER_X_LABELS.length;
+  const months = Math.max(1, scatterXLabels.length);
   const innerW = Math.max(0, w - SC_PAD_L - 8);
   const x = (m: number) => SC_PAD_L + ((m + 0.5) / months) * innerW;
-  const y = (v: number) => SC_PAD_T + (1 - v / SCATTER_AXIS_MAX) * plotH;
+  const y = (v: number) => SC_PAD_T + (1 - v / scatterAxisMax) * plotH;
   const fractions = [0, 0.25, 0.5, 0.75, 1];
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && trendScatter.length > 0 ? (
         <Svg width={w} height={SC_H}>
           {fractions.map((g, i) => (
             <Line
@@ -1421,15 +1464,15 @@ function ScatterChart() {
               fill="#94A3B8"
               textAnchor="end"
             >
-              {SCATTER_Y_TICKS[i]}
+              {scatterYTicks[i]}
             </SvgText>
           ))}
-          {TREND_SCATTER.map((p, i) => (
+          {trendScatter.map((p, i) => (
             <Circle key={i} cx={x(p.m)} cy={y(p.y)} r={4} fill="#FFFFFF" />
           ))}
-          {SCATTER_X_LABELS.map((lbl, m) => (
+          {scatterXLabels.map((lbl, m) => (
             <SvgText
-              key={lbl}
+              key={`${lbl}-${m}`}
               x={x(m)}
               y={SC_H - 6}
               fontSize={10}
@@ -1451,9 +1494,10 @@ function ScatterChart() {
 
 function ChannelsTab() {
   const colors = useThemeColors();
+  const { channelSummary } = useBdm();
   return (
     <View className="gap-4">
-      {CHANNEL_SUMMARY.map((s) => (
+      {channelSummary.map((s) => (
         <SummaryCard key={s.label} item={s} />
       ))}
 
@@ -1488,16 +1532,17 @@ const CH_BAR_GAP = 6;
 const CH_AXIS = "rgba(255,255,255,0.3)";
 
 function ChannelChart() {
+  const { channelBars, channelAxisMax, channelTicks } = useBdm();
   const [w, setW] = useState(0);
   const plotH = CH_H - CH_PAD_T - CH_PAD_B;
   const y0 = CH_PAD_T + plotH;
-  const y = (v: number) => CH_PAD_T + (1 - v / CHANNEL_AXIS_MAX) * plotH;
-  const groupW = (w - CH_PAD_L) / CHANNEL_BARS.length;
+  const y = (v: number) => CH_PAD_T + (1 - v / channelAxisMax) * plotH;
+  const groupW = (w - CH_PAD_L) / Math.max(1, channelBars.length);
   const fractions = [0, 0.25, 0.5, 0.75, 1];
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && channelBars.length > 0 ? (
         <Svg width={w} height={CH_H}>
           {fractions.map((g) => (
             <Line
@@ -1521,11 +1566,11 @@ function ChannelChart() {
               fill="#94A3B8"
               textAnchor="end"
             >
-              {CHANNEL_TICKS[i]}
+              {channelTicks[i]}
             </SvgText>
           ))}
 
-          {CHANNEL_BARS.map((b, i) => {
+          {channelBars.map((b, i) => {
             const cx = CH_PAD_L + groupW * i + groupW / 2;
             return (
               <Rect
@@ -1539,7 +1584,7 @@ function ChannelChart() {
               />
             );
           })}
-          {CHANNEL_BARS.map((b, i) => {
+          {channelBars.map((b, i) => {
             const cx = CH_PAD_L + groupW * i + groupW / 2;
             return (
               <Rect
@@ -1553,7 +1598,7 @@ function ChannelChart() {
               />
             );
           })}
-          {CHANNEL_BARS.map((b, i) => (
+          {channelBars.map((b, i) => (
             <SvgText
               key={`l${i}`}
               x={CH_PAD_L + groupW * i + groupW / 2}
@@ -1585,6 +1630,7 @@ const CH_FLEX = {
 } as const;
 
 function ChannelTable() {
+  const { channelTable } = useBdm();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
       <View className="flex-row border-b border-border pb-2">
@@ -1595,7 +1641,7 @@ function ChannelTable() {
         <BrHead flex={CH_FLEX.cpc} right>CPC</BrHead>
         <BrHead flex={CH_FLEX.cac} right>CAC</BrHead>
       </View>
-      {CHANNEL_TABLE.map((r) => (
+      {channelTable.map((r) => (
         <View
           key={r.channel}
           className="flex-row items-center border-b border-border/50 py-3"
@@ -1639,10 +1685,11 @@ function ChannelTable() {
 
 function AttributionTab() {
   const colors = useThemeColors();
+  const { attrSummary } = useBdm();
   return (
     <View className="gap-4">
       {/* Summary cards */}
-      {ATTR_SUMMARY.map((s) => (
+      {attrSummary.map((s) => (
         <SummaryCard key={s.label} item={s} />
       ))}
 
@@ -1684,6 +1731,7 @@ const BR_FLEX = {
 } as const;
 
 function BreakdownTable() {
+  const { attrBreakdown } = useBdm();
   return (
     <View>
       {/* header */}
@@ -1695,7 +1743,7 @@ function BreakdownTable() {
         <BrHead flex={BR_FLEX.revAct} right>Rev/Act</BrHead>
         <BrHead flex={BR_FLEX.avgDays} right>Avg Days</BrHead>
       </View>
-      {ATTR_BREAKDOWN.map((r) => (
+      {attrBreakdown.map((r) => (
         <View
           key={r.activity}
           className="flex-row items-center border-b border-border/50 py-3"
@@ -1767,15 +1815,15 @@ function SummaryCard({ item }: { item: AttrSummary }) {
 const ABAR_LABEL_W = 68;
 const ABAR_H = 22;
 const ABAR_GAP = 20;
-const ABAR_AXIS_MAX = 230;
 const ABAR_PAD_T = 6;
 
 function AttributionBarChart() {
+  const { attrBars, attrBarMax, attrBarTicks } = useBdm();
   const [w, setW] = useState(0);
-  const rows = ATTR_BARS.length;
+  const rows = Math.max(1, attrBars.length);
   const plotX0 = ABAR_LABEL_W;
   const plotW = Math.max(0, w - plotX0 - 10);
-  const x = (v: number) => plotX0 + (v / ABAR_AXIS_MAX) * plotW;
+  const x = (v: number) => plotX0 + (v / attrBarMax) * plotW;
   // Axis sits below the last bar; the SVG must be tall enough for the tick
   // labels underneath it (they were being clipped before).
   const axisY = ABAR_PAD_T + (rows - 1) * (ABAR_H + ABAR_GAP) + ABAR_H + 12;
@@ -1783,9 +1831,9 @@ function AttributionBarChart() {
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && attrBars.length > 0 ? (
         <Svg width={w} height={height}>
-          {ATTR_BARS.map((b, i) => {
+          {attrBars.map((b, i) => {
             const y = ABAR_PAD_T + i * (ABAR_H + ABAR_GAP);
             return (
               <SvgText key={`l${i}`} x={0} y={y + ABAR_H / 2 + 3} fontSize={9} fill="#94A3B8">
@@ -1793,7 +1841,7 @@ function AttributionBarChart() {
               </SvgText>
             );
           })}
-          {ATTR_BARS.map((b, i) => {
+          {attrBars.map((b, i) => {
             const y = ABAR_PAD_T + i * (ABAR_H + ABAR_GAP);
             return (
               <Rect
@@ -1815,7 +1863,7 @@ function AttributionBarChart() {
             stroke="rgba(255,255,255,0.15)"
             strokeWidth={1}
           />
-          {ATTR_BAR_TICKS.map((t) => (
+          {attrBarTicks.map((t) => (
             <SvgText
               key={`t${t}`}
               x={x(t)}
@@ -1872,10 +1920,11 @@ const CPC_TONE: Record<NormRow["cpcTone"], string> = {
 
 function TerritoryTab() {
   const colors = useThemeColors();
+  const { marketTiers, normRows } = useBdm();
   return (
     <View className="gap-4">
       {/* Market maturity tiers */}
-      {MARKET_TIERS.map((tier) => (
+      {marketTiers.map((tier) => (
         <TierCard key={tier.name} tier={tier} />
       ))}
 
@@ -1907,7 +1956,7 @@ function TerritoryTab() {
               Territory Score
             </Text>
           </View>
-          {NORM_ROWS.map((r) => (
+          {normRows.map((r) => (
             <View
               key={r.name}
               className="flex-row items-center border-b border-border/50 py-3"
@@ -1944,7 +1993,7 @@ function TerritoryTab() {
               Fulfilment
             </Text>
           </View>
-          {NORM_ROWS.map((r) => (
+          {normRows.map((r) => (
             <View
               key={r.name}
               className="flex-row items-center border-b border-border/50 py-3"
