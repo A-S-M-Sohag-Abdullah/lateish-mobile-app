@@ -106,4 +106,13 @@ export interface ApiMdiAnalytics {
     estRevenue: number;
     priority: number;
   }[];
+  brandBreakdown: {
+    brand_id: string | null;
+    brand_name: string;
+    active_intents: number;
+    unique_accounts: number;
+    total_cases: number;
+    pipeline_value: number;
+    conversion_rate: number;
+  }[];
 }

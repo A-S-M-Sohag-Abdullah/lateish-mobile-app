@@ -4,12 +4,10 @@ import {
   Clock,
   Filter,
   LayoutGrid,
-  Link2,
   Package,
   Star,
   Target,
   TrendingUp,
-  TriangleAlert,
   Users,
   X,
   type LucideIcon,
@@ -32,13 +30,8 @@ import { useMdiAnalytics } from "@/hooks/use-mdi-analytics";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { cn } from "@/lib/utils";
 import {
-  DEPLETION_ROWS,
-  DEPLETION_SUMMARY,
-  DISPLACEMENTS,
-  TARGET_BRANDS,
   type AccountScore,
   type CapitalBucket,
-  type FulfilStatus,
   type FunnelStage,
   type HeatChannel,
   type PortfolioGap,
@@ -68,16 +61,6 @@ function Panel({ children }: { children: React.ReactNode }) {
   return (
     <View className="gap-4 rounded-2xl border border-[#303A46]/50 bg-[#161C22] p-4">
       {children}
-    </View>
-  );
-}
-
-function DemoBadge({ label = "Demo" }: { label?: string }) {
-  return (
-    <View className="self-start rounded-full border border-border px-2 py-0.5">
-      <Text className="text-[10px] font-medium uppercase text-muted-foreground">
-        {label}
-      </Text>
     </View>
   );
 }
@@ -146,51 +129,53 @@ function StatTiles({ stats }: { stats: StatTile[] }) {
   );
 }
 
-const usd = (n: number) => "$" + n.toLocaleString("en-US");
+interface BrandPipelineRow {
+  id: string;
+  name: string;
+  activeIntents: number;
+  uniqueAccounts: number;
+  totalCases: number;
+  pipelineValue: string;
+  conversionRate: number;
+}
 
-function ExpectedVsTarget() {
+function BrandPipeline({ data }: { data: BrandPipelineRow[] }) {
   return (
     <View className="gap-4">
       <SectionHead
-        icon={TrendingUp}
-        title="Expected vs Annual Target"
-        subtitle="Cumulative intent volume against annual brand targets — never start at zero"
+        icon={Package}
+        title="Brand Pipeline"
+        subtitle="Active intent pipeline by brand"
       />
-      {TARGET_BRANDS.map((b) => (
+      {data.map((b) => (
         <View
-          key={b.name}
+          key={b.id}
           className="gap-3 rounded-xl border border-[#303A46]/50 bg-[#161C22] p-4"
         >
           <View className="flex-row items-center justify-between">
             <Text className="text-base font-semibold">{b.name}</Text>
             <View className="rounded-full bg-secondary px-2.5 py-1">
               <Text className="text-xs font-medium text-muted-foreground">
-                {b.pctOfTarget}% of target
+                {b.conversionRate}% conversion
               </Text>
             </View>
           </View>
 
-          <View className="gap-2">
-            <View className="flex-row justify-between">
-              <Text className="text-sm text-muted-foreground">
-                Cases: {b.cases.current} / {b.cases.target}
-              </Text>
-              <Text className="text-sm font-medium">{b.pctOfTarget}%</Text>
-            </View>
-            <Progress value={b.pctOfTarget / 100} indicatorClassName="bg-white" />
-          </View>
+          <Progress value={b.conversionRate / 100} indicatorClassName="bg-white" />
 
-          <View className="gap-2">
-            <View className="flex-row justify-between">
-              <Text className="text-sm text-muted-foreground">
-                Value: {usd(b.value.current)} / {usd(b.value.target)}
-              </Text>
-              <Text className="text-sm font-medium">{b.pctOfTarget}%</Text>
-            </View>
-            <Progress value={b.pctOfTarget / 100} indicatorClassName="bg-white" />
+          <View className="flex-row justify-between border-t border-border/60 pt-3">
+            <MiniStat label="Active" value={String(b.activeIntents)} />
+            <MiniStat label="Accounts" value={String(b.uniqueAccounts)} />
+            <MiniStat label="Cases" value={String(b.totalCases)} />
+            <MiniStat label="Pipeline" value={b.pipelineValue} />
           </View>
         </View>
       ))}
+      {data.length === 0 ? (
+        <Text className="py-4 text-center text-sm text-muted-foreground">
+          No brand pipeline yet.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -329,63 +314,6 @@ function ChannelHeatmap({ data }: { data: HeatChannel[] }) {
         ) : null}
       </View>
     </Panel>
-  );
-}
-
-const FULFIL_STYLE: Record<FulfilStatus, string> = {
-  Fulfilled: "text-green-500",
-  Partial: "text-foreground",
-  Delayed: "text-red-500",
-};
-
-function IntentToDepletion() {
-  return (
-    <Panel>
-      <SectionHead
-        icon={Link2}
-        title="Intent-to-Depletion"
-        subtitle="Converted intents to actual depletions"
-        right={<DemoBadge />}
-      />
-      <View className="flex-row justify-between rounded-xl bg-white/5 p-3">
-        <DepStat value={DEPLETION_SUMMARY.match} label="Match" />
-        <DepStat value={DEPLETION_SUMMARY.cases} label="Cases" />
-        <DepStat value={DEPLETION_SUMMARY.avgDays} label="Avg Days" />
-        <DepStat value={DEPLETION_SUMMARY.fulfilled} label="Fulfilled" />
-      </View>
-      <View className="gap-3">
-        {DEPLETION_ROWS.map((r) => (
-          <View key={r.account} className="gap-1.5">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm font-semibold">{r.account}</Text>
-                <Text className="text-xs text-muted-foreground">{r.brand}</Text>
-              </View>
-              <Text className={cn("text-xs font-medium", FULFIL_STYLE[r.status])}>
-                {r.status}
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-2">
-              <Text className="w-16 text-xs text-muted-foreground">
-                VOL {r.current}cs / {r.target}cs
-              </Text>
-              <Progress value={r.pct / 100} className="h-1.5 flex-1" />
-              <Text className="w-10 text-right text-xs font-medium">{r.pct}%</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-      <ViewAll label="View Detailed Report" />
-    </Panel>
-  );
-}
-
-function DepStat({ value, label }: { value: string; label: string }) {
-  return (
-    <View className="items-center gap-0.5">
-      <Text className="text-base font-bold">{value}</Text>
-      <Text className="text-[10px] uppercase text-muted-foreground">{label}</Text>
-    </View>
   );
 }
 
@@ -543,54 +471,6 @@ function PortfolioGaps({ data }: { data: PortfolioGap[] }) {
   );
 }
 
-function CompetitorDisplacement() {
-  const colors = useThemeColors();
-  return (
-    <View className="gap-4">
-      <SectionHead
-        icon={TriangleAlert}
-        title="Competitor Displacement"
-        subtitle="Recent competitor removals — immediate opportunities"
-        right={<DemoBadge label="Demo" />}
-      />
-      {DISPLACEMENTS.map((d) => (
-        <View
-          key={d.account}
-          className="gap-3 rounded-2xl border border-[#303A46]/50 bg-[#161C22] p-4"
-        >
-          <View className="flex-row items-center justify-between">
-            <Text className="text-lg font-semibold">{d.account}</Text>
-            <View className="flex-row items-center gap-1.5 rounded-md border border-[#303A46]/70 px-2.5 py-1">
-              <Package color={colors.mutedForeground} size={14} />
-              <Text className="text-xs text-muted-foreground">
-                {d.cases} Cases
-              </Text>
-            </View>
-          </View>
-          <View className="gap-2.5">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm text-muted-foreground">Removed</Text>
-              <Text className="text-sm font-medium text-red-500 line-through">
-                {d.removed}
-              </Text>
-            </View>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm text-muted-foreground">Opportunity</Text>
-              <Text className="text-sm font-semibold">{d.opportunity}</Text>
-            </View>
-          </View>
-          <View className="h-11 flex-row items-center justify-center gap-2 rounded-lg bg-white">
-            <Text className="text-sm font-semibold text-black">
-              Capture Opportunity
-            </Text>
-            <Activity color="#000000" size={16} />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function IntentToRevenue({
   data,
   total,
@@ -682,16 +562,6 @@ function MarginPriority({ data }: { data: PriorityRow[] }) {
           </Text>
         ) : null}
       </View>
-    </View>
-  );
-}
-
-function ViewAll({ label }: { label: string }) {
-  const colors = useThemeColors();
-  return (
-    <View className="flex-row items-center justify-center gap-1 border-t border-border/60 pt-3">
-      <Text className="text-sm font-medium">{label}</Text>
-      <ChevronRight color={colors.foreground} size={16} />
     </View>
   );
 }
@@ -805,7 +675,18 @@ function mapAnalytics(d: ApiMdiAnalytics, symbol: string) {
     priority: Math.round(p.priority * 10) / 10,
   }));
 
+  const brands: BrandPipelineRow[] = d.brandBreakdown.map((b) => ({
+    id: b.brand_id ?? b.brand_name,
+    name: b.brand_name,
+    activeIntents: b.active_intents,
+    uniqueAccounts: b.unique_accounts,
+    totalCases: b.total_cases,
+    pipelineValue: compact(b.pipeline_value),
+    conversionRate: Math.round(b.conversion_rate),
+  }));
+
   return {
+    brands,
     stats,
     funnel,
     overall,
@@ -847,15 +728,13 @@ export function AnalyticsTab() {
   return (
     <View className="gap-6">
       <StatTiles stats={m.stats} />
-      <ExpectedVsTarget />
+      <BrandPipeline data={m.brands} />
       <ConversionFunnel stages={m.funnel} overall={m.overall} />
       <SeasonalTrends data={m.trend} />
       <ChannelHeatmap data={m.channels} />
-      <IntentToDepletion />
       <PredictiveScoring data={m.predictive} />
       <AccountScoring data={m.accounts} />
       <PortfolioGaps data={m.gaps} />
-      <CompetitorDisplacement />
       <IntentToRevenue
         data={m.revenue}
         total={m.revenueTotal}

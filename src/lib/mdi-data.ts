@@ -64,13 +64,6 @@ export interface StatTile {
   value: string;
 }
 
-export interface TargetBrand {
-  name: string;
-  pctOfTarget: number;
-  cases: { current: number; target: number };
-  value: { current: number; target: number };
-}
-
 export interface FunnelStage {
   label: string;
   value: number;
@@ -94,15 +87,6 @@ export interface HeatChannel {
   pct: number;
 }
 
-export type FulfilStatus = "Fulfilled" | "Partial" | "Delayed";
-export interface DepletionRow {
-  account: string;
-  brand: string;
-  current: number;
-  target: number;
-  pct: number;
-  status: FulfilStatus;
-}
 
 export interface PredictiveBuyer {
   name: string;
@@ -133,13 +117,6 @@ export interface PortfolioGap {
   total: number;
 }
 
-export interface Displacement {
-  account: string;
-  cases: number;
-  removed: string;
-  opportunity: string;
-}
-
 export interface RevenueBar {
   label: string;
   projected: number;
@@ -163,25 +140,3 @@ export interface PriorityRow {
   priority: number;
 }
 
-// ── Demo-only analytics sections (no API equivalent yet) ─────────────────────
-
-export const TARGET_BRANDS: TargetBrand[] = [
-  { name: "Mezcal Artisan", pctOfTarget: 37, cases: { current: 186, target: 500 }, value: { current: 27900, target: 75000 } },
-  { name: "Craft Gin Co", pctOfTarget: 24, cases: { current: 72, target: 300 }, value: { current: 8640, target: 36000 } },
-  { name: "Premium Vodka", pctOfTarget: 12, cases: { current: 48, target: 400 }, value: { current: 5760, target: 48000 } },
-];
-
-export const DEPLETION_SUMMARY = { match: "67%", cases: "11/28", avgDays: "11", fulfilled: "2" };
-export const DEPLETION_ROWS: DepletionRow[] = [
-  { account: "The Botanist", brand: "Broken Barrier Gin", current: 5, target: 5, pct: 100, status: "Fulfilled" },
-  { account: "Hawksmoor", brand: "Esther Rum", current: 2, target: 3, pct: 67, status: "Partial" },
-  { account: "Drake & Morgan", brand: "Broken Barrier Gin", current: 0, target: 8, pct: 0, status: "Delayed" },
-  { account: "Chiltern Firehouse", brand: "Esther Rum", current: 2, target: 2, pct: 100, status: "Fulfilled" },
-  { account: "The Ivy", brand: "Broken Barrier Gin", current: 2, target: 4, pct: 50, status: "Partial" },
-];
-
-export const DISPLACEMENTS: Displacement[] = [
-  { account: "Chiltern Firehouse", cases: 4, removed: "Hendricks Gin", opportunity: "Broken Barrier Gin" },
-  { account: "Gaucho", cases: 6, removed: "Bacardi Rum", opportunity: "Esther Rum" },
-  { account: "Soho House", cases: 8, removed: "Absolut Vodka", opportunity: "Premium Vodka" },
-];
