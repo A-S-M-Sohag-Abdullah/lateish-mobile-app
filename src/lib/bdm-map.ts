@@ -17,8 +17,6 @@ import type {
   AttrSummary,
   ChannelBar,
   ChannelRow,
-  CompareBdm,
-  CompareRow,
   CostRow,
   GoalCard,
   InvestSlider,
@@ -99,12 +97,14 @@ export interface MappedBdm {
   scatterYTicks: string[];
   scatterXLabels: string[];
   costsTable: CostRow[];
-  compareBdms: CompareBdm[];
-  radarAlpha: number[];
-  radarBeta: number[];
+  portfolioTerritories: {
+    id: string;
+    name: string;
+    maturity: string;
+    dims: number[];
+    head: Record<string, string>;
+  }[];
   radarTop25: number[];
-  portfolioNames: [string, string];
-  compareTable: CompareRow[];
   forecastLine: number[];
   forecastTarget: number;
   forecastAxisMax: number;
@@ -149,12 +149,8 @@ export const EMPTY_BDM: MappedBdm = {
   scatterYTicks: [],
   scatterXLabels: [],
   costsTable: [],
-  compareBdms: [],
-  radarAlpha: [],
-  radarBeta: [],
+  portfolioTerritories: [],
   radarTop25: [],
-  portfolioNames: ["Territory A", "Territory B"],
-  compareTable: [],
   forecastLine: [],
   forecastTarget: 0,
   forecastAxisMax: 1,
@@ -297,11 +293,6 @@ export function mapBdmData(d: BdmEfficiencyData, symbol: string): MappedBdm {
 
   // Portfolio tab
   const terrs = d.portfolio.territories;
-  const compareBdms: CompareBdm[] = terrs.map((t, i) => ({
-    name: t.name,
-    maturity: cap(t.maturity),
-    checked: i < 2,
-  }));
   const dims = (t: (typeof terrs)[number]) => [
     t.costEfficiency,
     t.conversion,
@@ -311,21 +302,22 @@ export function mapBdmData(d: BdmEfficiencyData, symbol: string): MappedBdm {
     t.ordersPerWeek,
   ];
   const t25 = d.portfolio.top25Benchmark;
-  const A = terrs[0];
-  const B = terrs[1];
-  const compareTable: CompareRow[] =
-    A && B
-      ? [
-          { metric: "Cost/Case", a: A.costPerCase, b: B.costPerCase },
-          { metric: "Efficiency", a: A.efficiency, b: B.efficiency },
-          { metric: "Conversion", a: A.conversionPct, b: B.conversionPct },
-          { metric: "Fulfilment", a: A.fulfilmentPct, b: B.fulfilmentPct },
-          { metric: "Orders/Week", a: A.ordersPerWeekLabel, b: B.ordersPerWeekLabel },
-          { metric: "Venues", a: String(A.venues), b: String(B.venues) },
-          { metric: "Menu Placements", a: String(A.menuPlacements), b: String(B.menuPlacements) },
-          { metric: "Market", a: A.maturity, b: B.maturity },
-        ]
-      : [];
+  const portfolioTerritories = terrs.map((t) => ({
+    id: t.id,
+    name: t.name,
+    maturity: cap(t.maturity),
+    dims: dims(t),
+    head: {
+      "Cost/Case": t.costPerCase,
+      Efficiency: t.efficiency,
+      Conversion: t.conversionPct,
+      Fulfilment: t.fulfilmentPct,
+      "Orders/Week": t.ordersPerWeekLabel,
+      Venues: String(t.venues),
+      "Menu Placements": String(t.menuPlacements),
+      Market: cap(t.maturity),
+    } as Record<string, string>,
+  }));
 
   // Forecasting tab
   const fc = d.forecasting;
@@ -340,13 +332,14 @@ export function mapBdmData(d: BdmEfficiencyData, symbol: string): MappedBdm {
 
   // Investment (simulator) defaults
   const s = d.simulator;
+  // Order + ranges mirror the web simulator (SimSlider props).
   const investSliders: InvestSlider[] = [
-    { label: "Monthly Retainer ($)", min: 0, max: 10000, step: 100, value: s.retainer, prefix: symbol, suffix: "" },
-    { label: "Starting Cases/Month", min: 0, max: 500, step: 5, value: s.startCases, prefix: "", suffix: " cases" },
-    { label: "Commission per Case ($)", min: 0, max: 30, step: 1, value: s.commissionPerCase, prefix: symbol, suffix: "" },
-    { label: "Monthly Case Growth (%)", min: 0, max: 25, step: 1, value: s.growthPct, prefix: "", suffix: "%" },
-    { label: "Travel Allocation ($)", min: 0, max: 2500, step: 50, value: s.travel, prefix: symbol, suffix: "" },
-    { label: "Case NSV ($)", min: 0, max: 600, step: 10, value: s.nsv, prefix: symbol, suffix: "" },
+    { label: `Monthly Retainer (${symbol})`, min: 500, max: 10000, step: 100, value: s.retainer, prefix: symbol, suffix: "" },
+    { label: `Commission per Case (${symbol})`, min: 0, max: 25, step: 1, value: s.commissionPerCase, prefix: symbol, suffix: "" },
+    { label: `Travel Allocation (${symbol})`, min: 0, max: 3000, step: 50, value: s.travel, prefix: symbol, suffix: "" },
+    { label: "Starting Cases/Month", min: 10, max: 500, step: 5, value: s.startCases, prefix: "", suffix: " cases" },
+    { label: "Monthly Case Growth (%)", min: 0, max: 25, step: 0.5, value: s.growthPct, prefix: "", suffix: "%" },
+    { label: `Case NSV (${symbol})`, min: 50, max: 500, step: 5, value: s.nsv, prefix: symbol, suffix: "" },
   ];
 
   // Benchmarking tab
@@ -408,9 +401,7 @@ export function mapBdmData(d: BdmEfficiencyData, symbol: string): MappedBdm {
     scatterYTicks: ticksFor(scatterAxisMax, (n) => String(Math.round(n))),
     scatterXLabels: (tr?.teamEfficiency ?? []).map((p) => p.month),
     costsTable,
-    compareBdms,
-    radarAlpha: A ? dims(A) : [],
-    radarBeta: B ? dims(B) : [],
+    portfolioTerritories,
     radarTop25: [
       t25.costEfficiency,
       t25.conversion,
@@ -419,8 +410,6 @@ export function mapBdmData(d: BdmEfficiencyData, symbol: string): MappedBdm {
       t25.coverage,
       t25.ordersPerWeek,
     ],
-    portfolioNames: [A?.name ?? "Territory A", B?.name ?? "Territory B"],
-    compareTable,
     forecastLine,
     forecastTarget,
     forecastAxisMax,

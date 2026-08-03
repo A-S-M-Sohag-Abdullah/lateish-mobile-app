@@ -7,6 +7,8 @@ import {
   ChartColumn,
   Check,
   MapPin,
+  RotateCcw,
+  Save,
   Target as TargetIcon,
   TrendingDown,
 } from "lucide-react-native";
@@ -226,10 +228,12 @@ export function BdmPage() {
 // ── Investment (simulator) outer tab ─────────────────────────────────────────
 
 function InvestmentTab() {
+  const colors = useThemeColors();
   const { currentOrg } = useOrganizations();
   const symbol = currencySymbol(currentOrg?.currency);
   const { investSliders } = useBdm();
   const [values, setValues] = useState<number[]>([]);
+  const [savedCount, setSavedCount] = useState(0);
   useEffect(() => {
     setValues(investSliders.map((s) => s.value));
   }, [investSliders]);
@@ -237,14 +241,13 @@ function InvestmentTab() {
   const setLocked = usePagerLock((s) => s.setLocked);
 
   // Client-side "what-if" projection — mirrors the web simulator formula.
-  const [retainer, startCases, commission, growthPct, travel, nsv] = [
-    values[0] ?? 0,
-    values[1] ?? 0,
-    values[2] ?? 0,
-    values[3] ?? 0,
-    values[4] ?? 0,
-    values[5] ?? 0,
-  ];
+  // Slider order: retainer, commission, travel, startCases, growthPct, nsv.
+  const retainer = values[0] ?? 0;
+  const commission = values[1] ?? 0;
+  const travel = values[2] ?? 0;
+  const startCases = values[3] ?? 0;
+  const growthPct = values[4] ?? 0;
+  const nsv = values[5] ?? 0;
   const sim = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => {
       const n = i + 1;
@@ -275,13 +278,17 @@ function InvestmentTab() {
     };
   }, [retainer, startCases, commission, growthPct, travel, nsv]);
 
+  const marginPositive = sim.finalMargin >= 0;
   const outputs = [
-    { label: "Break even month", value: sim.breakEven ? `Month ${sim.breakEven}` : "Never" },
-    { label: "CPC at Month 6", value: sim.cpcM6.toFixed(2) },
+    {
+      label: "Break-Even Month",
+      value: sim.breakEven ? `Month ${sim.breakEven}` : "Never",
+    },
+    { label: "CPC at Month 6", value: `${symbol}${sim.cpcM6.toFixed(2)}` },
     {
       label: "12-Month Margin",
-      value: `${symbol}${Math.round(sim.finalMargin).toLocaleString("en-US")}`,
-      green: true,
+      value: `${symbol}${Math.abs(Math.round(sim.finalMargin)).toLocaleString("en-US")}`,
+      valueClass: marginPositive ? "text-green-400" : "text-red-400",
     },
     { label: "Marginal Return", value: `${sim.marginalReturn}x` },
   ];
@@ -289,8 +296,12 @@ function InvestmentTab() {
 
   return (
     <View className="gap-5">
-      {/* Header (leftover label in the mockup) */}
-      <Text className="text-xl font-bold">Multi-Dimensional Comparison</Text>
+      <View className="gap-1">
+        <Text className="text-xl font-bold">BDM Investment Simulator</Text>
+        <Text className="text-sm text-muted-foreground">
+          Model &ldquo;what-if&rdquo; scenarios for BDM investment decisions
+        </Text>
+      </View>
 
       {/* Sliders */}
       <View className="gap-5">
@@ -327,6 +338,25 @@ function InvestmentTab() {
         ))}
       </View>
 
+      {/* Reset / Save scenario */}
+      <View className="flex-row gap-3">
+        <Pressable
+          onPress={() => setValues(investSliders.map((s) => s.value))}
+          className="h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary active:opacity-80"
+        >
+          <RotateCcw color={colors.foreground} size={14} />
+          <Text className="text-sm font-medium">Reset</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setSavedCount((c) => Math.min(5, c + 1))}
+          disabled={savedCount >= 5}
+          className="h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary active:opacity-80 disabled:opacity-50"
+        >
+          <Save color={colors.foreground} size={14} />
+          <Text className="text-sm font-medium">Save Scenario ({savedCount}/5)</Text>
+        </Pressable>
+      </View>
+
       {/* Output tiles */}
       <View className="gap-3">
         {outRows.map((row, i) => (
@@ -338,7 +368,7 @@ function InvestmentTab() {
                 value={o.value}
                 colors={NAVY}
                 className="h-24"
-                valueClassName={o.green ? "text-green-400" : undefined}
+                valueClassName={o.valueClass}
               />
             ))}
           </View>
@@ -457,105 +487,180 @@ function InvestmentChart({ cpc, margin }: { cpc: number[]; margin: number[] }) {
 
 // ── Portfolio outer tab ──────────────────────────────────────────────────────
 
+const PORTFOLIO_PALETTE = ["#3B82F6", "#22C55E", "#F59E0B", "#A855F7"];
+const HEAD_ROWS = [
+  "Cost/Case",
+  "Efficiency",
+  "Conversion",
+  "Fulfilment",
+  "Orders/Week",
+  "Venues",
+  "Menu Placements",
+  "Market",
+];
+
 function PortfolioTab() {
-  const { compareBdms, compareTable, portfolioNames } = useBdm();
-  const [selected, setSelected] = useState<boolean[]>([]);
+  const colors = useThemeColors();
+  const { portfolioTerritories, radarTop25 } = useBdm();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [showBenchmark, setShowBenchmark] = useState(true);
+  const [normalize, setNormalize] = useState(false);
+
+  // Default to the first two territories once data arrives.
   useEffect(() => {
-    setSelected(compareBdms.map((b) => b.checked));
-  }, [compareBdms]);
+    setSelected(portfolioTerritories.slice(0, 2).map((t) => t.id));
+  }, [portfolioTerritories]);
+
+  function toggle(id: string) {
+    setSelected((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : prev.length >= 4
+          ? prev
+          : [...prev, id],
+    );
+  }
+
+  const chosen = portfolioTerritories.filter((t) => selected.includes(t.id));
+  const series = chosen.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    color: PORTFOLIO_PALETTE[i % PORTFOLIO_PALETTE.length],
+    dims: t.dims,
+  }));
 
   return (
     <View className="gap-5">
-      <Text className="text-xl font-bold">Select BDMs to compare (max4)</Text>
+      {/* BDM selector */}
+      <View className="flex-row items-center gap-2">
+        <Text className="text-xl font-bold">Select BDMs to Compare (max 4)</Text>
+      </View>
+      <View className="flex-row flex-wrap gap-2">
+        {portfolioTerritories.map((t) => {
+          const on = selected.includes(t.id);
+          const m = MATURITY[t.maturity as Maturity] ?? MATURITY.Growth;
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => toggle(t.id)}
+              className="flex-row items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
+            >
+              <View
+                className={cn(
+                  "h-5 w-5 items-center justify-center rounded border",
+                  on ? "border-brand-maroon bg-brand-maroon" : "border-border",
+                )}
+              >
+                {on ? <Check color="#FFFFFF" size={14} /> : null}
+              </View>
+              <Text className="text-sm font-medium">{t.name}</Text>
+              <View className={cn("rounded px-1.5 py-0.5", m.bg)}>
+                <Text className={cn("text-[10px] font-medium", m.text)}>
+                  {t.maturity}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Toggles */}
       <View className="gap-3">
-        {[compareBdms.slice(0, 2), compareBdms.slice(2, 4)].map((row, ri) => (
-          <View key={ri} className="flex-row gap-3">
-            {row.map((b, ci) => {
-              const idx = ri * 2 + ci;
-              const on = selected[idx];
-              const m = MATURITY[b.maturity];
-              return (
-                <Pressable
-                  key={b.name}
-                  onPress={() =>
-                    setSelected((s) =>
-                      s.map((v, i) => (i === idx ? !v : v)),
-                    )
-                  }
-                  className="flex-1 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3 py-3"
+        <View className="flex-row items-center gap-2">
+          <Toggle value={showBenchmark} onToggle={() => setShowBenchmark((v) => !v)} />
+          <Text className="text-sm">Show Top 25% Benchmark</Text>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Toggle value={normalize} onToggle={() => setNormalize((v) => !v)} />
+          <Text className="text-sm">Normalize for Market Maturity</Text>
+        </View>
+      </View>
+
+      <View className="gap-1">
+        <Text className="text-xl font-bold">Multi-Dimensional Comparison</Text>
+        <Text className="text-sm text-muted-foreground">
+          6 performance dimensions normalized to 100-point scale
+        </Text>
+      </View>
+      <RadarChart series={series} benchmark={showBenchmark ? radarTop25 : null} />
+
+      {/* Legend */}
+      <View className="flex-row flex-wrap items-center justify-center gap-4">
+        {series.map((s) => (
+          <View key={s.id} className="flex-row items-center gap-1.5">
+            <View
+              style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: s.color }}
+            />
+            <Text className="text-sm">{s.name}</Text>
+          </View>
+        ))}
+        {showBenchmark ? (
+          <View className="flex-row items-center gap-1.5">
+            <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: "#22C55E" }} />
+            <Text className="text-sm text-green-500">Top 25%</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Head-to-Head Metrics */}
+      {chosen.length > 0 ? (
+        <View className="gap-3">
+          <Text className="text-base font-bold">Head-to-Head Metrics</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View>
+              <View className="flex-row border-b border-border pb-2">
+                <Text
+                  style={{ width: 120 }}
+                  className="text-xs font-medium text-muted-foreground"
                 >
-                  <View
-                    className={cn(
-                      "h-5 w-5 items-center justify-center rounded border",
-                      on ? "border-brand-maroon bg-brand-maroon" : "border-border",
-                    )}
+                  Metric
+                </Text>
+                {chosen.map((t) => (
+                  <Text
+                    key={t.id}
+                    style={{ width: 96 }}
+                    className="text-right text-xs font-medium text-muted-foreground"
                   >
-                    {on ? <Check color="#FFFFFF" size={14} /> : null}
-                  </View>
-                  <Text className="flex-shrink text-sm font-medium" numberOfLines={1}>
-                    {b.name}
+                    {t.name}
                   </Text>
-                  <View className={cn("rounded px-1.5 py-0.5", m.bg)}>
-                    <Text className={cn("text-[10px] font-medium", m.text)}>
-                      {b.maturity.toLowerCase()}
+                ))}
+              </View>
+              {HEAD_ROWS.map((label) => (
+                <View
+                  key={label}
+                  className="flex-row items-center border-b border-border/50 py-3"
+                >
+                  <Text style={{ width: 120 }} className="text-sm text-muted-foreground">
+                    {label}
+                  </Text>
+                  {chosen.map((t) => (
+                    <Text
+                      key={t.id}
+                      style={{ width: 96 }}
+                      className="text-right text-sm font-medium"
+                    >
+                      {t.head[label]}
                     </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </View>
-
-      <Text className="text-xl font-bold">Multi-Dimensional Comparison</Text>
-      <RadarChart />
-      <View className="flex-row items-center justify-center gap-4">
-        <Text className="text-sm">{portfolioNames[0]}</Text>
-        <Text className="text-sm">{portfolioNames[1]}</Text>
-        <View className="flex-row items-center gap-1.5">
-          <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: "#22C55E" }} />
-          <Text className="text-sm text-green-500">Top 25%</Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
         </View>
-      </View>
-
-      {/* Comparison table */}
-      <View className="pt-2">
-        <View className="flex-row border-b border-border pb-2">
-          <Text style={{ flex: 1.4 }} className="text-xs font-medium text-muted-foreground">
-            Metric
-          </Text>
-          <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
-            {portfolioNames[0]}
-          </Text>
-          <Text style={{ flex: 1 }} className="text-right text-xs font-medium text-muted-foreground">
-            {portfolioNames[1]}
-          </Text>
-        </View>
-        {compareTable.map((r) => (
-          <View
-            key={r.metric}
-            className="flex-row items-center border-b border-border/50 py-3"
-          >
-            <Text style={{ flex: 1.4 }} className="text-sm font-medium">
-              {r.metric}
-            </Text>
-            <Text style={{ flex: 1 }} className="text-right text-sm">
-              {r.a}
-            </Text>
-            <Text style={{ flex: 1 }} className="text-right text-sm">
-              {r.b}
-            </Text>
-          </View>
-        ))}
-      </View>
+      ) : null}
     </View>
   );
 }
 
 const RADAR_RINGS = [0.25, 0.5, 0.75, 1];
 
-function RadarChart() {
-  const { radarAlpha, radarBeta, radarTop25 } = useBdm();
+function RadarChart({
+  series,
+  benchmark,
+}: {
+  series: { id: string; name: string; color: string; dims: number[] }[];
+  benchmark: number[] | null;
+}) {
   const [w, setW] = useState(0);
   const size = w;
   const cx = size / 2;
@@ -625,28 +730,27 @@ function RadarChart() {
               </SvgText>
             );
           })}
-          {/* Top 25% (green dashed) */}
-          <Polygon
-            points={poly(radarTop25)}
-            fill="none"
-            stroke="#22C55E"
-            strokeWidth={1.5}
-            strokeDasharray="5 4"
-          />
-          {/* Beta */}
-          <Polygon
-            points={poly(radarBeta)}
-            fill="rgba(56,189,248,0.08)"
-            stroke="#38BDF8"
-            strokeWidth={1.5}
-          />
-          {/* Alpha */}
-          <Polygon
-            points={poly(radarAlpha)}
-            fill="rgba(255,255,255,0.06)"
-            stroke="#FFFFFF"
-            strokeWidth={2}
-          />
+          {/* Top 25% benchmark (green dashed) */}
+          {benchmark ? (
+            <Polygon
+              points={poly(benchmark)}
+              fill="none"
+              stroke="#22C55E"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+            />
+          ) : null}
+          {/* Selected territories */}
+          {series.map((s) => (
+            <Polygon
+              key={s.id}
+              points={poly(s.dims)}
+              fill={s.color}
+              fillOpacity={0.15}
+              stroke={s.color}
+              strokeWidth={2}
+            />
+          ))}
           {/* axis labels */}
           {RADAR_AXES.map((label, i) => {
             const p = pt(R + 16, i);

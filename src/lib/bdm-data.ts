@@ -64,24 +64,6 @@ export interface InvestSlider {
   suffix: string;
 }
 
-export interface InvestOutput {
-  label: string;
-  value: string;
-  green?: boolean;
-}
-
-export interface CompareBdm {
-  name: string;
-  maturity: Maturity;
-  checked: boolean;
-}
-
-export interface CompareRow {
-  metric: string;
-  a: string;
-  b: string;
-}
-
 export interface CostRow {
   bdm: string;
   cpc: string;
