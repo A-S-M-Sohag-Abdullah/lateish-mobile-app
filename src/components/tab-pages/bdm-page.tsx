@@ -24,6 +24,12 @@ import Svg, {
 } from "react-native-svg";
 
 import Slider from "@react-native-community/slider";
+import Animated, {
+  useAnimatedProps,
+  useSharedValue,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
 
 import { CostAccountabilitySection } from "@/components/bdm-efficiency/cost-accountability-section";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -654,6 +660,54 @@ function PortfolioTab() {
 
 const RADAR_RINGS = [0.25, 0.5, 0.75, 1];
 
+const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
+
+/**
+ * A radar polygon whose vertices animate out from the centre (and re-morph
+ * whenever `progress` is re-driven). Points are recomputed on the UI thread.
+ */
+function AnimatedRadarPolygon({
+  dims,
+  cx,
+  cy,
+  R,
+  n,
+  color,
+  dashed,
+  progress,
+}: {
+  dims: number[];
+  cx: number;
+  cy: number;
+  R: number;
+  n: number;
+  color: string;
+  dashed?: boolean;
+  progress: SharedValue<number>;
+}) {
+  const animatedProps = useAnimatedProps(() => {
+    const p = progress.value;
+    let pts = "";
+    for (let i = 0; i < dims.length; i++) {
+      const ang = ((-90 + i * (360 / n)) * Math.PI) / 180;
+      const r = (dims[i] / 100) * R * p;
+      pts += `${cx + r * Math.cos(ang)},${cy + r * Math.sin(ang)} `;
+    }
+    return { points: pts.trim() };
+  });
+
+  return (
+    <AnimatedPolygon
+      animatedProps={animatedProps}
+      fill={dashed ? "none" : color}
+      fillOpacity={dashed ? 0 : 0.15}
+      stroke={color}
+      strokeWidth={dashed ? 1.5 : 2}
+      strokeDasharray={dashed ? "5 4" : undefined}
+    />
+  );
+}
+
 function RadarChart({
   series,
   benchmark,
@@ -668,18 +722,20 @@ function RadarChart({
   const R = size / 2 - 46;
   const n = RADAR_AXES.length;
 
+  // Grow/morph the shapes whenever the layout or the shown series change.
+  const progress = useSharedValue(0);
+  const sig =
+    series.map((s) => s.id).join(",") + (benchmark ? "|b" : "") + "|" + w;
+  useEffect(() => {
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: 650 });
+  }, [sig, progress]);
+
   const ang = (i: number) => ((-90 + i * (360 / n)) * Math.PI) / 180;
   const pt = (r: number, i: number) => ({
     x: cx + r * Math.cos(ang(i)),
     y: cy + r * Math.sin(ang(i)),
   });
-  const poly = (vals: number[]) =>
-    vals
-      .map((v, i) => {
-        const p = pt((v / 100) * R, i);
-        return `${p.x},${p.y}`;
-      })
-      .join(" ");
   const ringPoly = (level: number) =>
     RADAR_AXES.map((_, i) => {
       const p = pt(level * R, i);
@@ -732,23 +788,28 @@ function RadarChart({
           })}
           {/* Top 25% benchmark (green dashed) */}
           {benchmark ? (
-            <Polygon
-              points={poly(benchmark)}
-              fill="none"
-              stroke="#22C55E"
-              strokeWidth={1.5}
-              strokeDasharray="5 4"
+            <AnimatedRadarPolygon
+              dims={benchmark}
+              cx={cx}
+              cy={cy}
+              R={R}
+              n={n}
+              color="#22C55E"
+              dashed
+              progress={progress}
             />
           ) : null}
           {/* Selected territories */}
           {series.map((s) => (
-            <Polygon
+            <AnimatedRadarPolygon
               key={s.id}
-              points={poly(s.dims)}
-              fill={s.color}
-              fillOpacity={0.15}
-              stroke={s.color}
-              strokeWidth={2}
+              dims={s.dims}
+              cx={cx}
+              cy={cy}
+              R={R}
+              n={n}
+              color={s.color}
+              progress={progress}
             />
           ))}
           {/* axis labels */}
