@@ -80,12 +80,46 @@ export interface DepletionsData {
   }[];
 }
 
+export interface VipData {
+  distributors: { name: string; cases: number }[];
+  markets: { name: string; cases: number; color: string }[];
+  skus: { name: string; cases: number; nsv: number }[];
+  expected: {
+    markets: {
+      name: string;
+      distributor: string;
+      expectedNsv: number;
+      realizedNsv: number;
+    }[];
+  };
+  pricing: {
+    skus: {
+      name: string;
+      wholesalePrice: number;
+      corridorMin: number;
+      corridorMax: number;
+    }[];
+  };
+  distributorPerf: {
+    distributors: {
+      name: string;
+      market: string;
+      healthScore: number;
+      cases: number;
+      nsv: number;
+      pricingStatus: "within" | "above" | "below";
+      avgWholesale: number;
+      pricingIssues: number;
+    }[];
+  };
+}
+
 export interface ApiPerformanceData {
   members: ApiPerfMember[];
   achievements: ApiPerfAchievement[];
   bonus: ApiBonusTracker;
   kpis: ApiPerfKpi[];
   depletions: DepletionsData;
-  vip?: unknown;
+  vip: VipData;
   integrations?: unknown;
 }

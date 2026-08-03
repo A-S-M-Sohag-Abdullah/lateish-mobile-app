@@ -1,8 +1,13 @@
 import {
+  Building2,
   CircleAlert,
   CircleCheck,
+  MapPin,
   Minus,
+  Package,
+  TrendingUp,
   TriangleAlert,
+  type LucideIcon,
 } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -11,35 +16,24 @@ import Svg, { Circle, Line, Rect, Text as SvgText } from "react-native-svg";
 import { CornerAccent } from "@/components/ui/corner-accent";
 import { StatCard, type GradientColors } from "@/components/ui/stat-card";
 import { Text } from "@/components/ui/text";
+import { usePerformanceDashboard } from "@/hooks/use-performance-dashboard";
 import { cn } from "@/lib/utils";
-import {
-  VIP_ALERTS,
-  VIP_BAR_TICKS,
-  VIP_DISTRIBUTOR_BARS,
-  VIP_EXPECTED_MARKETS,
-  VIP_EXPECTED_SUMMARY,
-  VIP_DISTRIBUTOR_AVG,
-  VIP_DISTRIBUTORS_HEALTH,
-  VIP_MARKET_DONUT,
-  VIP_PRICING_ALERT,
-  VIP_PRICING_ROWS,
-  VIP_PRICING_STATS,
-  VIP_SKUS,
-  VIP_STATS,
-  VIP_SUBTABS,
-  VIP_TERRITORIES,
-  VIP_TERRITORY_STATS,
-  VIP_UNDERPERFORMING,
-  type DepletionStat,
-  type PricingStat,
-} from "@/lib/performance-data";
+import type { VipData } from "@/types/performance";
 
-const usd = (n: number) => "$" + n.toLocaleString("en-US");
 const NAVY_GRAD: GradientColors = ["#132B5C", "#0B1833"];
 const TILE_GREEN = "#15803D";
-
 const GREEN = "#22C55E";
 const MUTED = "#94A3B8";
+const DONUT_PALETTE = ["#22C55E", "#9CA3AF", "#EAB308", "#A855F7", "#3B82F6"];
+
+const VIP_SUBTABS = [
+  "Depletions",
+  "Expected",
+  "Territory",
+  "Pricing",
+  "Distributor",
+  "Alerts",
+] as const;
 
 const SUB_HEADER: Record<string, { title: string; subtitle: string }> = {
   Pricing: {
@@ -56,13 +50,168 @@ const DEFAULT_HEADER = {
   subtitle: "Realised vs Expected performance from ingested data",
 };
 
+// ── Mapping ───────────────────────────────────────────────────────────────────
+
+const fmtNsv = (n: number, sym: string) =>
+  n % 1 === 0
+    ? `${sym}${n.toLocaleString("en-US")}`
+    : `${sym}${n.toLocaleString("en-US", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })}`;
+const kUsd = (n: number, sym: string) => `${sym}${(n / 1000).toFixed(1)}K`;
+
+function niceMax(v: number): number {
+  if (v <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / pow;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
+}
+
+function mapVip(vip: VipData, symbol: string) {
+  const totalCases = vip.skus.reduce((s, k) => s + k.cases, 0);
+  const totalNsv = vip.skus.reduce((s, k) => s + k.nsv, 0);
+
+  const stats = [
+    { label: "Total Cases", value: String(totalCases), icon: Package, color: "#22C55E" },
+    { label: "Total NSV", value: fmtNsv(totalNsv, symbol), icon: TrendingUp, color: "#22C55E" },
+    { label: "Markets", value: String(vip.markets.length), icon: MapPin, color: "#3B82F6" },
+    { label: "Distributors", value: String(vip.distributors.length), icon: Building2, color: "#A855F7" },
+  ];
+
+  const barMax = niceMax(Math.max(1, ...vip.distributors.map((d) => d.cases)));
+  const distributorBars = vip.distributors.map((d) => ({ label: d.name, value: d.cases }));
+  const barTicks = [0.25, 0.5, 0.75, 1].map((f) => Math.round(barMax * f));
+
+  const donut = vip.markets.map((mk, i) => ({
+    label: mk.name,
+    pct: totalCases > 0 ? Math.round((mk.cases / vip.markets.reduce((s, x) => s + x.cases, 0)) * 100) : 0,
+    color: DONUT_PALETTE[i % DONUT_PALETTE.length],
+  }));
+  const skuTotal = vip.skus.reduce((s, k) => s + k.cases, 0) || 1;
+  const skus = vip.skus.map((k) => ({
+    name: k.name,
+    cases: k.cases,
+    value: fmtNsv(k.nsv, symbol),
+    pct: `${Math.round((k.cases / skuTotal) * 100)}%`,
+  }));
+
+  // Expected
+  const em = vip.expected.markets;
+  const totalExpected = em.reduce((s, x) => s + x.expectedNsv, 0);
+  const totalRealized = em.reduce((s, x) => s + x.realizedNsv, 0);
+  const avgPct = totalExpected > 0 ? ((totalRealized - totalExpected) / totalExpected) * 100 : 0;
+  const under = em.find((x) => x.realizedNsv < x.expectedNsv * 0.9);
+  const expected = {
+    avg: `${avgPct >= 0 ? "+" : ""}${avgPct.toFixed(1)}%`,
+    avgNegative: avgPct < 0,
+    totalExpected: fmtNsv(totalExpected, symbol),
+    totalRealized: fmtNsv(totalRealized, symbol),
+    underperforming: under
+      ? `${under.name} is more than 10% below expected velocity.`
+      : "All markets are meeting expected velocity.",
+    markets: em.map((x) => ({
+      name: x.name,
+      distributor: x.distributor,
+      expected: x.expectedNsv,
+      realized: x.realizedNsv,
+    })),
+    barMax: niceMax(Math.max(1, ...em.flatMap((x) => [x.expectedNsv, x.realizedNsv]))),
+    hasUnder: !!under,
+  };
+
+  // Territory
+  const territory = {
+    stats: [
+      { label: "Active Markets", value: String(vip.markets.length) },
+      { label: "Total Cases", value: String(totalCases) },
+      { label: "Total NSV", value: kUsd(totalNsv, symbol) },
+    ],
+    territories: vip.markets.map((mk) => ({ name: mk.name, cases: mk.cases })),
+  };
+
+  // Pricing
+  const ps = vip.pricing.skus;
+  const outside = ps.filter(
+    (s) => s.wholesalePrice < s.corridorMin || s.wholesalePrice > s.corridorMax,
+  ).length;
+  const within = ps.length - outside;
+  const pricing = {
+    stats: [
+      { label: "Within Corridor", value: String(within), tone: "green" as const },
+      { label: "Borderline", value: "0", tone: "amber" as const },
+      { label: "Outside", value: String(outside), tone: "red" as const },
+    ],
+    alert:
+      outside > 0
+        ? `${outside} SKU${outside !== 1 ? "s are" : " is"} pricing outside the recommended corridor. Review distributor agreements or adjust pricing strategy`
+        : "All SKUs are pricing within the recommended corridor.",
+    rows: ps.map((s) => ({
+      name: s.name,
+      wholesale: fmtNsv(s.wholesalePrice, symbol),
+      corridor: `${fmtNsv(s.corridorMin, symbol)}-${fmtNsv(s.corridorMax, symbol)}`,
+    })),
+    hasOutside: outside > 0,
+  };
+
+  // Distributor health
+  const dh = vip.distributorPerf.distributors;
+  const avgHealth = dh.length
+    ? Math.round(dh.reduce((s, d) => s + d.healthScore, 0) / dh.length)
+    : 0;
+  const distributor = {
+    avg: `${avgHealth}/100`,
+    health: dh.map((d) => ({
+      name: d.name,
+      market: d.market,
+      healthScore: d.healthScore,
+      cases: String(d.cases),
+      nsv: fmtNsv(d.nsv, symbol),
+      pricingIssues: d.pricingIssues,
+      within: d.pricingStatus === "within",
+    })),
+  };
+
+  // Alerts (derived)
+  const alerts: { severity: "warning" | "critical"; title: string; body: string }[] = [];
+  dh.forEach((d) => {
+    if (d.healthScore < 70)
+      alerts.push({
+        severity: d.healthScore < 60 ? "critical" : "warning",
+        title: `${d.name} health score ${d.healthScore < 60 ? "critical" : "low"} in ${d.market}`,
+        body: `Score: ${d.healthScore}/100. Potential fulfilment or stock issues.`,
+      });
+    if (d.pricingStatus === "above")
+      alerts.push({
+        severity: "warning",
+        title: `${d.market} wholesale pricing above corridor`,
+        body: `Avg wholesale ${fmtNsv(d.avgWholesale, symbol)} may be limiting velocity. Consider pricing adjustment.`,
+      });
+  });
+  em.forEach((x) => {
+    if (x.realizedNsv < x.expectedNsv * 0.9)
+      alerts.push({
+        severity: "warning",
+        title: `${x.name} underperforming`,
+        body: `${Math.round((1 - x.realizedNsv / x.expectedNsv) * 100)}% below projected velocity. Review distributor execution and stock levels.`,
+      });
+  });
+
+  return { stats, barMax, distributorBars, barTicks, donut, skus, expected, territory, pricing, distributor, alerts };
+}
+
+type VipMapped = ReturnType<typeof mapVip>;
+
+// ── Tab ───────────────────────────────────────────────────────────────────────
+
 export function VipTab() {
+  const { data, isLoading, symbol } = usePerformanceDashboard(30);
   const [sub, setSub] = useState<string>("Depletions");
   const header = SUB_HEADER[sub] ?? DEFAULT_HEADER;
+  const m = data ? mapVip(data.vip, symbol) : null;
 
   return (
     <View className="gap-5">
-      {/* Header */}
       <View className="gap-1">
         <Text className="text-2xl font-bold">{header.title}</Text>
         <Text className="text-sm leading-5 text-muted-foreground">
@@ -70,7 +219,6 @@ export function VipTab() {
         </Text>
       </View>
 
-      {/* Sub tabs (single scrollable line) */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -100,45 +248,44 @@ export function VipTab() {
         })}
       </ScrollView>
 
-      {sub === "Depletions" ? <VipDepletions /> : null}
-      {sub === "Expected" ? <VipExpected /> : null}
-      {sub === "Territory" ? <VipTerritory /> : null}
-      {sub === "Pricing" ? <VipPricing /> : null}
-      {sub === "Distributor" ? <VipDistributor /> : null}
-      {sub === "Alerts" ? <VipAlerts /> : null}
-      {sub !== "Depletions" &&
-      sub !== "Expected" &&
-      sub !== "Territory" &&
-      sub !== "Pricing" &&
-      sub !== "Distributor" &&
-      sub !== "Alerts" ? (
-        <VipStub name={sub} />
-      ) : null}
+      {isLoading || !m ? (
+        <Text className="py-8 text-center text-sm text-muted-foreground">
+          Loading VIP intelligence…
+        </Text>
+      ) : sub === "Depletions" ? (
+        <VipDepletions m={m} />
+      ) : sub === "Expected" ? (
+        <VipExpected m={m} />
+      ) : sub === "Territory" ? (
+        <VipTerritory m={m} />
+      ) : sub === "Pricing" ? (
+        <VipPricing m={m} />
+      ) : sub === "Distributor" ? (
+        <VipDistributor m={m} />
+      ) : (
+        <VipAlerts m={m} />
+      )}
     </View>
   );
 }
 
-function VipDepletions() {
+function VipDepletions({ m }: { m: VipMapped }) {
   return (
     <View className="gap-4">
-      {/* Stat cards */}
-      {VIP_STATS.map((s) => (
+      {m.stats.map((s) => (
         <StatRow key={s.label} stat={s} />
       ))}
 
-      {/* Cases by Distributor */}
       <View className="gap-3 rounded-lg bg-white/[0.08] p-4">
         <Text className="text-base font-semibold">Cases by Distributor</Text>
-        <DistributorBarChart />
+        <DistributorBarChart bars={m.distributorBars} max={m.barMax} ticks={m.barTicks} />
       </View>
 
-      {/* Cases by Market */}
       <View className="gap-3 rounded-lg bg-white/[0.08] p-4">
         <Text className="text-base font-semibold">Cases by Market</Text>
-        <DonutChart />
+        <DonutChart slices={m.donut} />
       </View>
 
-      {/* SKU Performance */}
       <View className="gap-3 rounded-lg bg-white/[0.08] p-4">
         <View className="gap-0.5">
           <Text className="text-base font-semibold">SKU Performance</Text>
@@ -146,7 +293,7 @@ function VipDepletions() {
             Depletion breakdown by product
           </Text>
         </View>
-        {VIP_SKUS.map((s, i) => (
+        {m.skus.map((s, i) => (
           <View
             key={s.name}
             className={cn(
@@ -156,9 +303,7 @@ function VipDepletions() {
           >
             <View className="gap-0.5">
               <Text className="text-sm font-medium">{s.name}</Text>
-              <Text className="text-xs text-muted-foreground">
-                {s.cases} Cases
-              </Text>
+              <Text className="text-xs text-muted-foreground">{s.cases} Cases</Text>
             </View>
             <View className="items-end gap-1">
               <Text className="text-sm font-bold">{s.value}</Text>
@@ -173,7 +318,11 @@ function VipDepletions() {
   );
 }
 
-function StatRow({ stat }: { stat: DepletionStat }) {
+function StatRow({
+  stat,
+}: {
+  stat: { label: string; value: string; icon: LucideIcon; color: string };
+}) {
   const Icon = stat.icon;
   return (
     <View className="gap-2 rounded-2xl border border-border bg-card p-4">
@@ -186,7 +335,7 @@ function StatRow({ stat }: { stat: DepletionStat }) {
   );
 }
 
-// ── Alerts panel ─────────────────────────────────────────────────────────────
+// ── Alerts ────────────────────────────────────────────────────────────────────
 
 const ALERT_STYLE = {
   warning: {
@@ -203,27 +352,30 @@ const ALERT_STYLE = {
   },
 } as const;
 
-function VipAlerts() {
+function VipAlerts({ m }: { m: VipMapped }) {
+  if (m.alerts.length === 0) {
+    return (
+      <View className="items-center gap-2 rounded-2xl border border-border bg-card p-8">
+        <CircleCheck color="#22C55E" size={36} />
+        <Text className="text-center text-sm text-muted-foreground">
+          No alerts — all VIP metrics look healthy.
+        </Text>
+      </View>
+    );
+  }
   return (
     <View className="gap-4">
-      {VIP_ALERTS.map((a, i) => {
+      {m.alerts.map((a, i) => {
         const s = ALERT_STYLE[a.severity];
         return (
-          <View
-            key={i}
-            className={cn("gap-2 rounded-2xl border p-4", s.card)}
-          >
+          <View key={i} className={cn("gap-2 rounded-2xl border p-4", s.card)}>
             <View className="flex-row items-center gap-2">
               <View className={cn("rounded-md border px-2 py-0.5", s.badge)}>
-                <Text className={cn("text-xs font-medium", s.text)}>
-                  {s.label}
-                </Text>
+                <Text className={cn("text-xs font-medium", s.text)}>{s.label}</Text>
               </View>
               <Text className="flex-1 text-base font-medium">{a.title}</Text>
             </View>
-            <Text className="text-sm leading-5 text-muted-foreground">
-              {a.body}
-            </Text>
+            <Text className="text-sm leading-5 text-muted-foreground">{a.body}</Text>
           </View>
         );
       })}
@@ -231,7 +383,7 @@ function VipAlerts() {
   );
 }
 
-// ── Distributor panel ────────────────────────────────────────────────────────
+// ── Distributor ───────────────────────────────────────────────────────────────
 
 function healthColor(score: number) {
   if (score >= 80) return "#22C55E";
@@ -255,27 +407,20 @@ function HealthBar({ score }: { score: number }) {
   );
 }
 
-function VipDistributor() {
+function VipDistributor({ m }: { m: VipMapped }) {
   return (
     <View className="gap-4">
-      {/* Average health */}
       <View className="gap-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
         <Text className="text-sm text-muted-foreground">
           Average Distributor Health Score
         </Text>
-        <Text className="text-3xl font-bold text-white">
-          {VIP_DISTRIBUTOR_AVG}
-        </Text>
+        <Text className="text-3xl font-bold text-white">{m.distributor.avg}</Text>
       </View>
 
-      {/* Distributor cards */}
-      {VIP_DISTRIBUTORS_HEALTH.map((d) => {
+      {m.distributor.health.map((d) => {
         const badge = healthBadge(d.healthScore);
         return (
-          <View
-            key={d.name}
-            className="gap-3 rounded-2xl border border-border bg-card p-4"
-          >
+          <View key={d.name} className="gap-3 rounded-2xl border border-border bg-card p-4">
             <View className="flex-row items-start justify-between">
               <View>
                 <Text className="text-base font-semibold">{d.name}</Text>
@@ -290,9 +435,7 @@ function VipDistributor() {
 
             <View className="gap-1.5">
               <View className="flex-row justify-between">
-                <Text className="text-sm text-muted-foreground">
-                  Health Score
-                </Text>
+                <Text className="text-sm text-muted-foreground">Health Score</Text>
                 <Text className="text-sm font-medium">{d.healthScore}/100</Text>
               </View>
               <HealthBar score={d.healthScore} />
@@ -312,8 +455,7 @@ function VipDistributor() {
             {d.pricingIssues > 0 ? (
               <View className="border-t border-border pt-3">
                 <Text className="text-xs font-medium text-amber-500">
-                  {d.pricingIssues} pricing issue
-                  {d.pricingIssues !== 1 ? "s" : ""}
+                  {d.pricingIssues} pricing issue{d.pricingIssues !== 1 ? "s" : ""}
                 </Text>
               </View>
             ) : null}
@@ -321,7 +463,6 @@ function VipDistributor() {
         );
       })}
 
-      {/* Market-level table */}
       <View className="gap-3 rounded-lg bg-white/5 p-4">
         <View className="gap-0.5">
           <Text className="text-base font-semibold">
@@ -332,16 +473,10 @@ function VipDistributor() {
           </Text>
         </View>
         <View className="flex-row border-b border-border pb-2">
-          <Text
-            style={{ flex: 1 }}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Text style={{ flex: 1 }} className="text-xs font-medium text-muted-foreground">
             Market
           </Text>
-          <Text
-            style={{ flex: 1.4 }}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Text style={{ flex: 1.4 }} className="text-xs font-medium text-muted-foreground">
             Distributor
           </Text>
           <Text
@@ -351,7 +486,7 @@ function VipDistributor() {
             Health score
           </Text>
         </View>
-        {VIP_DISTRIBUTORS_HEALTH.map((d) => (
+        {m.distributor.health.map((d) => (
           <View
             key={d.name}
             className="flex-row items-center border-b border-border/50 py-3"
@@ -362,10 +497,7 @@ function VipDistributor() {
             <Text style={{ flex: 1.4 }} className="text-sm" numberOfLines={1}>
               {d.name}
             </Text>
-            <View
-              style={{ flex: 1.3 }}
-              className="flex-row items-center justify-end gap-1.5"
-            >
+            <View style={{ flex: 1.3 }} className="flex-row items-center justify-end gap-1.5">
               {d.healthScore >= 80 ? (
                 <CircleCheck color="#22C55E" size={16} />
               ) : (
@@ -385,26 +517,22 @@ function VipDistributor() {
   );
 }
 
-// ── Pricing panel ────────────────────────────────────────────────────────────
+// ── Pricing ───────────────────────────────────────────────────────────────────
 
-const PRICING_TONE: Record<PricingStat["tone"], string> = {
+const PRICING_TONE: Record<"green" | "amber" | "red", string> = {
   green: "border-emerald-500/20 bg-emerald-500/10",
   amber: "border-amber-500/20 bg-amber-500/10",
   red: "border-red-500/20 bg-red-500/10",
 };
 
-function VipPricing() {
+function VipPricing({ m }: { m: VipMapped }) {
   return (
     <View className="gap-4">
-      {/* Corridor tiles */}
       <View className="flex-row gap-3">
-        {VIP_PRICING_STATS.map((s) => (
+        {m.pricing.stats.map((s) => (
           <View
             key={s.label}
-            className={cn(
-              "flex-1 gap-1 rounded-xl border p-4",
-              PRICING_TONE[s.tone],
-            )}
+            className={cn("flex-1 gap-1 rounded-xl border p-4", PRICING_TONE[s.tone])}
           >
             <Text className="text-xs text-muted-foreground" numberOfLines={1}>
               {s.label}
@@ -414,22 +542,19 @@ function VipPricing() {
         ))}
       </View>
 
-      {/* Alert */}
-      <View className="flex-row items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
-        <TriangleAlert color="#F87171" size={20} style={{ marginTop: 2 }} />
-        <Text className="flex-1 text-sm leading-5 text-red-300">
-          {VIP_PRICING_ALERT}
-        </Text>
-      </View>
+      {m.pricing.hasOutside ? (
+        <View className="flex-row items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+          <TriangleAlert color="#F87171" size={20} style={{ marginTop: 2 }} />
+          <Text className="flex-1 text-sm leading-5 text-red-300">
+            {m.pricing.alert}
+          </Text>
+        </View>
+      ) : null}
 
-      {/* Market Performance Detail */}
       <View className="gap-3 rounded-lg bg-white/5 p-4">
         <Text className="text-base font-semibold">Market Performance Detail</Text>
         <View className="flex-row border-b border-border pb-2">
-          <Text
-            style={{ flex: 1.9 }}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Text style={{ flex: 1.9 }} className="text-xs font-medium text-muted-foreground">
             Market
           </Text>
           <Text
@@ -445,16 +570,12 @@ function VipPricing() {
             Corridor
           </Text>
         </View>
-        {VIP_PRICING_ROWS.map((r) => (
+        {m.pricing.rows.map((r) => (
           <View
             key={r.name}
             className="flex-row items-center border-b border-border/50 py-3"
           >
-            <Text
-              style={{ flex: 1.9 }}
-              className="text-sm font-medium"
-              numberOfLines={1}
-            >
+            <Text style={{ flex: 1.9 }} className="text-sm font-medium" numberOfLines={1}>
               {r.name}
             </Text>
             <Text style={{ flex: 1.1 }} className="text-right text-sm">
@@ -470,15 +591,14 @@ function VipPricing() {
   );
 }
 
-// ── Territory panel ──────────────────────────────────────────────────────────
+// ── Territory ─────────────────────────────────────────────────────────────────
 
-function VipTerritory() {
-  const maxCases = Math.max(...VIP_TERRITORIES.map((t) => t.cases));
+function VipTerritory({ m }: { m: VipMapped }) {
+  const maxCases = Math.max(1, ...m.territory.territories.map((t) => t.cases));
   return (
     <View className="gap-4">
-      {/* Summary tiles */}
       <View className="flex-row gap-3">
-        {VIP_TERRITORY_STATS.map((s) => (
+        {m.territory.stats.map((s) => (
           <StatCard
             key={s.label}
             label={s.label}
@@ -490,9 +610,8 @@ function VipTerritory() {
         ))}
       </View>
 
-      {/* Market tiles */}
       <View className="flex-row gap-3">
-        {VIP_TERRITORIES.map((t) => (
+        {m.territory.territories.map((t) => (
           <View
             key={t.name}
             className="h-24 flex-1 overflow-hidden rounded-2xl"
@@ -518,7 +637,6 @@ function VipTerritory() {
         ))}
       </View>
 
-      {/* Legend */}
       <View className="flex-row justify-center gap-4">
         <LegendDot color="#10B981" label="High Volume" />
         <LegendDot color="#F59E0B" label="Medium" />
@@ -528,7 +646,7 @@ function VipTerritory() {
   );
 }
 
-// ── Expected panel ───────────────────────────────────────────────────────────
+// ── Expected ──────────────────────────────────────────────────────────────────
 
 function ExpectedStat({
   label,
@@ -545,7 +663,8 @@ function ExpectedStat({
   );
 }
 
-function VipExpected() {
+function VipExpected({ m }: { m: VipMapped }) {
+  const e = m.expected;
   return (
     <View className="gap-4">
       <ExpectedStat label="Avg Performance vs Expected">
@@ -554,101 +673,83 @@ function VipExpected() {
           <Text
             className={cn(
               "text-2xl font-bold",
-              VIP_EXPECTED_SUMMARY.avgNegative
-                ? "text-red-500"
-                : "text-green-500",
+              e.avgNegative ? "text-red-500" : "text-green-500",
             )}
           >
-            {VIP_EXPECTED_SUMMARY.avg}
+            {e.avg}
           </Text>
         </View>
       </ExpectedStat>
       <ExpectedStat label="Total Expected NSV">
-        <Text className="text-2xl font-bold">
-          {VIP_EXPECTED_SUMMARY.totalExpected}
-        </Text>
+        <Text className="text-2xl font-bold">{e.totalExpected}</Text>
       </ExpectedStat>
       <ExpectedStat label="Total Realized NSV">
-        <Text className="text-2xl font-bold">
-          {VIP_EXPECTED_SUMMARY.totalRealized}
-        </Text>
+        <Text className="text-2xl font-bold">{e.totalRealized}</Text>
       </ExpectedStat>
 
-      {/* Underperforming alert */}
-      <View className="flex-row items-start gap-3 rounded-2xl border border-amber-500/50 bg-amber-500/5 p-4">
-        <TriangleAlert color="#F59E0B" size={20} style={{ marginTop: 2 }} />
-        <View className="flex-1 gap-1">
-          <Text className="text-base font-semibold text-amber-500">
-            Underperforming Markets
-          </Text>
-          <Text className="text-sm leading-5 text-muted-foreground">
-            {VIP_UNDERPERFORMING}
-          </Text>
+      {e.hasUnder ? (
+        <View className="flex-row items-start gap-3 rounded-2xl border border-amber-500/50 bg-amber-500/5 p-4">
+          <TriangleAlert color="#F59E0B" size={20} style={{ marginTop: 2 }} />
+          <View className="flex-1 gap-1">
+            <Text className="text-base font-semibold text-amber-500">
+              Underperforming Markets
+            </Text>
+            <Text className="text-sm leading-5 text-muted-foreground">
+              {e.underperforming}
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : null}
 
-      {/* Chart */}
       <View className="gap-3">
         <Text className="text-base font-semibold">
           Expected vs Realized NSV by Market
         </Text>
-        <GroupedBarChart />
+        <GroupedBarChart markets={e.markets} max={e.barMax} symbol="" />
         <View className="flex-row justify-center gap-4">
           <LegendDot color="#6B7280" label="Expected" />
           <LegendDot color="#FFFFFF" label="Realized" />
         </View>
       </View>
 
-      {/* Market Performance Detail */}
       <View className="gap-3 rounded-lg bg-white/5 p-4">
         <Text className="text-base font-semibold">Market Performance Detail</Text>
-        {/* header */}
         <View className="flex-row border-b border-border pb-2">
-          <Text
-            style={{ flex: 1 }}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Text style={{ flex: 1 }} className="text-xs font-medium text-muted-foreground">
             Market
           </Text>
-          <Text
-            style={{ flex: 1.9 }}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Text style={{ flex: 1.9 }} className="text-xs font-medium text-muted-foreground">
             Distributor
           </Text>
           <Text
             style={{ flex: 1.2 }}
             className="text-right text-xs font-medium text-muted-foreground"
           >
-            Expected NSV
+            Expected
           </Text>
           <Text
             style={{ flex: 1.2 }}
             className="text-right text-xs font-medium text-muted-foreground"
           >
-            Realized NSV
+            Realized
           </Text>
         </View>
-        {VIP_EXPECTED_MARKETS.map((m) => (
+        {e.markets.map((mk) => (
           <View
-            key={m.name}
+            key={mk.name}
             className="flex-row items-center border-b border-border/50 py-3"
           >
-            <Text
-              style={{ flex: 1 }}
-              className="text-sm font-medium"
-              numberOfLines={1}
-            >
-              {m.name}
+            <Text style={{ flex: 1 }} className="text-sm font-medium" numberOfLines={1}>
+              {mk.name}
             </Text>
             <Text style={{ flex: 1.9 }} className="text-sm" numberOfLines={1}>
-              {m.distributor}
+              {mk.distributor}
             </Text>
             <Text style={{ flex: 1.2 }} className="text-right text-sm">
-              {usd(m.expected)}
+              {mk.expected.toLocaleString("en-US")}
             </Text>
             <Text style={{ flex: 1.2 }} className="text-right text-sm">
-              {usd(m.realized)}
+              {mk.realized.toLocaleString("en-US")}
             </Text>
           </View>
         ))}
@@ -660,36 +761,42 @@ function VipExpected() {
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <View className="flex-row items-center gap-1.5">
-      <View
-        style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }}
-      />
+      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }} />
       <Text className="text-xs text-muted-foreground">{label}</Text>
     </View>
   );
 }
+
+// ── Grouped bar chart (expected vs realized) ─────────────────────────────────
 
 const GBAR_H = 200;
 const GPAD_T = 10;
 const GPAD_B = 26;
 const GPAD_L = 40;
 const AXIS = "rgba(255,255,255,0.3)";
-const GBAR_MAX = 12000;
 const GBAR_W = 22;
 const GBAR_GAP = 6;
-const GBAR_TICKS = [0, 0.25, 0.5, 0.75, 1]; // top → bottom fractions
+const GBAR_TICKS = [0, 0.25, 0.5, 0.75, 1];
 
-function GroupedBarChart() {
+function GroupedBarChart({
+  markets,
+  max,
+  symbol,
+}: {
+  markets: { name: string; expected: number; realized: number }[];
+  max: number;
+  symbol: string;
+}) {
   const [w, setW] = useState(0);
   const plotH = GBAR_H - GPAD_T - GPAD_B;
   const y0 = GPAD_T + plotH;
-  const y = (v: number) => GPAD_T + (1 - v / GBAR_MAX) * plotH;
-  const groupW = (w - GPAD_L) / VIP_EXPECTED_MARKETS.length;
+  const y = (v: number) => GPAD_T + (1 - v / max) * plotH;
+  const groupW = (w - GPAD_L) / Math.max(1, markets.length);
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && markets.length > 0 ? (
         <Svg width={w} height={GBAR_H}>
-          {/* dashed gridlines */}
           {GBAR_TICKS.map((g) => (
             <Line
               key={`g${g}`}
@@ -702,27 +809,7 @@ function GroupedBarChart() {
               strokeDasharray="4 4"
             />
           ))}
-          {/* solid vertical axis */}
-          <Line
-            x1={GPAD_L}
-            x2={GPAD_L}
-            y1={GPAD_T}
-            y2={y0}
-            stroke={AXIS}
-            strokeWidth={1.5}
-          />
-          {/* left tick marks + labels */}
-          {GBAR_TICKS.map((g) => (
-            <Line
-              key={`tk${g}`}
-              x1={GPAD_L - 5}
-              x2={GPAD_L}
-              y1={GPAD_T + g * plotH}
-              y2={GPAD_T + g * plotH}
-              stroke={AXIS}
-              strokeWidth={1.5}
-            />
-          ))}
+          <Line x1={GPAD_L} x2={GPAD_L} y1={GPAD_T} y2={y0} stroke={AXIS} strokeWidth={1.5} />
           {GBAR_TICKS.map((g) => (
             <SvgText
               key={`yl${g}`}
@@ -732,39 +819,38 @@ function GroupedBarChart() {
               fill={MUTED}
               textAnchor="end"
             >
-              {`$${Math.round(((1 - g) * GBAR_MAX) / 1000)}k`}
+              {`${symbol}${Math.round(((1 - g) * max) / 1000)}k`}
             </SvgText>
           ))}
-
-          {VIP_EXPECTED_MARKETS.map((m, i) => {
+          {markets.map((mk, i) => {
             const cx = GPAD_L + groupW * i + groupW / 2;
             return (
               <Rect
                 key={`e${i}`}
                 x={cx - GBAR_W - GBAR_GAP / 2}
-                y={y(m.expected)}
+                y={y(mk.expected)}
                 width={GBAR_W}
-                height={y0 - y(m.expected)}
+                height={y0 - y(mk.expected)}
                 rx={3}
                 fill="#6B7280"
               />
             );
           })}
-          {VIP_EXPECTED_MARKETS.map((m, i) => {
+          {markets.map((mk, i) => {
             const cx = GPAD_L + groupW * i + groupW / 2;
             return (
               <Rect
                 key={`r${i}`}
                 x={cx + GBAR_GAP / 2}
-                y={y(m.realized)}
+                y={y(mk.realized)}
                 width={GBAR_W}
-                height={y0 - y(m.realized)}
+                height={y0 - y(mk.realized)}
                 rx={3}
                 fill="#FFFFFF"
               />
             );
           })}
-          {VIP_EXPECTED_MARKETS.map((m, i) => (
+          {markets.map((mk, i) => (
             <SvgText
               key={`l${i}`}
               x={GPAD_L + groupW * i + groupW / 2}
@@ -773,7 +859,7 @@ function GroupedBarChart() {
               fill={MUTED}
               textAnchor="middle"
             >
-              {m.name}
+              {mk.name}
             </SvgText>
           ))}
         </Svg>
@@ -784,44 +870,43 @@ function GroupedBarChart() {
   );
 }
 
-// ── Charts ───────────────────────────────────────────────────────────────────
+// ── Distributor bar chart (cases) ─────────────────────────────────────────────
 
 const BAR_LABEL_W = 68;
 const BAR_H = 22;
 const BAR_GAP = 20;
-const BAR_AXIS_MAX = 230;
 const BAR_PAD_T = 6;
 
-function DistributorBarChart() {
+function DistributorBarChart({
+  bars,
+  max,
+  ticks,
+}: {
+  bars: { label: string; value: number }[];
+  max: number;
+  ticks: number[];
+}) {
   const [w, setW] = useState(0);
-  const rows = VIP_DISTRIBUTOR_BARS.length;
+  const rows = Math.max(1, bars.length);
   const plotX0 = BAR_LABEL_W;
   const plotW = Math.max(0, w - plotX0 - 10);
-  const x = (v: number) => plotX0 + (v / BAR_AXIS_MAX) * plotW;
-  // Tall enough for the axis tick labels below the baseline.
+  const x = (v: number) => plotX0 + (v / max) * plotW;
   const axisY = BAR_PAD_T + (rows - 1) * (BAR_H + BAR_GAP) + BAR_H + 12;
   const height = axisY + 22;
 
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {w > 0 ? (
+      {w > 0 && bars.length > 0 ? (
         <Svg width={w} height={height}>
-          {/* bars + labels */}
-          {VIP_DISTRIBUTOR_BARS.map((b, i) => {
+          {bars.map((b, i) => {
             const y = BAR_PAD_T + i * (BAR_H + BAR_GAP);
             return (
-              <SvgText
-                key={`l${i}`}
-                x={0}
-                y={y + BAR_H / 2 + 3}
-                fontSize={9}
-                fill={MUTED}
-              >
-                {b.label}
+              <SvgText key={`l${i}`} x={0} y={y + BAR_H / 2 + 3} fontSize={9} fill={MUTED}>
+                {b.label.length > 12 ? `${b.label.slice(0, 11)}…` : b.label}
               </SvgText>
             );
           })}
-          {VIP_DISTRIBUTOR_BARS.map((b, i) => {
+          {bars.map((b, i) => {
             const y = BAR_PAD_T + i * (BAR_H + BAR_GAP);
             return (
               <Rect
@@ -835,7 +920,6 @@ function DistributorBarChart() {
               />
             );
           })}
-          {/* axis line + ticks */}
           <Line
             x1={plotX0}
             x2={w - 10}
@@ -844,7 +928,7 @@ function DistributorBarChart() {
             stroke="rgba(255,255,255,0.15)"
             strokeWidth={1}
           />
-          {VIP_BAR_TICKS.map((t) => (
+          {ticks.map((t) => (
             <SvgText
               key={`t${t}`}
               x={x(t)}
@@ -864,17 +948,23 @@ function DistributorBarChart() {
   );
 }
 
+// ── Donut (cases by market) ───────────────────────────────────────────────────
+
 const DONUT_SIZE = 150;
 const DONUT_R = 52;
 const DONUT_SW = 20;
 
-function DonutChart() {
+function DonutChart({
+  slices,
+}: {
+  slices: { label: string; pct: number; color: string }[];
+}) {
   const cx = DONUT_SIZE / 2;
   const cy = DONUT_SIZE / 2;
   const C = 2 * Math.PI * DONUT_R;
 
   let offset = 0;
-  const arcs = VIP_MARKET_DONUT.map((s) => {
+  const arcs = slices.map((s) => {
     const dash = (s.pct / 100) * C;
     const el = (
       <Circle
@@ -900,15 +990,10 @@ function DonutChart() {
         {arcs}
       </Svg>
       <View className="flex-row flex-wrap justify-center gap-4">
-        {VIP_MARKET_DONUT.map((s) => (
+        {slices.map((s) => (
           <View key={s.label} className="flex-row items-center gap-1.5">
             <View
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: s.color,
-              }}
+              style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: s.color }}
             />
             <Text className="text-xs text-muted-foreground">
               {s.label} {s.pct}%
@@ -916,17 +1001,6 @@ function DonutChart() {
           </View>
         ))}
       </View>
-    </View>
-  );
-}
-
-function VipStub({ name }: { name: string }) {
-  return (
-    <View className="items-center gap-2 rounded-2xl border border-border bg-card p-8">
-      <Text className="text-base font-semibold">{name}</Text>
-      <Text variant="muted" className="text-center text-sm">
-        {name} view coming soon.
-      </Text>
     </View>
   );
 }
