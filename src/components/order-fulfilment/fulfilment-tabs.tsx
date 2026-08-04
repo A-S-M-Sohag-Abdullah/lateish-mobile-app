@@ -18,19 +18,29 @@ import Svg, {
 
 import { Progress } from "@/components/ui/progress";
 import { Text } from "@/components/ui/text";
+import {
+  useOrderFulfilment,
+  type FulfilmentAnalytics,
+} from "@/hooks/use-order-fulfilment";
 import { cn } from "@/lib/utils";
 import {
-  AUTO_REORDER,
-  CHANNELS,
-  DISTRIBUTORS,
-  FINANCIAL_ORDERS,
-  FORECAST,
-  GHOST_ORDERS,
-  ORDERS,
   type AutoReorderRule,
+  type ChannelRow,
+  type DistributorPerf,
   type FinancialImpactOrder,
+  type ForecastPoint,
+  type GhostOrder,
+  type Order,
   type OrderStatus,
 } from "@/lib/order-fulfilment-data";
+
+function PanelLoading() {
+  return (
+    <Text className="py-10 text-center text-sm text-muted-foreground">
+      Loading…
+    </Text>
+  );
+}
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -191,16 +201,13 @@ const O_COL = {
   days: 52,
 } as const;
 
-function OrdersPanel() {
+function OrdersPanel({ orders }: { orders: Order[] }) {
   return (
     <PanelCard
       title="Order Fulfilment Status"
       description="Track orders from placement to delivery with depletion matching"
       badges={
         <>
-          <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
-            Sample Data
-          </Pill>
           <Pill
             className="border-border bg-secondary"
             icon={<Database color="#FFFFFF" size={12} />}
@@ -229,7 +236,7 @@ function OrdersPanel() {
             <TH w={O_COL.status} className="pl-4">Status</TH>
             <TH w={O_COL.days} right>Days</TH>
           </View>
-          {ORDERS.map((o) => (
+          {orders.map((o) => (
             <View
               key={o.id}
               className="flex-row items-center border-b border-border/50 py-3"
@@ -282,7 +289,7 @@ const D_COL = {
   avg: 78,
 } as const;
 
-function DistributorsPanel() {
+function DistributorsPanel({ distributors }: { distributors: DistributorPerf[] }) {
   return (
     <PanelCard
       title="Distributor Fulfilment Performance"
@@ -305,7 +312,7 @@ function DistributorsPanel() {
             <TH w={D_COL.rate} className="pl-4">Fulfilment Rate</TH>
             <TH w={D_COL.avg} right>Avg Days</TH>
           </View>
-          {DISTRIBUTORS.map((d) => (
+          {distributors.map((d) => (
             <View
               key={d.name}
               className="flex-row items-center border-b border-border/50 py-3"
@@ -345,16 +352,11 @@ const C_COL = {
   fp: 96,
 } as const;
 
-function ChannelsPanel() {
+function ChannelsPanel({ channels }: { channels: ChannelRow[] }) {
   return (
     <PanelCard
       title="Fulfilment by Channel"
       description="Compare fulfilment performance across sales channels"
-      badges={
-        <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
-          Sample Data
-        </Pill>
-      }
     >
       <ScrollView horizontal showsHorizontalScrollIndicator>
         <View>
@@ -366,7 +368,7 @@ function ChannelsPanel() {
             <TH w={C_COL.avg} right>Avg Days</TH>
             <TH w={C_COL.fp} right>Failed/Partial</TH>
           </View>
-          {CHANNELS.map((ch) => (
+          {channels.map((ch) => (
             <View
               key={ch.channel}
               className="flex-row items-center border-b border-border/50 py-3"
@@ -414,7 +416,13 @@ function ChannelsPanel() {
 
 // ── Forecast ─────────────────────────────────────────────────────────────────
 
-function ForecastChart({ width }: { width: number }) {
+function ForecastChart({
+  width,
+  forecast: FORECAST,
+}: {
+  width: number;
+  forecast: ForecastPoint[];
+}) {
   const H = 200;
   const padL = 30;
   const padR = 10;
@@ -503,7 +511,7 @@ function ForecastChart({ width }: { width: number }) {
   );
 }
 
-function ForecastPanel() {
+function ForecastPanel({ forecast: FORECAST }: { forecast: ForecastPoint[] }) {
   const [w, setW] = useState(0);
 
   const forecastPoints = FORECAST.filter((d) => d.forecast != null);
@@ -520,11 +528,6 @@ function ForecastPanel() {
     <PanelCard
       title="Fulfilment Forecast"
       description="Weekly order volume — actuals and 8-week projection with confidence bands"
-      badges={
-        <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
-          Sample Data
-        </Pill>
-      }
     >
       <View className="flex-row gap-3">
         <SummaryTile label="Last Actual" value={`${lastActual} cs`} />
@@ -533,7 +536,11 @@ function ForecastPanel() {
       </View>
 
       <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-        {w > 0 ? <ForecastChart width={w} /> : <View style={{ height: 200 }} />}
+        {w > 0 ? (
+          <ForecastChart width={w} forecast={FORECAST} />
+        ) : (
+          <View style={{ height: 200 }} />
+        )}
       </View>
 
       <View className="flex-row flex-wrap gap-x-4 gap-y-1">
@@ -595,24 +602,19 @@ const G_COL = {
   reason: 230,
 } as const;
 
-function GhostPanel() {
+function GhostPanel({ ghostOrders }: { ghostOrders: GhostOrder[] }) {
   return (
     <PanelCard
       title="Ghost Order Detection"
       description="Shipments without matching depletions — possible inventory sitting in distributor warehouses"
       badges={
-        <>
-          <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
-            Sample Data
-          </Pill>
-          <Pill
-            className="border-red-500/20 bg-red-500/10"
-            textClassName="text-red-500"
-            icon={<TriangleAlert color="#EF4444" size={12} />}
-          >
-            {`${GHOST_ORDERS.length} detected`}
-          </Pill>
-        </>
+        <Pill
+          className="border-red-500/20 bg-red-500/10"
+          textClassName="text-red-500"
+          icon={<TriangleAlert color="#EF4444" size={12} />}
+        >
+          {`${ghostOrders.length} detected`}
+        </Pill>
       }
     >
       <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -626,7 +628,7 @@ function GhostPanel() {
             <TH w={G_COL.score}>Ghost Score</TH>
             <TH w={G_COL.reason}>Possible Reason</TH>
           </View>
-          {GHOST_ORDERS.map((g) => (
+          {ghostOrders.map((g) => (
             <View
               key={g.id}
               className="flex-row items-center border-b border-border/50 py-3"
@@ -700,9 +702,9 @@ const R_COL = {
   action: 128,
 } as const;
 
-function AutoReorderPanel() {
+function AutoReorderPanel({ rules }: { rules: AutoReorderRule[] }) {
   const [activeIds, setActiveIds] = useState<Set<string>>(
-    () => new Set(AUTO_REORDER.filter((r) => r.active).map((r) => r.id)),
+    () => new Set(rules.filter((r) => r.active).map((r) => r.id)),
   );
   const toggle = (id: string) =>
     setActiveIds((prev) => {
@@ -711,25 +713,20 @@ function AutoReorderPanel() {
       else next.add(id);
       return next;
     });
-  const belowCount = AUTO_REORDER.filter((r) => r.status === "Below Threshold").length;
+  const belowCount = rules.filter((r) => r.status === "Below Threshold").length;
 
   return (
     <PanelCard
       title="Auto-Reorder Configuration"
       description="Velocity-based reorder points. Orders trigger when stock falls below configured weeks of cover."
       badges={
-        <>
-          <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
-            Sample Data
-          </Pill>
-          <Pill
-            className="border-red-500/20 bg-red-500/10"
-            textClassName="text-red-500"
-            icon={<TriangleAlert color="#EF4444" size={12} />}
-          >
-            {`${belowCount} below threshold`}
-          </Pill>
-        </>
+        <Pill
+          className="border-red-500/20 bg-red-500/10"
+          textClassName="text-red-500"
+          icon={<TriangleAlert color="#EF4444" size={12} />}
+        >
+          {`${belowCount} below threshold`}
+        </Pill>
       }
     >
       <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -744,7 +741,7 @@ function AutoReorderPanel() {
             <TH w={R_COL.active} center>Active</TH>
             <TH w={R_COL.action}> </TH>
           </View>
-          {AUTO_REORDER.map((r) => (
+          {rules.map((r) => (
             <ReorderRow
               key={r.id}
               rule={r}
@@ -828,13 +825,15 @@ const FIN_STATUS: Record<FinancialImpactOrder["status"], { box: string; text: st
   Delayed: { box: "bg-orange-500", text: "text-white" },
 };
 
-function FinancialPanel() {
+function FinancialPanel({ orders }: { orders: FinancialImpactOrder[] }) {
   const [marginPct, setMarginPct] = useState(30);
 
+  const FINANCIAL_ORDERS = orders;
   const totalLost = FINANCIAL_ORDERS.reduce((s, o) => s + o.lostRevenue, 0);
   const totalMargin = Math.round((totalLost * marginPct) / 100);
   const avgDelay = (
-    FINANCIAL_ORDERS.reduce((s, o) => s + o.delayDays, 0) / FINANCIAL_ORDERS.length
+    FINANCIAL_ORDERS.reduce((s, o) => s + o.delayDays, 0) /
+    (FINANCIAL_ORDERS.length || 1)
   ).toFixed(1);
 
   return (
@@ -842,11 +841,6 @@ function FinancialPanel() {
       title="Financial Impact of Delays"
       description="Revenue and margin impact from delayed, partial, and failed orders"
       bare
-      badges={
-        <Pill className="border-amber-500/30 bg-amber-500/10" textClassName="text-amber-500">
-          Sample Data
-        </Pill>
-      }
     >
       {/* Summary tiles */}
       <View className="gap-3">
@@ -967,6 +961,23 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export function FulfilmentTabs() {
   const [tab, setTab] = useState<TabKey>("orders");
+  const {
+    orders,
+    ordersLoading,
+    distributors,
+    distributorsLoading,
+    analytics,
+    analyticsLoading,
+  } = useOrderFulfilment();
+
+  const emptyAnalytics: FulfilmentAnalytics = {
+    channels: [],
+    forecast: [],
+    ghostOrders: [],
+    autoReorderRules: [],
+    financialOrders: [],
+  };
+  const a = analytics ?? emptyAnalytics;
 
   return (
     <View className="gap-4">
@@ -995,13 +1006,20 @@ export function FulfilmentTabs() {
         })}
       </View>
 
-      {tab === "orders" ? <OrdersPanel /> : null}
-      {tab === "distributors" ? <DistributorsPanel /> : null}
-      {tab === "channels" ? <ChannelsPanel /> : null}
-      {tab === "forecast" ? <ForecastPanel /> : null}
-      {tab === "ghost" ? <GhostPanel /> : null}
-      {tab === "reorder" ? <AutoReorderPanel /> : null}
-      {tab === "financial" ? <FinancialPanel /> : null}
+      {tab === "orders" ?
+        ordersLoading ? <PanelLoading /> : <OrdersPanel orders={orders} /> : null}
+      {tab === "distributors" ?
+        distributorsLoading ? <PanelLoading /> : <DistributorsPanel distributors={distributors} /> : null}
+      {tab === "channels" ?
+        analyticsLoading ? <PanelLoading /> : <ChannelsPanel channels={a.channels} /> : null}
+      {tab === "forecast" ?
+        analyticsLoading ? <PanelLoading /> : <ForecastPanel forecast={a.forecast ?? []} /> : null}
+      {tab === "ghost" ?
+        analyticsLoading ? <PanelLoading /> : <GhostPanel ghostOrders={a.ghostOrders} /> : null}
+      {tab === "reorder" ?
+        analyticsLoading ? <PanelLoading /> : <AutoReorderPanel rules={a.autoReorderRules} /> : null}
+      {tab === "financial" ?
+        analyticsLoading ? <PanelLoading /> : <FinancialPanel orders={a.financialOrders} /> : null}
     </View>
   );
 }

@@ -2,11 +2,20 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react-native";
 import { View } from "react-native";
 
 import { StatCard } from "@/components/ui/stat-card";
-import { FULFILMENT_STATS as S } from "@/lib/order-fulfilment-data";
+import { useOrderStats } from "@/hooks/use-order-fulfilment";
 
 const NAVY = ["#132B5C", "#0B1833"] as const;
 
 export function FulfilmentStats() {
+  const { data } = useOrderStats();
+  const S = {
+    fulfilmentRate: Math.round(data?.fulfilment_rate ?? 0),
+    avgDays: data?.avg_days != null ? Math.round(data.avg_days * 10) / 10 : 0,
+    variancePct: data?.variance_pct != null ? Math.round(data.variance_pct * 10) / 10 : 0,
+    ordersPending: data?.orders_pending ?? 0,
+    ordersPartial: data?.orders_partial ?? 0,
+    ordersFailed: data?.orders_failed ?? 0,
+  };
   const variance = S.variancePct;
 
   return (
