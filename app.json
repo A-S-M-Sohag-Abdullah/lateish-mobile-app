@@ -64,6 +64,12 @@
         {
           "microphonePermission": "Allow LATE(ish) to access your microphone to record voice notes."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow LATE(ish) to use your location to show nearby accounts on the sales map."
+        }
       ]
     ],
     "extra": {

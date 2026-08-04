@@ -8,10 +8,11 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
+import * as Location from "expo-location";
 import { Stack, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LogBox, Platform, Pressable, ScrollView, Text as RNText, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -24,6 +25,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider, useTheme } from "@/contexts/theme-context";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useAuthStore } from "@/store/auth.store";
+import { useLocationGate } from "@/store/location-gate.store";
 
 // Benign react-native-web responder warning fired when an interactive control
 // (e.g. a Slider) competes with a parent ScrollView on the web preview only.
@@ -116,7 +118,30 @@ function AppShell() {
   });
   const { hydrated, resolvedTheme } = useTheme();
   const authLoading = useAuthStore((s) => s.loading);
+  const session = useAuthStore((s) => s.session);
   const colors = useThemeColors();
+
+  // After sign-in, decide whether to show the Location Permission screen.
+  const needsPrompt = useLocationGate((s) => s.needsPrompt);
+  const setNeedsPrompt = useLocationGate((s) => s.setNeedsPrompt);
+  useEffect(() => {
+    if (!session) {
+      setNeedsPrompt(null);
+      return;
+    }
+    if (needsPrompt !== null) return;
+    let cancelled = false;
+    Location.getForegroundPermissionsAsync()
+      .then(({ status }) => {
+        if (!cancelled) setNeedsPrompt(status !== "granted");
+      })
+      .catch(() => {
+        if (!cancelled) setNeedsPrompt(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, needsPrompt, setNeedsPrompt]);
 
   const [splashHidden, setSplashHidden] = useState(false);
   const handleSplashHidden = useCallback(() => setSplashHidden(true), []);
@@ -146,6 +171,7 @@ function AppShell() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="setup" />
+            <Stack.Screen name="location-permission" />
           </Stack>
         </PresenceProvider>
       ) : null}
