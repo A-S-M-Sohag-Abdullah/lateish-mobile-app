@@ -18,10 +18,13 @@ export interface LeafletMapHandle {
   zoomOut: () => void;
   locate: () => void;
   setHidden: (channels: string[]) => void;
+  setSearch: (term: string) => void;
 }
 
 interface LeafletMapProps {
   accounts: SalesAccount[];
+  /** Initial map centre; defaults to Lower Manhattan. */
+  center?: [number, number];
 }
 
 /** Points fed to the Leaflet HTML — colour/label resolved up front. */
@@ -37,8 +40,9 @@ function toPoints(accounts: SalesAccount[]) {
   }));
 }
 
-function buildHtml(accounts: SalesAccount[]): string {
+function buildHtml(accounts: SalesAccount[], center: [number, number]): string {
   const points = JSON.stringify(toPoints(accounts));
+  const centerStr = JSON.stringify(center);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -69,8 +73,9 @@ function buildHtml(accounts: SalesAccount[]): string {
 <script>
   var POINTS = ${points};
   var hidden = {};
+  var searchTerm = '';
   var map = L.map('map', { zoomControl: false, attributionControl: true })
-    .setView([40.712, -74.010], 13);
+    .setView(${centerStr}, 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
@@ -100,6 +105,10 @@ function buildHtml(accounts: SalesAccount[]): string {
     });
     POINTS.forEach(function (p) {
       if (hidden[p.channel]) return;
+      if (searchTerm) {
+        var hay = (p.name + ' ' + p.city + ' ' + p.label).toLowerCase();
+        if (hay.indexOf(searchTerm) === -1) return;
+      }
       var m = L.marker([p.lat, p.lng], { icon: markerIcon(p.color) });
       m.bindPopup(
         '<p class="pop-name">' + p.name + '</p>' +
@@ -113,6 +122,10 @@ function buildHtml(accounts: SalesAccount[]): string {
   window.setHidden = function (arr) {
     hidden = {};
     (arr || []).forEach(function (c) { hidden[c] = true; });
+    render();
+  };
+  window.setSearch = function (term) {
+    searchTerm = (term || '').toLowerCase();
     render();
   };
   window.zoomIn = function () { map.zoomIn(); };
@@ -133,10 +146,13 @@ function buildHtml(accounts: SalesAccount[]): string {
  * reload — so panning/zoom state is preserved.
  */
 export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(
-  function LeafletMap({ accounts }, ref) {
+  function LeafletMap({ accounts, center = [40.712, -74.01] }, ref) {
     const webRef = useRef<WebView>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const html = useMemo(() => buildHtml(accounts), [accounts]);
+    const html = useMemo(
+      () => buildHtml(accounts, center),
+      [accounts, center],
+    );
 
     // Native: inject JS into the WebView. Web: call the same globals through the
     // (same-origin, srcDoc) iframe's window — react-native-webview has no web
@@ -157,6 +173,7 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(
             zoomOut: () => callWeb("zoomOut"),
             locate: () => callWeb("locate"),
             setHidden: (channels) => callWeb("setHidden", channels),
+            setSearch: (term) => callWeb("setSearch", term),
           }
         : {
             zoomIn: () => run("window.zoomIn && window.zoomIn()"),
@@ -166,6 +183,8 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(
               run(
                 `window.setHidden && window.setHidden(${JSON.stringify(channels)})`,
               ),
+            setSearch: (term) =>
+              run(`window.setSearch && window.setSearch(${JSON.stringify(term)})`),
           },
     );
 

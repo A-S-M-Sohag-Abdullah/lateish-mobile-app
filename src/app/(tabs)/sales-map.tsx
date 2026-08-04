@@ -11,18 +11,32 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useQuery } from "@tanstack/react-query";
 
 import {
   LeafletMap,
   type LeafletMapHandle,
 } from "@/components/sales-map/leaflet-map";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { api } from "@/lib/api";
+import { CHANNEL_LEGEND, type SalesAccount } from "@/lib/sales-map-data";
 import { cn } from "@/lib/utils";
-import { CHANNEL_LEGEND, SALES_ACCOUNTS } from "@/lib/sales-map-data";
 import { useSidebarStore } from "@/store/sidebar.store";
+
+interface ApiAccount {
+  id: string;
+  name: string;
+  channel: string | null;
+  city: string | null;
+  state: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
 
 // The map's own dark chrome — fixed surfaces that sit over the light tiles, so
 // they don't follow the app's light/dark theme.
@@ -43,15 +57,59 @@ export default function SalesMapScreen() {
   const mapRef = useRef<LeafletMapHandle>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
   const [search, setSearch] = useState("");
   const [legendOpen, setLegendOpen] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<string | null>(null);
 
-  const shownCount = useMemo(
-    () => SALES_ACCOUNTS.filter((a) => !hidden.has(a.channel)).length,
-    [hidden],
+  const { data: page, isLoading } = useQuery({
+    queryKey: ["accounts", orgId],
+    queryFn: () =>
+      api.getPaginated<ApiAccount>(`/organizations/${orgId}/accounts?limit=500`),
+    enabled: !!orgId,
+  });
+
+  // Only accounts with coordinates can be plotted.
+  const accounts = useMemo<SalesAccount[]>(
+    () =>
+      (page?.data ?? [])
+        .filter((a) => a.latitude != null && a.longitude != null)
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          channel: a.channel ?? "",
+          city: [a.city, a.state].filter(Boolean).join(", "),
+          lat: a.latitude as number,
+          lng: a.longitude as number,
+        })),
+    [page],
   );
+
+  // Centre the map on the accounts (falls back to the default in LeafletMap).
+  const center = useMemo<[number, number] | undefined>(() => {
+    if (accounts.length === 0) return undefined;
+    const lat = accounts.reduce((s, a) => s + a.lat, 0) / accounts.length;
+    const lng = accounts.reduce((s, a) => s + a.lng, 0) / accounts.length;
+    return [lat, lng];
+  }, [accounts]);
+
+  // Legend shows only channels that actually appear on the map.
+  const legend = useMemo(
+    () => CHANNEL_LEGEND.filter((c) => accounts.some((a) => a.channel === c.slug)),
+    [accounts],
+  );
+
+  const shownCount = useMemo(
+    () => accounts.filter((a) => !hidden.has(a.channel)).length,
+    [accounts, hidden],
+  );
+
+  function onSearch(v: string) {
+    setSearch(v);
+    mapRef.current?.setSearch(v);
+  }
 
   function toggleChannel(slug: string) {
     setHidden((prev) => {
@@ -73,8 +131,15 @@ export default function SalesMapScreen() {
     <View className="flex-1 bg-[#0B1220]">
       <StatusBar style="dark" />
 
-      {/* Full-bleed map (extends under the status bar, like the design). */}
-      <LeafletMap ref={mapRef} accounts={SALES_ACCOUNTS} />
+      {/* Full-bleed map (extends under the status bar, like the design).
+          Held until accounts resolve so it mounts once with real data. */}
+      {isLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-sm text-white/60">Loading map…</Text>
+        </View>
+      ) : (
+        <LeafletMap ref={mapRef} accounts={accounts} center={center} />
+      )}
 
       {/* ── Top search bar ── */}
       <View
@@ -100,7 +165,7 @@ export default function SalesMapScreen() {
           </View>
           <TextInput
             value={search}
-            onChangeText={setSearch}
+            onChangeText={onSearch}
             placeholder="Search location, postcode..."
             placeholderTextColor="rgba(255,255,255,0.6)"
             className="flex-1 text-base text-white"
@@ -155,25 +220,38 @@ export default function SalesMapScreen() {
 
         {legendOpen ? (
           <View className="px-4 pb-3">
-            {CHANNEL_LEGEND.map((item) => {
-              const off = hidden.has(item.slug);
-              return (
-                <Pressable
-                  key={item.slug}
-                  onPress={() => toggleChannel(item.slug)}
-                  className={cn(
-                    "flex-row items-center gap-3 py-1.5",
-                    off && "opacity-40",
-                  )}
-                >
-                  <View
-                    className="h-3 w-3 rounded-full border border-white/60"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <Text className="text-sm text-white/90">{item.label}</Text>
-                </Pressable>
-              );
-            })}
+            {legend.length > 0 ? (
+              <ScrollView
+                style={{ maxHeight: 240 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {legend.map((item) => {
+                  const off = hidden.has(item.slug);
+                  return (
+                    <Pressable
+                      key={item.slug}
+                      onPress={() => toggleChannel(item.slug)}
+                      className={cn(
+                        "flex-row items-center gap-3 py-1.5",
+                        off && "opacity-40",
+                      )}
+                    >
+                      <View
+                        className="h-3 w-3 rounded-full border border-white/60"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <Text className="flex-1 text-sm text-white/90" numberOfLines={1}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <Text className="py-1 text-sm text-white/60">
+                {isLoading ? "Loading accounts…" : "No mapped accounts yet."}
+              </Text>
+            )}
 
             <View className="mt-2 border-t border-white/10 pt-2">
               <Text className="text-xs uppercase tracking-wide text-white/50">
