@@ -2,7 +2,6 @@ import { useGoBack } from "@/hooks/use-go-back";
 import {
   Bell,
   ChevronLeft,
-  ChevronRight,
   DollarSign,
   Info,
   LineChart,
@@ -15,12 +14,17 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react-native";
-import { Fragment, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Fragment } from "react";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
+import { SelectField } from "@/components/ui/select-field";
 import { Text } from "@/components/ui/text";
+import {
+  useNotificationPreferences,
+  type PreferenceToggle,
+} from "@/hooks/use-notification-preferences";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { cn } from "@/lib/utils";
 
@@ -30,25 +34,45 @@ interface ToggleItem {
   iconBg: string;
   title: string;
   subtitle: string;
+  field: PreferenceToggle;
 }
 
 const CHANNELS: ToggleItem[] = [
-  { icon: Smartphone, iconColor: "#3B82F6", iconBg: "bg-blue-500/15", title: "Push Notifications", subtitle: "Receive notifications on this device" },
-  { icon: Mail, iconColor: "#3B82F6", iconBg: "bg-blue-500/15", title: "Email Notifications", subtitle: "Receive notifications via email" },
+  { icon: Smartphone, iconColor: "#3B82F6", iconBg: "bg-blue-500/15", title: "Push Notifications", subtitle: "Receive notifications on this device", field: "push_enabled" },
+  { icon: Mail, iconColor: "#3B82F6", iconBg: "bg-blue-500/15", title: "Email Notifications", subtitle: "Receive notifications via email", field: "email_enabled" },
 ];
 
 const PREFERENCES: ToggleItem[] = [
-  { icon: LineChart, iconColor: "#22C55E", iconBg: "bg-green-500/15", title: "Sales & Performance Alerts", subtitle: "Get notified about sales updates and performance" },
-  { icon: Target, iconColor: "#A855F7", iconBg: "bg-purple-500/15", title: "Targets & Goals", subtitle: "Alerts for target progress and achievements" },
-  { icon: ShoppingCart, iconColor: "#D9A521", iconBg: "bg-amber-500/20", title: "Orders & Activities", subtitle: "Notifications for new orders and activities" },
-  { icon: DollarSign, iconColor: "#14B8A6", iconBg: "bg-teal-500/15", title: "Financial Updates", subtitle: "P&L updates, budgets and financial reports" },
-  { icon: Users, iconColor: "#F43F5E", iconBg: "bg-rose-500/15", title: "User & Access", subtitle: "Alerts for user invites and access changes" },
-  { icon: Megaphone, iconColor: "#8B5CF6", iconBg: "bg-violet-500/15", title: "System & Announcements", subtitle: "Important system updates and announcements" },
+  { icon: LineChart, iconColor: "#22C55E", iconBg: "bg-green-500/15", title: "Sales & Performance Alerts", subtitle: "Get notified about sales updates and performance", field: "sales_performance" },
+  { icon: Target, iconColor: "#A855F7", iconBg: "bg-purple-500/15", title: "Targets & Goals", subtitle: "Alerts for target progress and achievements", field: "targets_goals" },
+  { icon: ShoppingCart, iconColor: "#D9A521", iconBg: "bg-amber-500/20", title: "Orders & Activities", subtitle: "Notifications for new orders and activities", field: "orders_activities" },
+  { icon: DollarSign, iconColor: "#14B8A6", iconBg: "bg-teal-500/15", title: "Financial Updates", subtitle: "P&L updates, budgets and financial reports", field: "financial_updates" },
+  { icon: Users, iconColor: "#F43F5E", iconBg: "bg-rose-500/15", title: "User & Access", subtitle: "Alerts for user invites and access changes", field: "user_access" },
+  { icon: Megaphone, iconColor: "#8B5CF6", iconBg: "bg-violet-500/15", title: "System & Announcements", subtitle: "Important system updates and announcements", field: "system_announcements" },
 ];
+
+// 30-minute time slots as 24h values with 12h labels for the pickers.
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2);
+  const m = i % 2 === 0 ? "00" : "30";
+  const value = `${String(h).padStart(2, "0")}:${m}`;
+  const period = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return { value, label: `${h12}:${m} ${period}` };
+});
+const labelForTime = (v: string) =>
+  TIME_SLOTS.find((t) => t.value === v)?.label ?? v;
+const timeForLabel = (l: string) =>
+  TIME_SLOTS.find((t) => t.label === l)?.value ?? l;
+const TIME_LABELS = TIME_SLOTS.map((t) => t.label);
 
 export default function NotificationSettingsScreen() {
   const goBack = useGoBack();
   const colors = useThemeColors();
+  const { prefs, isLoading, update } = useNotificationPreferences();
+
+  const set = (patch: Parameters<typeof update.mutate>[0]) => update.mutate(patch);
+  const globalOff = !prefs.global_enabled;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -65,64 +89,112 @@ export default function NotificationSettingsScreen() {
         </Text>
       </View>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-5 px-4 pb-16 pt-2"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Global */}
-        <View className="rounded-2xl border border-border bg-white/[0.03] px-4">
-          <ToggleRow
-            item={{
-              icon: Bell,
-              iconColor: "#3B82F6",
-              iconBg: "bg-blue-500/15",
-              title: "Global Notifications",
-              subtitle: "Enable or disable all notifications",
-            }}
-          />
+      {isLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={colors.primary} />
         </View>
-
-        {/* Channels */}
-        <View className="gap-2">
-          <SectionLabel
-            title="Notification Channels"
-            subtitle="Choose where you want to receive notifications"
-          />
-          <Card items={CHANNELS} />
-        </View>
-
-        {/* Preferences */}
-        <View className="gap-2">
-          <SectionLabel
-            title="Notification Preferences"
-            subtitle="Choose the types of notifications you want to receive"
-          />
-          <Card items={PREFERENCES} />
-        </View>
-
-        {/* Quiet Hours */}
-        <View className="gap-2">
-          <SectionLabel
-            title="Quiet Hours"
-            subtitle="Choose when you don't want to receive push notifications"
-          />
-          <Pressable className="flex-row items-center gap-3 rounded-2xl border border-border bg-white/[0.03] p-4 active:opacity-80">
-            <IconCircle icon={Moon} color="#A855F7" bg="bg-purple-500/15" />
-            <View className="flex-1">
-              <Text className="text-base font-medium">Quiet Hours</Text>
-              <Text className="text-sm text-muted-foreground">10:00 PM – 7:00 AM</Text>
-            </View>
-            <ChevronRight color="#64748B" size={20} />
-          </Pressable>
-          <View className="flex-row items-center gap-1.5 pl-1">
-            <Info color={colors.mutedForeground} size={13} />
-            <Text className="text-xs text-muted-foreground">
-              You will still receive important alerts during quiet hours.
-            </Text>
+      ) : (
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="gap-5 px-4 pb-16 pt-2"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Global */}
+          <View className="rounded-2xl border border-border bg-white/[0.03] px-4">
+            <ToggleRow
+              icon={Bell}
+              iconColor="#3B82F6"
+              iconBg="bg-blue-500/15"
+              title="Global Notifications"
+              subtitle="Enable or disable all notifications"
+              value={prefs.global_enabled}
+              onToggle={() => set({ global_enabled: !prefs.global_enabled })}
+            />
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Channels */}
+          <View className="gap-2">
+            <SectionLabel
+              title="Notification Channels"
+              subtitle="Choose where you want to receive notifications"
+            />
+            <Card
+              items={CHANNELS}
+              prefs={prefs}
+              disabled={globalOff}
+              onToggle={(field) => set({ [field]: !prefs[field] })}
+            />
+          </View>
+
+          {/* Preferences */}
+          <View className="gap-2">
+            <SectionLabel
+              title="Notification Preferences"
+              subtitle="Choose the types of notifications you want to receive"
+            />
+            <Card
+              items={PREFERENCES}
+              prefs={prefs}
+              disabled={globalOff}
+              onToggle={(field) => set({ [field]: !prefs[field] })}
+            />
+          </View>
+
+          {/* Quiet Hours */}
+          <View className="gap-2">
+            <SectionLabel
+              title="Quiet Hours"
+              subtitle="Choose when you don't want to receive push notifications"
+            />
+            <View className="gap-3 rounded-2xl border border-border bg-white/[0.03] p-4">
+              <View className="flex-row items-center gap-3">
+                <IconCircle icon={Moon} color="#A855F7" bg="bg-purple-500/15" />
+                <View className="flex-1">
+                  <Text className="text-base font-medium">Quiet Hours</Text>
+                  <Text className="text-sm text-muted-foreground">
+                    {prefs.quiet_hours_enabled
+                      ? `${labelForTime(prefs.quiet_hours_start)} – ${labelForTime(prefs.quiet_hours_end)}`
+                      : "Off"}
+                  </Text>
+                </View>
+                <Toggle
+                  value={prefs.quiet_hours_enabled}
+                  onToggle={() =>
+                    set({ quiet_hours_enabled: !prefs.quiet_hours_enabled })
+                  }
+                />
+              </View>
+
+              {prefs.quiet_hours_enabled ? (
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <SelectField
+                      label="Start"
+                      value={labelForTime(prefs.quiet_hours_start)}
+                      options={TIME_LABELS}
+                      onChange={(l) => set({ quiet_hours_start: timeForLabel(l) })}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <SelectField
+                      label="End"
+                      value={labelForTime(prefs.quiet_hours_end)}
+                      options={TIME_LABELS}
+                      onChange={(l) => set({ quiet_hours_end: timeForLabel(l) })}
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </View>
+            <View className="flex-row items-center gap-1.5 pl-1">
+              <Info color={colors.mutedForeground} size={13} />
+              <Text className="text-xs text-muted-foreground">
+                You will still receive important alerts during quiet hours.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      )}
 
       <BottomTabBar />
     </SafeAreaView>
@@ -138,13 +210,37 @@ function SectionLabel({ title, subtitle }: { title: string; subtitle: string }) 
   );
 }
 
-function Card({ items }: { items: ToggleItem[] }) {
+function Card({
+  items,
+  prefs,
+  disabled,
+  onToggle,
+}: {
+  items: ToggleItem[];
+  prefs: Record<PreferenceToggle, boolean>;
+  disabled?: boolean;
+  onToggle: (field: PreferenceToggle) => void;
+}) {
   return (
-    <View className="rounded-2xl border border-border bg-white/[0.03] px-4">
+    <View
+      className={cn(
+        "rounded-2xl border border-border bg-white/[0.03] px-4",
+        disabled && "opacity-50",
+      )}
+      pointerEvents={disabled ? "none" : "auto"}
+    >
       {items.map((item, i) => (
-        <Fragment key={item.title}>
+        <Fragment key={item.field}>
           {i > 0 ? <View className="h-px bg-border/50" /> : null}
-          <ToggleRow item={item} />
+          <ToggleRow
+            icon={item.icon}
+            iconColor={item.iconColor}
+            iconBg={item.iconBg}
+            title={item.title}
+            subtitle={item.subtitle}
+            value={prefs[item.field]}
+            onToggle={() => onToggle(item.field)}
+          />
         </Fragment>
       ))}
     </View>
@@ -167,16 +263,31 @@ function IconCircle({
   );
 }
 
-function ToggleRow({ item }: { item: ToggleItem }) {
-  const [on, setOn] = useState(true);
+function ToggleRow({
+  icon,
+  iconColor,
+  iconBg,
+  title,
+  subtitle,
+  value,
+  onToggle,
+}: {
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onToggle: () => void;
+}) {
   return (
     <View className="flex-row items-center gap-3 py-3">
-      <IconCircle icon={item.icon} color={item.iconColor} bg={item.iconBg} />
+      <IconCircle icon={icon} color={iconColor} bg={iconBg} />
       <View className="flex-1">
-        <Text className="text-base font-medium">{item.title}</Text>
-        <Text className="text-xs text-muted-foreground">{item.subtitle}</Text>
+        <Text className="text-base font-medium">{title}</Text>
+        <Text className="text-xs text-muted-foreground">{subtitle}</Text>
       </View>
-      <Toggle value={on} onToggle={() => setOn((o) => !o)} />
+      <Toggle value={value} onToggle={onToggle} />
     </View>
   );
 }

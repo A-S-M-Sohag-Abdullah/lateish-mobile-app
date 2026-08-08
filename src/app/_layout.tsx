@@ -24,6 +24,8 @@ import { PresenceProvider } from "@/components/providers/presence-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider, useTheme } from "@/contexts/theme-context";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PREVIEW_MODE } from "@/lib/preview";
+import { registerPushToken } from "@/lib/push";
 import { useAuthStore } from "@/store/auth.store";
 import { useLocationGate } from "@/store/location-gate.store";
 
@@ -142,6 +144,14 @@ function AppShell() {
       cancelled = true;
     };
   }, [session, needsPrompt, setNeedsPrompt]);
+
+  // Register this device for push once signed in. Runs when a real session
+  // appears (skipped in preview mode). Best-effort — no-ops on simulators and
+  // in Expo Go, where remote push isn't available.
+  useEffect(() => {
+    if (PREVIEW_MODE || !session) return;
+    void registerPushToken();
+  }, [session]);
 
   const [splashHidden, setSplashHidden] = useState(false);
   const handleSplashHidden = useCallback(() => setSplashHidden(true), []);

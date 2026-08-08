@@ -70,6 +70,13 @@
         {
           "locationWhenInUsePermission": "Allow LATE(ish) to use your location to show nearby accounts on the sales map."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#0C1426"
+        }
       ]
     ],
     "extra": {

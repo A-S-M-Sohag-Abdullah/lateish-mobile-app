@@ -3,6 +3,7 @@ import { create } from "zustand";
 
 import { env } from "@/lib/env";
 import { signInWithApple, signInWithGoogle } from "@/lib/oauth";
+import { unregisterPushToken } from "@/lib/push";
 import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 import { useOrgStore } from "@/store/organization.store";
@@ -249,6 +250,9 @@ export const useAuthStore = create<AuthState>()((set) => {
     },
 
     logout: async () => {
+      // Drop this device's push token first — after signOut the API call would
+      // be unauthenticated. Best-effort; never block logout on it.
+      await unregisterPushToken().catch(() => {});
       await supabase.auth.signOut();
     },
   };
