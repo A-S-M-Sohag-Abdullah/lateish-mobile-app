@@ -16,11 +16,13 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { createClient } from "@supabase/supabase-js";
+
 import { RightSheet } from "@/components/ui/right-sheet";
 import { Text } from "@/components/ui/text";
 import { notificationsKey, useNotifications } from "@/hooks/use-notifications";
 import { api } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
+import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 import { useNotificationsStore } from "@/store/notifications.store";
 import type { ApiNotification, NotificationPriority } from "@/types/notification";
@@ -60,11 +62,27 @@ export function NotificationsPanel() {
   const { orgId, notifications, unread } = useNotifications();
   const [tab, setTab] = useState<"unread" | "all">("all");
 
+  // On open, default to the Unread tab when there's anything unread — otherwise
+  // All. Only re-evaluated on the open transition so it doesn't yank the tab
+  // while the user is browsing.
+  useEffect(() => {
+    if (open) setTab(unread.length > 0 ? "unread" : "all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Realtime: invalidate on any INSERT to this org's notifications.
+  //
+  // Uses a dedicated anon client (not the shared authenticated one) with a
+  // unique channel name, mirroring the web app. The shared client authenticates
+  // as the signed-in user, so its Realtime connection is gated by the stricter
+  // `authenticated` RLS policy and is subject to token-refresh churn; a fresh
+  // anon client cleanly hits the permissive `anon` SELECT policy. The unique
+  // topic name avoids a wedged re-subscribe when the effect remounts.
   useEffect(() => {
     if (!orgId) return;
-    const channel = supabase
-      .channel(`notifications_${orgId}`)
+    const rt = createClient(env.supabaseUrl, env.supabaseAnonKey);
+    const channel = rt
+      .channel(`notifications_${orgId}_${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -78,7 +96,7 @@ export function NotificationsPanel() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void rt.removeChannel(channel);
     };
   }, [orgId, queryClient]);
 

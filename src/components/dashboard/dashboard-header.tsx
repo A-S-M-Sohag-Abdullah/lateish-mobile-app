@@ -3,6 +3,7 @@ import { Bell, Menu, Settings } from "lucide-react-native";
 import { Pressable, View } from "react-native";
 
 import { OrgSwitcher } from "@/components/layout/org-switcher";
+import { useNotifications } from "@/hooks/use-notifications";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { useNotificationsStore } from "@/store/notifications.store";
 import { useSidebarStore } from "@/store/sidebar.store";
@@ -18,6 +19,7 @@ export function DashboardHeader() {
   const openSidebar = useSidebarStore((s) => s.setOpen);
   const openNotifications = useNotificationsStore((s) => s.setOpen);
   const setPage = useTabsStore((s) => s.setPage);
+  const { unreadCount } = useNotifications();
 
   function openSettings() {
     setPage(4);
@@ -37,7 +39,9 @@ export function DashboardHeader() {
 
       <IconButton label="Notifications" onPress={() => openNotifications(true)}>
         <Bell color={colors.foreground} size={24} />
-        <View className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-red-500" />
+        {unreadCount > 0 ? (
+          <View className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-red-500" />
+        ) : null}
       </IconButton>
 
       <IconButton label="Settings" onPress={openSettings}>
