@@ -4,7 +4,6 @@ import {
   Bell,
   Building2,
   ChevronRight,
-  Database,
   HelpCircle,
   Lock,
   Mail,
@@ -43,7 +42,6 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     title: "Data And Security",
     rows: [
       { icon: Lock, label: "Security", href: "/security" },
-      { icon: Database, label: "Data Management", href: "/data-management" },
     ],
   },
   {

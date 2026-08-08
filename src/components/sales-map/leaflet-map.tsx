@@ -19,6 +19,8 @@ export interface LeafletMapHandle {
   locate: () => void;
   setHidden: (channels: string[]) => void;
   setSearch: (term: string) => void;
+  /** Drop/move the "you are here" marker; `center` pans the map onto it. */
+  setUserLocation: (lat: number, lng: number, center?: boolean) => void;
 }
 
 interface LeafletMapProps {
@@ -64,6 +66,30 @@ function buildHtml(accounts: SalesAccount[], center: [number, number]): string {
   .leaflet-popup-content { margin:10px 12px; }
   .pop-name { font-weight:600; font-size:14px; margin:0 0 2px; }
   .pop-sub { font-size:12px; color:#6b7280; margin:0; }
+  /* "You are here" beacon — deliberately unlike the account dots: a small solid
+     core sitting inside a large translucent accuracy halo, with a pulsing ring. */
+  .user-loc { position:relative; width:48px; height:48px; }
+  .user-halo {
+    position:absolute; inset:0; border-radius:50%;
+    background:rgba(37,99,235,.16); border:1px solid rgba(37,99,235,.35);
+  }
+  .user-ring {
+    position:absolute; top:50%; left:50%; width:20px; height:20px;
+    margin:-10px 0 0 -10px; border-radius:50%;
+    box-shadow:0 0 0 0 rgba(37,99,235,.5);
+    animation:user-pulse 2s infinite;
+  }
+  .user-core {
+    position:absolute; top:50%; left:50%; width:16px; height:16px;
+    margin:-8px 0 0 -8px; border-radius:50%;
+    background:#2563EB; border:3px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.45);
+  }
+  @keyframes user-pulse {
+    0%   { box-shadow:0 0 0 0 rgba(37,99,235,.5); }
+    70%  { box-shadow:0 0 0 18px rgba(37,99,235,0); }
+    100% { box-shadow:0 0 0 0 rgba(37,99,235,0); }
+  }
 </style>
 </head>
 <body>
@@ -141,6 +167,24 @@ function buildHtml(accounts: SalesAccount[], center: [number, number]): string {
     searchTerm = (term || '').toLowerCase();
     render();
   };
+  var userMarker = null;
+  function userIcon() {
+    return L.divIcon({
+      html: '<div class="user-loc"><div class="user-halo"></div>' +
+            '<div class="user-ring"></div><div class="user-core"></div></div>',
+      iconSize: [48, 48], iconAnchor: [24, 24], className: '',
+    });
+  }
+  window.setUserLocation = function (lat, lng, center) {
+    if (userMarker) { userMarker.setLatLng([lat, lng]); }
+    else {
+      userMarker = L.marker([lat, lng], { icon: userIcon(), zIndexOffset: 1000 })
+        .bindPopup('<p class="pop-name">You are here</p>');
+      userMarker.addTo(map);
+    }
+    if (center) { map.setView([lat, lng], 14); }
+  };
+
   window.zoomIn = function () { map.zoomIn(); };
   window.zoomOut = function () { map.zoomOut(); };
   window.locate = function () { map.locate({ setView: true, maxZoom: 15 }); };
@@ -188,6 +232,8 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(
             locate: () => callWeb("locate"),
             setHidden: (channels) => callWeb("setHidden", channels),
             setSearch: (term) => callWeb("setSearch", term),
+            setUserLocation: (lat, lng, center = true) =>
+              callWeb("setUserLocation", lat, lng, center),
           }
         : {
             zoomIn: () => run("window.zoomIn && window.zoomIn()"),
@@ -199,6 +245,10 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(
               ),
             setSearch: (term) =>
               run(`window.setSearch && window.setSearch(${JSON.stringify(term)})`),
+            setUserLocation: (lat, lng, center = true) =>
+              run(
+                `window.setUserLocation && window.setUserLocation(${lat}, ${lng}, ${center})`,
+              ),
           },
     );
 

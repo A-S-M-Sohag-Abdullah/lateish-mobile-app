@@ -1,9 +1,11 @@
+import * as Location from "expo-location";
 import {
   Activity,
   ChevronDown,
   Compass,
   Ghost,
   Layers,
+  LocateFixed,
   Menu,
   Route,
   Search,
@@ -11,7 +13,13 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -63,6 +71,7 @@ export default function SalesMapScreen() {
   const [legendOpen, setLegendOpen] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const { data: page, isLoading } = useQuery({
     queryKey: ["accounts", orgId],
@@ -113,10 +122,42 @@ export default function SalesMapScreen() {
     });
   }
 
-  function comingSoon(feature: string) {
-    setToast(`${feature} — coming soon`);
+  function showToast(message: string) {
+    setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }
+
+  function comingSoon(feature: string) {
+    showToast(`${feature} — coming soon`);
+  }
+
+  // Show the device's current position on the map with a "you are here" marker.
+  async function locateMe() {
+    if (locating) return;
+    setLocating(true);
+    try {
+      let perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== "granted") {
+        perm = await Location.requestForegroundPermissionsAsync();
+      }
+      if (perm.status !== "granted") {
+        showToast("Location permission denied");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      mapRef.current?.setUserLocation(
+        pos.coords.latitude,
+        pos.coords.longitude,
+        true,
+      );
+    } catch {
+      showToast("Couldn't get your location");
+    } finally {
+      setLocating(false);
+    }
   }
 
   return (
@@ -177,6 +218,21 @@ export default function SalesMapScreen() {
         className="absolute right-4 gap-3"
         pointerEvents="box-none"
       >
+        {/* Locate me — real GPS, drops the "you are here" marker. */}
+        <Pressable
+          accessibilityLabel="Show my location"
+          onPress={locateMe}
+          disabled={locating}
+          className="h-12 w-12 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: FAB_DARK }}
+        >
+          {locating ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <LocateFixed color="#FFFFFF" size={22} />
+          )}
+        </Pressable>
+
         {FAB_ITEMS.map(({ key, icon: Icon, active }) => (
           <Pressable
             key={key}

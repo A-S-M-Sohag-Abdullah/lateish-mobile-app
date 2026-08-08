@@ -1,13 +1,32 @@
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { MapPin } from "lucide-react-native";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { Text } from "@/components/ui/text";
 import { useLocationGate } from "@/store/location-gate.store";
+
+const BACKGROUND = "#0A0F1C";
+
+/**
+ * A filled MapPin (lucide geometry) whose inner circle is punched out to the
+ * background colour, so it reads as a white pin with a dark dot in the middle.
+ * lucide's <MapPin> can't two-tone its parts, hence the hand-drawn SVG.
+ */
+function LocationPin({ size = 64 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"
+        fill="#FFFFFF"
+      />
+      <Circle cx="12" cy="10" r="3" fill={BACKGROUND} />
+    </Svg>
+  );
+}
 
 /**
  * Shown once after sign-in / sign-up when location isn't granted, so the sales
@@ -34,7 +53,7 @@ export default function LocationPermissionScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0A0F1C" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BACKGROUND }}>
       <StatusBar style="light" />
       <View className="flex-1 px-6 pb-6">
         {/* Wordmark */}
@@ -47,7 +66,7 @@ export default function LocationPermissionScreen() {
 
         {/* Prompt */}
         <View className="flex-1 items-center justify-center gap-4">
-          <MapPin color="#FFFFFF" fill="#FFFFFF" size={64} />
+          <LocationPin size={64} />
           <Text className="text-center text-4xl font-bold text-white">
             Location Permission
           </Text>

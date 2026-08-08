@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react-native";
+import { Check, Map as MapIcon, MapPin } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { FormError } from "@/components/auth/form-error";
+import {
+  PlacePicker,
+  type PickedPlace,
+} from "@/components/rep-today/place-picker";
 import { CenteredPopup } from "@/components/ui/centered-popup";
 import { Input } from "@/components/ui/input";
 import { SelectField } from "@/components/ui/select-field";
@@ -21,6 +25,38 @@ import type { ApiTerritory } from "@/types/territory";
 const TYPE_OPTIONS = ["On-Premise", "Off-Premise"] as const;
 const typeToSlug = (label: string) =>
   label === "On-Premise" ? "on-premise" : label === "Off-Premise" ? "off-premise" : "";
+
+/**
+ * Infer account type + a canonical channel slug from an OSM place's type/class,
+ * so picking a venue pre-fills the selects. Ported from the web
+ * add-account-dialog, but mapped to the mobile channel slugs in channels.ts.
+ */
+function inferAccountFields(osmType: string, osmClass: string): {
+  type: string;
+  channel: string;
+} {
+  const t = osmType.toLowerCase();
+  const c = osmClass.toLowerCase();
+  if (["bar", "pub", "cocktail_bar", "wine_bar", "taproom", "biergarten"].includes(t))
+    return { type: "on-premise", channel: "modern-cocktail-bar" };
+  if (["nightclub", "disco", "stripclub"].includes(t))
+    return { type: "on-premise", channel: "premium-nightlife" };
+  if (["restaurant", "cafe", "bistro", "diner", "food_court", "fast_food", "snack_bar"].includes(t))
+    return { type: "on-premise", channel: "casual-food-beverage" };
+  if (["hotel", "motel", "hostel", "guest_house", "chalet"].includes(t))
+    return { type: "on-premise", channel: "hotel-bar" };
+  if (["alcohol", "wine", "beverages", "beer", "liquor"].includes(t))
+    return { type: "off-premise", channel: "independent-retailer" };
+  if (["supermarket", "convenience", "department_store", "general", "mall"].includes(t))
+    return { type: "off-premise", channel: "convenience-store" };
+  if (["deli", "farm", "cheese", "organic", "health_food", "gift", "wholefoods"].includes(t))
+    return { type: "off-premise", channel: "deli-food-retail" };
+  if (c === "shop") return { type: "off-premise", channel: "independent-retailer" };
+  if (c === "tourism") return { type: "on-premise", channel: "hotel-bar" };
+  if (c === "amenity" || c === "leisure")
+    return { type: "on-premise", channel: "casual-food-beverage" };
+  return { type: "", channel: "" };
+}
 
 /** "Create New Account" popup, opened from the Rep Today Territory tab. */
 export function AccountForm({
@@ -43,6 +79,10 @@ export function AccountForm({
   const [channelLabel, setChannelLabel] = useState("");
   const [territoryLabel, setTerritoryLabel] = useState("No territory");
   const [notes, setNotes] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: territories = [] } = useQuery({
     queryKey: ["territories", orgId],
@@ -86,9 +126,9 @@ export function AccountForm({
         account_type: typeToSlug(typeLabel),
         channel,
         notes: notes.trim() || null,
-        latitude: null,
-        longitude: null,
-        place_id: null,
+        latitude,
+        longitude,
+        place_id: placeId,
         territory_id: territoryId,
       });
     },
@@ -99,6 +139,25 @@ export function AccountForm({
     },
   });
 
+  function handlePlacePicked(place: PickedPlace) {
+    if (place.name) setName(place.name);
+    setAddress(place.address);
+    setCity(place.city);
+    setRegion(place.state);
+    setLatitude(place.latitude);
+    setLongitude(place.longitude);
+    setPlaceId(place.place_id);
+
+    const inferred = inferAccountFields(place.osm_type, place.osm_class);
+    if (inferred.type) {
+      setTypeLabel(inferred.type === "on-premise" ? "On-Premise" : "Off-Premise");
+    }
+    if (inferred.channel) {
+      const label = ALL_CHANNELS.find((c) => c.slug === inferred.channel)?.label;
+      if (label) setChannelLabel(label);
+    }
+  }
+
   function reset() {
     setName("");
     setAddress("");
@@ -108,6 +167,9 @@ export function AccountForm({
     setChannelLabel("");
     setTerritoryLabel("No territory");
     setNotes("");
+    setLatitude(null);
+    setLongitude(null);
+    setPlaceId(null);
     create.reset();
   }
 
@@ -146,13 +208,34 @@ export function AccountForm({
 
           <View className="gap-2">
             <Text className="text-base text-muted-foreground">Address *</Text>
-            <Input
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Full address for geo-mapping"
-              placeholderTextColor={colors.mutedForeground}
-              className="h-12"
-            />
+            <View className="flex-row gap-2">
+              <Input
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Full address for geo-mapping"
+                placeholderTextColor={colors.mutedForeground}
+                className="h-12 flex-1"
+              />
+              <Pressable
+                onPress={() => setPickerOpen(true)}
+                accessibilityLabel="Find venue on map"
+                className="h-12 w-12 items-center justify-center rounded-lg border border-input bg-input/30 active:opacity-70"
+              >
+                <MapIcon color={colors.foreground} size={20} />
+              </Pressable>
+            </View>
+            {latitude !== null && longitude !== null ? (
+              <View className="flex-row items-center gap-1">
+                <MapPin color="#16A34A" size={12} />
+                <Text className="text-xs text-[#16A34A]">
+                  Pinned at {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-xs text-muted-foreground">
+                Type an address or use the map icon to find and select a venue.
+              </Text>
+            )}
           </View>
 
           <View className="flex-row gap-3">
@@ -242,6 +325,12 @@ export function AccountForm({
           </Pressable>
         </View>
       </View>
+
+      <PlacePicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={handlePlacePicked}
+      />
     </CenteredPopup>
   );
 }
