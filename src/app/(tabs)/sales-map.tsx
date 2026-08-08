@@ -87,14 +87,6 @@ export default function SalesMapScreen() {
     [page],
   );
 
-  // Centre the map on the accounts (falls back to the default in LeafletMap).
-  const center = useMemo<[number, number] | undefined>(() => {
-    if (accounts.length === 0) return undefined;
-    const lat = accounts.reduce((s, a) => s + a.lat, 0) / accounts.length;
-    const lng = accounts.reduce((s, a) => s + a.lng, 0) / accounts.length;
-    return [lat, lng];
-  }, [accounts]);
-
   // Legend shows only channels that actually appear on the map.
   const legend = useMemo(
     () => CHANNEL_LEGEND.filter((c) => accounts.some((a) => a.channel === c.slug)),
@@ -138,7 +130,7 @@ export default function SalesMapScreen() {
           <Text className="text-sm text-white/60">Loading map…</Text>
         </View>
       ) : (
-        <LeafletMap ref={mapRef} accounts={accounts} center={center} />
+        <LeafletMap ref={mapRef} accounts={accounts} />
       )}
 
       {/* ── Top search bar ── */}

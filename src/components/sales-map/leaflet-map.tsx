@@ -119,6 +119,19 @@ function buildHtml(accounts: SalesAccount[], center: [number, number]): string {
     map.addLayer(clusterGroup);
   }
 
+  // Frame every account instead of centering on their midpoint. Averaging
+  // lat/lng puts far-apart accounts (e.g. US + UK) over open water; fitBounds
+  // frames a viewport that contains them all. One account: just centre on it.
+  function fitToPoints() {
+    if (POINTS.length === 0) return;
+    if (POINTS.length === 1) {
+      map.setView([POINTS[0].lat, POINTS[0].lng], 13);
+      return;
+    }
+    var bounds = L.latLngBounds(POINTS.map(function (p) { return [p.lat, p.lng]; }));
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+  }
+
   window.setHidden = function (arr) {
     hidden = {};
     (arr || []).forEach(function (c) { hidden[c] = true; });
@@ -133,6 +146,7 @@ function buildHtml(accounts: SalesAccount[], center: [number, number]): string {
   window.locate = function () { map.locate({ setView: true, maxZoom: 15 }); };
 
   render();
+  fitToPoints();
 </script>
 </body>
 </html>`;

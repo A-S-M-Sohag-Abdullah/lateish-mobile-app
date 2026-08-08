@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/ui/text";
+import { cn } from "@/lib/utils";
 
 /** The Google "G", per Google's sign-in branding guidelines. */
 function GoogleMark({ size = 22 }: { size?: number }) {
@@ -31,25 +32,37 @@ interface GoogleButtonProps {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  /** Icon-only, half-width variant (used side-by-side on the sign-up screen). */
+  iconOnly?: boolean;
 }
 
-export function GoogleButton({ onPress, loading, disabled }: GoogleButtonProps) {
+export function GoogleButton({
+  onPress,
+  loading,
+  disabled,
+  iconOnly,
+}: GoogleButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Continue with Google"
       onPress={onPress}
       disabled={disabled || loading}
-      className="h-[52px] flex-row items-center justify-center gap-3 rounded-lg bg-white active:bg-white/90 disabled:opacity-60"
+      className={cn(
+        "h-[52px] flex-row items-center justify-center gap-3 rounded-lg bg-white active:bg-white/90 disabled:opacity-60",
+        iconOnly && "flex-1",
+      )}
     >
       {loading ? (
         <ActivityIndicator size="small" color="#1F1F1F" />
       ) : (
         <>
           <GoogleMark />
-          <Text className="text-base font-medium text-[#1F1F1F]">
-            Continue with Google
-          </Text>
+          {iconOnly ? null : (
+            <Text className="text-base font-medium text-[#1F1F1F]">
+              Continue with Google
+            </Text>
+          )}
         </>
       )}
     </Pressable>

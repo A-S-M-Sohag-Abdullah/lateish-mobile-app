@@ -47,17 +47,21 @@ async function createSessionFromUrl(url: string) {
 }
 
 /**
- * Google sign-in via an in-app browser tab.
+ * Social sign-in via an in-app browser tab.
  *
  * `detectSessionInUrl` is off on mobile (there is no URL bar), so the redirect
  * is captured from the browser result and exchanged by hand. The auth store's
- * onAuthStateChange listener picks it up from there.
+ * onAuthStateChange listener picks it up from there. Works for any Supabase
+ * OAuth provider on iOS, Android and web — no native module required.
  */
-export async function signInWithGoogle(): Promise<void> {
+async function signInWithProvider(
+  provider: "google" | "apple",
+  label: string,
+): Promise<void> {
   const redirectUri = getOauthRedirectUri();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+    provider,
     options: {
       redirectTo: redirectUri,
       // Open the URL ourselves rather than letting supabase-js navigate.
@@ -65,7 +69,7 @@ export async function signInWithGoogle(): Promise<void> {
     },
   });
   if (error) throw new Error(error.message);
-  if (!data.url) throw new Error("Could not start Google sign-in");
+  if (!data.url) throw new Error(`Could not start ${label} sign-in`);
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
@@ -73,4 +77,12 @@ export async function signInWithGoogle(): Promise<void> {
   if (result.type !== "success") return;
 
   await createSessionFromUrl(result.url);
+}
+
+export function signInWithGoogle(): Promise<void> {
+  return signInWithProvider("google", "Google");
+}
+
+export function signInWithApple(): Promise<void> {
+  return signInWithProvider("apple", "Apple");
 }

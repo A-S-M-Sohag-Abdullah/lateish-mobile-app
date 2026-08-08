@@ -2,7 +2,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 
 import { env } from "@/lib/env";
-import { signInWithGoogle } from "@/lib/oauth";
+import { signInWithApple, signInWithGoogle } from "@/lib/oauth";
 import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 import { useOrgStore } from "@/store/organization.store";
@@ -48,6 +48,7 @@ interface AuthState {
   ) => Promise<{ hasOrganizations: boolean }>;
   register: (input: RegisterInput) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -233,6 +234,10 @@ export const useAuthStore = create<AuthState>()((set) => {
 
     signInWithGoogle: async () => {
       await signInWithGoogle();
+    },
+
+    signInWithApple: async () => {
+      await signInWithApple();
     },
 
     sendPasswordReset: async (email) => {

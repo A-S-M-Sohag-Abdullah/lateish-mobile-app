@@ -3,6 +3,7 @@ import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
+import { AppleButton } from "@/components/auth/apple-button";
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
@@ -16,6 +17,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,9 +37,10 @@ export default function LoginScreen() {
   };
 
   const google = useMutation({ mutationFn: signInWithGoogle });
+  const apple = useMutation({ mutationFn: signInWithApple });
 
   const canSubmit = email.trim().length > 0 && password.length > 0;
-  const busy = signIn.isPending || google.isPending;
+  const busy = signIn.isPending || google.isPending || apple.isPending;
 
   return (
     <AuthLayout
@@ -76,7 +79,7 @@ export default function LoginScreen() {
         </Text>
       </Link>
 
-      <FormError error={signIn.error ?? google.error} />
+      <FormError error={signIn.error ?? google.error ?? apple.error} />
 
       <Button
         variant="brand"
@@ -91,11 +94,18 @@ export default function LoginScreen() {
 
       <OrDivider />
 
-      <GoogleButton
-        onPress={() => google.mutate()}
-        loading={google.isPending}
-        disabled={busy}
-      />
+      <View className="gap-3">
+        <GoogleButton
+          onPress={() => google.mutate()}
+          loading={google.isPending}
+          disabled={busy}
+        />
+        <AppleButton
+          onPress={() => apple.mutate()}
+          loading={apple.isPending}
+          disabled={busy}
+        />
+      </View>
     </AuthLayout>
   );
 }

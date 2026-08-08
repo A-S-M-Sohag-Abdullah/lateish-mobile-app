@@ -3,6 +3,7 @@ import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
+import { AppleButton } from "@/components/auth/apple-button";
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { FormError } from "@/components/auth/form-error";
@@ -18,6 +19,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,6 +30,7 @@ export default function RegisterScreen() {
   });
 
   const google = useMutation({ mutationFn: signInWithGoogle });
+  const apple = useMutation({ mutationFn: signInWithApple });
 
   const setPreviewSignedIn = usePreviewStore((s) => s.setSignedIn);
 
@@ -40,7 +43,7 @@ export default function RegisterScreen() {
 
   const canSubmit =
     email.trim().length > 0 && password.length >= MIN_PASSWORD_LENGTH;
-  const busy = signUp.isPending || google.isPending;
+  const busy = signUp.isPending || google.isPending || apple.isPending;
 
   return (
     <AuthLayout
@@ -79,7 +82,7 @@ export default function RegisterScreen() {
         </Text>
       </Link>
 
-      <FormError error={signUp.error ?? google.error} />
+      <FormError error={signUp.error ?? google.error ?? apple.error} />
 
       {password.length > 0 && password.length < MIN_PASSWORD_LENGTH ? (
         <Text className="mt-3 text-sm text-white/60">
@@ -100,11 +103,20 @@ export default function RegisterScreen() {
 
       <OrDivider />
 
-      <GoogleButton
-        onPress={() => google.mutate()}
-        loading={google.isPending}
-        disabled={busy}
-      />
+      <View className="flex-row gap-4">
+        <GoogleButton
+          iconOnly
+          onPress={() => google.mutate()}
+          loading={google.isPending}
+          disabled={busy}
+        />
+        <AppleButton
+          iconOnly
+          onPress={() => apple.mutate()}
+          loading={apple.isPending}
+          disabled={busy}
+        />
+      </View>
     </AuthLayout>
   );
 }
