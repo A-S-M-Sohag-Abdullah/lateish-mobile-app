@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "983890999002",
+    "project_id": "lateish-dc143",
+    "storage_bucket": "lateish-dc143.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:983890999002:android:a3b264c12544dcda8c57e3",
+        "android_client_info": {
+          "package_name": "com.lateish.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCM7y_MLuwTK4iNahvfxwuW4Vh11j7vVwc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
