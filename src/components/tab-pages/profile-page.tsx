@@ -18,6 +18,7 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { PREVIEW_MODE, usePreviewStore } from "@/lib/preview";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -25,16 +26,18 @@ interface Row {
   icon: LucideIcon;
   label: string;
   href?: Href;
+  /** Only shown when the user is an owner/admin of the selected org. */
+  adminOnly?: boolean;
 }
 
 const SECTIONS: { title: string; rows: Row[] }[] = [
   {
     title: "Account",
     rows: [
-      { icon: Building2, label: "Organizations", href: "/organizations" },
-      { icon: Tag, label: "Brands", href: "/brands" },
-      { icon: MapPin, label: "Territories", href: "/territories" },
-      { icon: Users, label: "User Management", href: "/user-management" },
+      { icon: Building2, label: "Organizations", href: "/organizations", adminOnly: true },
+      { icon: Tag, label: "Brands", href: "/brands", adminOnly: true },
+      { icon: MapPin, label: "Territories", href: "/territories", adminOnly: true },
+      { icon: Users, label: "User Management", href: "/user-management", adminOnly: true },
       { icon: Bell, label: "Notifications", href: "/notification-settings" },
     ],
   },
@@ -86,6 +89,15 @@ function SettingsSection({ title, rows }: { title: string; rows: Row[] }) {
 export function ProfilePage() {
   const profile = useAuthStore((s) => s.profile);
   const logout = useAuthStore((s) => s.logout);
+  const { currentOrg } = useOrganizations();
+
+  // Owner/admin-only rows are hidden for members of the selected org.
+  const canManage =
+    currentOrg?.role === "owner" || currentOrg?.role === "admin";
+  const sections = SECTIONS.map((section) => ({
+    ...section,
+    rows: section.rows.filter((row) => !row.adminOnly || canManage),
+  })).filter((section) => section.rows.length > 0);
 
   const router = useRouter();
   const setPreviewSignedIn = usePreviewStore((s) => s.setSignedIn);
@@ -148,7 +160,7 @@ export function ProfilePage() {
           </View>
         </View>
 
-        {SECTIONS.map((section) => (
+        {sections.map((section) => (
           <SettingsSection key={section.title} title={section.title} rows={section.rows} />
         ))}
 
