@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import { SectionCard } from "@/components/dashboard/section-card";
+import { BUILDING_INTELLIGENCE_MESSAGE } from "@/components/ui/building-intelligence";
 import { CornerAccent } from "@/components/ui/corner-accent";
 import { Text } from "@/components/ui/text";
 import { useRepTodaySummary } from "@/hooks/use-rep-today-summary";
@@ -25,15 +26,21 @@ const PREMISE_GRADIENT = [
 const PREMISE_START = { x: 0.21, y: 0.09 };
 const PREMISE_END = { x: 0.79, y: 0.91 };
 
-/** Standalone card: the AI Insight header and its summary line. */
+/** Standalone card: the LATE(ish) Insight header and its summary line. */
 export function AiInsightCard() {
   const { summary } = useRepTodaySummary();
   const d = summary?.dayStats;
-  const line = `${d?.opportunities.count ?? 0} opportunities in play • ${d?.followUpsDue ?? 0} follow-ups due`;
+  // `aiInsight` is only non-empty once the org has real activity — a brand-new
+  // org would otherwise render "0 opportunities in play • 0 follow-ups due",
+  // which reads as broken rather than as a platform with nothing to say yet.
+  const hasInsight = !!d?.aiInsight;
+  const line = hasInsight
+    ? `${d!.opportunities.count} opportunities in play • ${d!.followUpsDue} follow-ups due`
+    : BUILDING_INTELLIGENCE_MESSAGE;
   return (
     <SectionCard
       icon={Sparkles}
-      title="AI Insight"
+      title="LATE(ish) Insight"
       description={line}
       className="border-0 bg-white/5"
     />
@@ -67,9 +74,7 @@ export function PremiseRow() {
 /** Standalone card holding the AI insight note. */
 export function InsightNoteCard() {
   const { summary } = useRepTodaySummary();
-  const note =
-    summary?.dayStats.aiInsight ||
-    "Insights will appear here as your market activity grows.";
+  const note = summary?.dayStats.aiInsight || BUILDING_INTELLIGENCE_MESSAGE;
   return (
     <View className="rounded-2xl bg-white/5 p-4">
       <Text className="text-sm text-muted-foreground">{note}</Text>

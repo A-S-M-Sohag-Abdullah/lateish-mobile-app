@@ -3,9 +3,9 @@
 How to build the app with **EAS Build** and hand it to the client for **Android**
 and **iOS**. Run every command from the `mobile/` folder.
 
-> This currently ships the **UI-preview** build: `PREVIEW_MODE` (`src/lib/preview.ts`)
-> is on, so it bypasses login and shows mock data. Before a real release, wire the
-> API and turn `PREVIEW_MODE` off, then rebuild.
+> **`PREVIEW_MODE` is now `false`** (`src/lib/preview.ts`) — builds use **real
+> authentication + the live API**. Which backend/Supabase a build talks to is
+> selected by the `env` block of its profile in `eas.json` (see below).
 
 ---
 
@@ -18,10 +18,25 @@ eas login                   # free Expo account (expo.dev/signup)
 
 Config already in the repo:
 - **`app.json`** — name `LATE(ish)`, slug `lateish`, bundle id `com.lateish.app` (iOS + Android), icons, splash.
-- **`eas.json`** — build profiles:
-  - `preview` → internal distribution; Android outputs a direct-install **APK**.
-  - `production` → store builds (Android AAB / iOS for TestFlight), auto-increments build number.
+- **`eas.json`** — build profiles. Each carries an `env` block that decides which
+  **backend + Supabase** the build is compiled against:
+  - `preview` → internal **APK**, points at the **LAN dev backend**
+    (`http://192.168.0.121:5000`) + the **test** Supabase (`kwxdbljetrfqjvzbekde`).
+    On-network dev testing only — a client off your LAN can't use it.
+  - `production` → store builds (Android **AAB** / iOS for **TestFlight**), points at
+    the **deployed backend** (`https://lateish-rjf8.vercel.app/api/v1`) + the
+    **production** Supabase (`okjgofomfvbbwpxolkmo`). Auto-increments build number.
+  - `production-apk` → **extends `production`** (same production env) but outputs a
+    **direct-install APK** — for handing a production build to the client without the
+    Play Store. Command: `eas build --platform android --profile production-apk`.
 - **`.easignore`** — keeps `node_modules`, `.expo`, `android`, `ios`, etc. out of the upload.
+
+> **Production prerequisites** (so a `production` / `production-apk` build actually
+> works for the client): the **production Supabase** (`okjgofomfvbbwpxolkmo`) must be
+> migrated (`npm run migrate`) so the push + preference tables and the
+> `supabase_realtime` publication exist, and its **Google/Apple auth providers** must
+> be enabled with `lateish://` in the redirect-URL allow-list. See
+> `../PUSH_NOTIFICATIONS_SETUP.md` and `../APPLE_LOGIN_SETUP.md`.
 
 ### ⚠️ This folder MUST be its own git repo
 `mobile/` is git-ignored by the parent repo. EAS uses git to decide what to upload,
@@ -54,6 +69,24 @@ Output: a cloud build (~10–20 min + queue) with an **APK download link**.
 3. Open the app — launches straight into the UI preview.
 
 Link stays live ~30 days and works for anyone you send it to.
+
+> The `preview` APK points at the **LAN** backend — good for testing on your own
+> network, useless to a remote client.
+
+### 1b. Android production APK — for the client (production backend)
+
+To hand the client an installable Android build that talks to the **deployed
+backend + production Supabase** (no Play Store, no Google account):
+
+```bash
+eas build --platform android --profile production-apk
+```
+
+- Reuses the existing Android keystore (no prompts), uses the production `env`, and
+  outputs an **APK download link**.
+- Send the client the link → he installs directly (allow "install from unknown
+  sources"). Same FCM push + real login as the store build.
+- Make sure the **production prerequisites** above are done, or login/push won't work.
 
 ---
 
@@ -225,6 +258,37 @@ Two safe resolutions (client picks):
    generating one.
 2. **Revoke only the cert the client names:** select *just* that one in the revoke prompt,
    then EAS generates a fresh cert for Lateish.
+
+### iOS: `Failed to sync capabilities` → `APPLE_ID_AUTH: OFF` / "bundle 'FVKDUPSG7Y' cannot be deleted"
+**Cause:** EAS auto-syncs the App ID's capabilities to match the app config and tried
+to **turn OFF Sign in with Apple** (`APPLE_ID_AUTH`) — but that App ID is the **primary
+App ID for the `com.lateish.web.auth` Services ID** (Apple login), so Apple refuses to
+remove it. The patch is atomic, so Push got rolled back too.
+
+**Fix:** manage the capabilities by hand and disable the sync.
+1. `app.json` declares `ios.usesAppleSignIn: true` so the entitlement matches the App ID.
+2. In the Apple console (Identifiers → `com.lateish.app` → Capabilities) enable ✅
+   **Push Notifications** and leave ✅ **Sign in with Apple** on. Save.
+3. Build with the sync off (PowerShell):
+   ```powershell
+   $env:EXPO_NO_CAPABILITY_SYNC="1"; eas build -p ios --profile production
+   ```
+   (bash: `EXPO_NO_CAPABILITY_SYNC=1 eas build …`). Persist with `setx EXPO_NO_CAPABILITY_SYNC 1`.
+
+### iOS: `maximum allowed number of team scoped Keys for this service` (APNs push key)
+**Cause:** an **APNs Auth Key is team-wide** (one serves every app, sandbox + production),
+and Apple caps how many you can have. The client's shared team already had its
+team-scoped Sandbox+Production APNs slots full (from other apps' "Expo Push Notifications
+Key" entries), so generating a new one failed.
+
+**Fix (client's call — shared account):**
+1. **Reuse (non-destructive):** get the existing APNs key's `.p8` + Key ID and
+   `eas credentials` → iOS → Push Notifications → **Add a new push key** → "Generate?" **No**
+   → give the `.p8` path + Key ID. (`.p8` can't be re-downloaded, so it must be a saved copy.)
+2. **Or revoke an unused slot:** with the client's OK, revoke a team-scoped
+   Sandbox+Production APNs key they're sure no live app uses (Apple → Keys → Revoke), then
+   re-run the build and answer **Yes** to generate a fresh key. Never revoke another live
+   app's key (e.g. one named for a different client).
 
 ### Android keystore
 EAS generated and stores it. Before a real Play Store launch, **back it up**:

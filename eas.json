@@ -31,6 +31,13 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://okjgofomfvbbwpxolkmo.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ramdvZm9tZnZiYndweG9sa21vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNTU2ODAsImV4cCI6MjA5MDkzMTY4MH0.4STtDFc-xiRFxH_TfHilVLqbhsY_oc47F2NcAtlJqvQ"
       }
+    },
+    "production-apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

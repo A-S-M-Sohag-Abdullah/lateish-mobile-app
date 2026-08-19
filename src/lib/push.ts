@@ -31,6 +31,10 @@ function getProjectId(): string | undefined {
  * push requires a development/EAS build — it does not work in Expo Go.
  */
 export async function getExpoPushToken(): Promise<string | null> {
+  // Web push needs a VAPID key we don't configure — this app only does native
+  // (iOS/APNs, Android/FCM) push, so skip the web platform entirely.
+  if (Platform.OS === "web") return null;
+
   if (!Device.isDevice) {
     console.warn("[push] not a physical device — no push token");
     return null;

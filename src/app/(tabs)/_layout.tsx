@@ -1,6 +1,8 @@
 import { Redirect, Stack } from "expo-router";
 import { View } from "react-native";
 
+import { NitaButton } from "@/components/layout/nita-button";
+import { NitaPanel } from "@/components/layout/nita-panel";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { PREVIEW_MODE, usePreviewStore } from "@/lib/preview";
@@ -34,13 +36,18 @@ export default function TabsLayout() {
   }
 
   // The five tabs live in a single swipeable pager (index); "orders" is a
-  // separate stack screen reachable from the sidebar.
+  // separate stack screen reachable from the sidebar. The NITA button + panel
+  // are hosted here so they overlay every signed-in screen.
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    />
+    <View style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      />
+      <NitaButton />
+      <NitaPanel />
+    </View>
   );
 }

@@ -11,7 +11,6 @@ import {
 import { IntegrationHealthCard } from "@/components/dashboard/integration-health-card";
 import { MarketTargetCard } from "@/components/dashboard/market-target-card";
 import { QuickAccessCard } from "@/components/dashboard/quick-access-card";
-import { NitaButton } from "@/components/layout/nita-button";
 import { Text } from "@/components/ui/text";
 import { useMarketTargets } from "@/hooks/use-market-targets";
 import { type MarketTarget, QUICK_ACCESS } from "@/lib/mock-data";
@@ -101,8 +100,6 @@ export function DashboardPage() {
           <IntegrationHealthCard />
         </View>
       </ScrollView>
-
-      <NitaButton />
     </View>
   );
 }
