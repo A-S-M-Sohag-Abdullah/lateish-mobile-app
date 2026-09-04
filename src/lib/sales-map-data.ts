@@ -15,6 +15,9 @@ export interface SalesAccount {
   name: string;
   channel: string;
   city: string;
+  /** Full street address — used as the popup's location fallback when city/state are empty. */
+  address: string;
+  accountType: string;
   lat: number;
   lng: number;
 }

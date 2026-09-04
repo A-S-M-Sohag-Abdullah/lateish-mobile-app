@@ -2,14 +2,24 @@ import * as Location from "expo-location";
 import {
   Activity,
   ChevronDown,
+  Circle,
   Compass,
+  Crosshair,
+  Filter,
+  Flame,
   Ghost,
+  Info,
   Layers,
   LocateFixed,
+  Lock,
   Menu,
+  Plus,
   Route,
   Search,
-  User,
+  Sparkles,
+  Swords,
+  ZoomIn,
+  ZoomOut,
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
@@ -25,13 +35,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useQuery } from "@tanstack/react-query";
 
+import { AccountForm } from "@/components/accounts/account-form";
 import {
-  LeafletMap,
-  type LeafletMapHandle,
-} from "@/components/sales-map/leaflet-map";
+  GoogleSalesMap,
+  type GoogleSalesMapHandle,
+} from "@/components/sales-map/google-map";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
+import { ALL_CHANNELS } from "@/lib/channels";
+import { env } from "@/lib/env";
 import { CHANNEL_LEGEND, type SalesAccount } from "@/lib/sales-map-data";
 import { cn } from "@/lib/utils";
 import { useSidebarStore } from "@/store/sidebar.store";
@@ -40,10 +54,19 @@ interface ApiAccount {
   id: string;
   name: string;
   channel: string | null;
+  account_type: string | null;
+  address: string | null;
   city: string | null;
   state: string | null;
   latitude: number | null;
   longitude: number | null;
+}
+
+interface RouteItem {
+  id: string;
+  account_id: string | null;
+  account_name: string | null;
+  due_date: string;
 }
 
 // The map's own dark chrome — fixed surfaces that sit over the light tiles, so
@@ -51,33 +74,57 @@ interface ApiAccount {
 const PANEL = "rgba(11, 18, 32, 0.92)";
 const FAB_DARK = "rgba(17, 24, 34, 0.95)";
 
-const FAB_ITEMS: { key: string; icon: LucideIcon; active?: boolean }[] = [
-  { key: "Plan Route", icon: Route },
-  { key: "Discover", icon: Compass },
-  { key: "Layers", icon: Layers },
-  { key: "Monitor", icon: Activity, active: true },
-  { key: "Ghosts", icon: Ghost },
+// Only Layer 1 (existing accounts) has real data behind it — mirrors the web
+// Layers panel, which shows Layers 2/3 locked with the phase that unlocks them.
+const LOCKED_LAYERS: { label: string; color: string; note: string }[] = [
+  { label: "Target Accounts", color: "#F59E0B", note: "Coming in Phase 2 — needs auto-populate" },
+  { label: "Visited, Not Converted", color: "#EF4444", note: "Coming in Phase 3 — needs mobile interaction log" },
+];
+
+// "Views" — every not-yet-built map layer, grouped under one button (mirrors
+// the web's locked-features dropdown).
+const LOCKED_VIEWS: { key: string; icon: LucideIcon; label: string }[] = [
+  { key: "whitespace", icon: Sparkles, label: "Whitespace" },
+  { key: "competitors", icon: Swords, label: "Competitors" },
+  { key: "what-if", icon: Crosshair, label: "What-If" },
+  { key: "discover", icon: Compass, label: "Discover" },
+  { key: "opportunities", icon: Flame, label: "Opportunities" },
+  { key: "monitor", icon: Activity, label: "Monitor" },
+  { key: "lapsed-accounts", icon: Ghost, label: "Lapsed Accounts" },
 ];
 
 export default function SalesMapScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   const openSidebar = useSidebarStore((s) => s.setOpen);
-  const mapRef = useRef<LeafletMapHandle>(null);
+  const mapRef = useRef<GoogleSalesMapHandle>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { currentOrg } = useOrganizations();
   const orgId = currentOrg?.id ?? "";
+
   const [search, setSearch] = useState("");
   const [legendOpen, setLegendOpen] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const [layerExisting, setLayerExisting] = useState(true);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [viewsOpen, setViewsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
+  const [routeShowing, setRouteShowing] = useState(false);
 
-  const { data: page, isLoading } = useQuery({
+  const { data: page, isLoading, isError } = useQuery({
     queryKey: ["accounts", orgId],
     queryFn: () =>
       api.getPaginated<ApiAccount>(`/organizations/${orgId}/accounts?limit=500`),
     enabled: !!orgId,
+  });
+
+  const routeQuery = useQuery({
+    queryKey: ["route", orgId],
+    queryFn: () => api.get<RouteItem[]>(`/organizations/${orgId}/log-interactions/route`),
+    enabled: false,
   });
 
   // Only accounts with coordinates can be plotted.
@@ -89,7 +136,9 @@ export default function SalesMapScreen() {
           id: a.id,
           name: a.name,
           channel: a.channel ?? "",
+          accountType: a.account_type ?? "",
           city: [a.city, a.state].filter(Boolean).join(", "),
+          address: a.address ?? "",
           lat: a.latitude as number,
           lng: a.longitude as number,
         })),
@@ -102,10 +151,27 @@ export default function SalesMapScreen() {
     [accounts],
   );
 
-  const shownCount = useMemo(
-    () => accounts.filter((a) => !hidden.has(a.channel)).length,
-    [accounts, hidden],
-  );
+  // Mirrors the web's filteredAccounts — used for the "X of Y shown" footer.
+  const shownCount = useMemo(() => {
+    if (!layerExisting) return 0;
+    const q = search.toLowerCase();
+    return accounts.filter((a) => {
+      if (hidden.has(a.channel)) return false;
+      return !q || a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q);
+    }).length;
+  }, [accounts, hidden, search, layerExisting]);
+
+  const isFiltered = search !== "" || hidden.size > 0 || !layerExisting;
+
+  // Push the current filter state (channel + "layer off = hide everything") to
+  // the map in one call, so toggling the layer reuses the existing hidden-set
+  // mechanism instead of a second bridge method.
+  function syncHidden(nextHidden: Set<string>, nextLayerExisting: boolean) {
+    const effective = nextLayerExisting
+      ? [...nextHidden]
+      : ALL_CHANNELS.map((c) => c.slug);
+    mapRef.current?.setHidden(effective);
+  }
 
   function onSearch(v: string) {
     setSearch(v);
@@ -117,7 +183,15 @@ export default function SalesMapScreen() {
       const next = new Set(prev);
       if (next.has(slug)) next.delete(slug);
       else next.add(slug);
-      mapRef.current?.setHidden([...next]);
+      syncHidden(next, layerExisting);
+      return next;
+    });
+  }
+
+  function toggleLayerExisting() {
+    setLayerExisting((prev) => {
+      const next = !prev;
+      syncHidden(hidden, next);
       return next;
     });
   }
@@ -125,11 +199,16 @@ export default function SalesMapScreen() {
   function showToast(message: string) {
     setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2200);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
   }
 
-  function comingSoon(feature: string) {
-    showToast(`${feature} — coming soon`);
+  function comingSoon() {
+    showToast("Coming soon — This feature is under development.");
+  }
+
+  function handleLockedViewTap(label: string) {
+    showToast(`${label} — coming to Tier 2 later this year.`);
+    setViewsOpen(false);
   }
 
   // Show the device's current position on the map with a "you are here" marker.
@@ -160,6 +239,35 @@ export default function SalesMapScreen() {
     }
   }
 
+  async function planRouteClick() {
+    if (routeShowing) {
+      mapRef.current?.clearRoute();
+      setRouteShowing(false);
+      return;
+    }
+    const result = await routeQuery.refetch();
+    const items = result.data ?? [];
+    const coords = items
+      .map((item) => accounts.find((a) => a.id === item.account_id))
+      .filter((a): a is SalesAccount => !!a)
+      .map((a) => ({ lat: a.lat, lng: a.lng }));
+
+    if (coords.length >= 2) {
+      mapRef.current?.drawRoute(coords);
+      setRouteShowing(true);
+      showToast(`Route planned — ${coords.length} stops.`);
+    } else {
+      showToast(
+        items.length === 0
+          ? "No scheduled visits found. Log interactions with a due date to plan a route."
+          : "Not enough accounts with map coordinates to draw a route.",
+      );
+      setRouteShowing(false);
+    }
+  }
+
+  const dropdownOpen = layersOpen || viewsOpen;
+
   return (
     <View className="flex-1 bg-[#0B1220]">
       <StatusBar style="dark" />
@@ -170,80 +278,305 @@ export default function SalesMapScreen() {
         <View className="flex-1 items-center justify-center">
           <Text className="text-sm text-white/60">Loading map…</Text>
         </View>
+      ) : !env.googleMapsApiKey ? (
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-center text-sm text-white/60">
+            Map cannot load — missing Google Maps API key.
+          </Text>
+        </View>
       ) : (
-        <LeafletMap ref={mapRef} accounts={accounts} />
+        <GoogleSalesMap ref={mapRef} accounts={accounts} apiKey={env.googleMapsApiKey} />
       )}
 
-      {/* ── Top search bar ── */}
+      {/* Backdrop to close an open dropdown on outside tap. */}
+      {dropdownOpen ? (
+        <Pressable
+          className="absolute inset-0"
+          onPress={() => {
+            setLayersOpen(false);
+            setViewsOpen(false);
+          }}
+        />
+      ) : null}
+
+      {/* ── Empty-state banner ── */}
+      {!isLoading && !isError && accounts.length === 0 ? (
+        <View
+          style={{ top: insets.top + 132 }}
+          className="absolute left-4 right-4 z-10 flex-row items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"
+          pointerEvents="none"
+        >
+          <Info color="#D97706" size={16} />
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-amber-600">No accounts to show</Text>
+            <Text className="text-xs text-amber-700">
+              No accounts with coordinates found. Add accounts with location data to populate the map.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ── Error banner ── */}
+      {isError ? (
+        <View
+          style={{ top: insets.top + 132 }}
+          className="absolute left-4 right-4 z-10 flex-row items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3"
+          pointerEvents="none"
+        >
+          <Info color="#DC2626" size={16} />
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-red-600">Couldn't load accounts</Text>
+            <Text className="text-xs text-red-700">
+              Something went wrong fetching account data. Pull to refresh or try again.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ── Top toolbar ── */}
       <View
         style={{ paddingTop: insets.top + 8 }}
-        className="absolute left-0 right-0 top-0 flex-row items-center gap-3 px-4"
+        className="absolute left-0 right-0 top-0 z-20 gap-2.5 px-4"
         pointerEvents="box-none"
       >
-        <Pressable
-          accessibilityLabel="Open menu"
-          onPress={() => openSidebar(true)}
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: PANEL }}
-        >
-          <Menu color="#FFFFFF" size={22} />
-        </Pressable>
-
-        <View
-          className="h-12 flex-1 flex-row items-center gap-2.5 rounded-2xl px-4"
-          style={{ backgroundColor: PANEL }}
-        >
-          <View className="shrink-0">
-            <Search color="rgba(255,255,255,0.6)" size={20} />
-          </View>
-          <TextInput
-            value={search}
-            onChangeText={onSearch}
-            placeholder="Search location, postcode..."
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            className="flex-1 text-base text-white"
-          />
+        <View className="flex-row items-center gap-3">
           <Pressable
-            accessibilityLabel="Account"
-            className="h-8 w-8 items-center justify-center rounded-full bg-white/10"
+            accessibilityLabel="Open menu"
+            onPress={() => openSidebar(true)}
+            className="h-11 w-11 items-center justify-center rounded-full"
+            style={{ backgroundColor: PANEL }}
           >
-            <User color="#FFFFFF" size={18} />
+            <Menu color="#FFFFFF" size={22} />
           </Pressable>
+
+          <View
+            className="h-12 flex-1 flex-row items-center gap-2.5 rounded-2xl px-4"
+            style={{ backgroundColor: PANEL }}
+          >
+            <View className="shrink-0">
+              <Search color="rgba(255,255,255,0.6)" size={20} />
+            </View>
+            <TextInput
+              value={search}
+              onChangeText={onSearch}
+              placeholder="Search existing accounts…"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              className="flex-1 text-base text-white"
+            />
+          </View>
+        </View>
+
+        {/* Action chips — Add Account / Filter / Circle, then Layers fixed at
+            the row's end (matching the web's toolbar, where Layers sits at
+            the toolbar's right edge). Layers stays OUTSIDE the ScrollView
+            deliberately — RN ScrollView clips overflow, which would cut off
+            its dropdown. */}
+        <View className="flex-row items-center gap-2">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+            className="flex-1"
+          >
+            <Pressable
+              onPress={() => setAddAccountOpen(true)}
+              className="h-10 flex-row items-center gap-1.5 rounded-lg bg-primary px-4 active:opacity-90"
+            >
+              <Plus color={colors.primaryForeground} size={16} />
+              <Text className="text-sm font-semibold text-primary-foreground">
+                Add Account
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Filter"
+              onPress={comingSoon}
+              className="h-10 w-10 items-center justify-center rounded-lg"
+              style={{ backgroundColor: PANEL }}
+            >
+              <Filter color="#FFFFFF" size={16} />
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="More"
+              onPress={comingSoon}
+              className="h-10 w-10 items-center justify-center rounded-lg"
+              style={{ backgroundColor: PANEL }}
+            >
+              <Circle color="#FFFFFF" size={16} />
+            </Pressable>
+          </ScrollView>
+
+          {/* Layers — toggle Layer 1 (existing accounts) on/off; Layers 2/3
+              render locked with the phase that unlocks them. */}
+          <View>
+            <Pressable
+              accessibilityLabel="Layers"
+              onPress={() => {
+                setLayersOpen((v) => !v);
+                setViewsOpen(false);
+              }}
+              className={cn(
+                "h-10 w-10 items-center justify-center rounded-lg",
+                layersOpen && "border border-primary",
+              )}
+              style={{ backgroundColor: PANEL }}
+            >
+              <Layers color="#FFFFFF" size={16} />
+            </Pressable>
+
+            {layersOpen ? (
+              <View
+                className="absolute right-0 top-12 z-30 w-72 overflow-hidden rounded-lg border border-white/10"
+                style={{ backgroundColor: PANEL }}
+              >
+                <Text className="border-b border-white/10 px-3 py-2 text-[11px] font-medium text-white/50">
+                  Map Layers
+                </Text>
+                <Pressable
+                  onPress={toggleLayerExisting}
+                  className={cn(
+                    "flex-row items-center gap-2.5 px-3 py-2.5",
+                    !layerExisting && "opacity-40",
+                  )}
+                >
+                  <View
+                    className="h-3 w-3 rounded-full border border-white/60"
+                    style={{ backgroundColor: "#10B981" }}
+                  />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-white">
+                      Layer 1 — Existing Accounts
+                    </Text>
+                    <Text className="text-xs text-white/50">Where you already are</Text>
+                  </View>
+                  <Text className="text-xs text-white/50">{accounts.length}</Text>
+                </Pressable>
+                {LOCKED_LAYERS.map((layer) => (
+                  <View
+                    key={layer.label}
+                    className="flex-row items-center gap-2.5 px-3 py-2.5 opacity-60"
+                  >
+                    <View
+                      className="h-3 w-3 rounded-full border border-white/60"
+                      style={{ backgroundColor: layer.color }}
+                    />
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-white/70">
+                        Layer — {layer.label}
+                      </Text>
+                      <Text className="text-xs text-white/50">{layer.note}</Text>
+                    </View>
+                    <Lock color="rgba(255,255,255,0.5)" size={12} />
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 
-      {/* ── Right action stack ── */}
+      {/* ── Right Panel ── */}
       <View
-        style={{ top: insets.top + 80 }}
-        className="absolute right-4 gap-3"
+        style={{ top: insets.top + 132 }}
+        className="absolute right-4 z-20 gap-2.5"
         pointerEvents="box-none"
       >
+        <Pressable
+          onPress={planRouteClick}
+          disabled={routeQuery.isFetching}
+          className="h-10 flex-row items-center gap-1.5 rounded-lg px-3.5 active:opacity-90"
+          style={{ backgroundColor: routeShowing ? "#8B2226" : PANEL }}
+        >
+          {routeQuery.isFetching ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Route color="#FFFFFF" size={16} />
+          )}
+          <Text className="text-sm font-semibold text-white">
+            {routeShowing ? "Route Active" : "Plan Route"}
+          </Text>
+        </Pressable>
+
+        <View>
+          <Pressable
+            onPress={() => {
+              setViewsOpen((v) => !v);
+              setLayersOpen(false);
+            }}
+            className={cn(
+              "h-10 flex-row items-center gap-1.5 rounded-lg px-3.5 active:opacity-90",
+              viewsOpen && "border border-primary",
+            )}
+            style={{ backgroundColor: PANEL }}
+          >
+            <Layers color="#FFFFFF" size={16} />
+            <Text className="text-sm font-semibold text-white">Views</Text>
+            <ChevronDown
+              color="#FFFFFF"
+              size={14}
+              style={{ transform: [{ rotate: viewsOpen ? "180deg" : "0deg" }] }}
+            />
+          </Pressable>
+
+          {viewsOpen ? (
+            <View
+              className="absolute right-0 top-12 z-30 w-60 overflow-hidden rounded-lg border border-white/10"
+              style={{ backgroundColor: PANEL }}
+            >
+              <Text className="border-b border-white/10 px-3 py-2 text-[11px] font-medium text-white/50">
+                More views — Tier 2
+              </Text>
+              {LOCKED_VIEWS.map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={() => handleLockedViewTap(item.label)}
+                  className="flex-row items-center gap-2.5 px-3 py-2.5 active:bg-white/5"
+                >
+                  <item.icon color="rgba(255,255,255,0.5)" size={16} />
+                  <Text className="flex-1 text-sm text-white/60" numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                  <Lock color="rgba(255,255,255,0.5)" size={12} />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        <View className="my-1 h-px bg-white/10" />
+
+        <Pressable
+          accessibilityLabel="Zoom in"
+          onPress={() => mapRef.current?.zoomIn()}
+          className="h-10 w-10 items-center justify-center rounded-lg"
+          style={{ backgroundColor: PANEL }}
+        >
+          <ZoomIn color="#FFFFFF" size={18} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel="Zoom out"
+          onPress={() => mapRef.current?.zoomOut()}
+          className="h-10 w-10 items-center justify-center rounded-lg"
+          style={{ backgroundColor: PANEL }}
+        >
+          <ZoomOut color="#FFFFFF" size={18} />
+        </Pressable>
+
         {/* Locate me — real GPS, drops the "you are here" marker. */}
         <Pressable
           accessibilityLabel="Show my location"
           onPress={locateMe}
           disabled={locating}
-          className="h-12 w-12 items-center justify-center rounded-2xl"
+          className="h-10 w-10 items-center justify-center rounded-lg"
           style={{ backgroundColor: FAB_DARK }}
         >
           {locating ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <LocateFixed color="#FFFFFF" size={22} />
+            <LocateFixed color="#FFFFFF" size={18} />
           )}
         </Pressable>
-
-        {FAB_ITEMS.map(({ key, icon: Icon, active }) => (
-          <Pressable
-            key={key}
-            accessibilityLabel={key}
-            onPress={() => comingSoon(key)}
-            className="h-12 w-12 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: active ? "#F3F4F6" : FAB_DARK }}
-          >
-            <Icon color={active ? "#111827" : "#FFFFFF"} size={22} />
-          </Pressable>
-        ))}
       </View>
 
       {/* ── Sales Channel legend sheet ── */}
@@ -303,22 +636,35 @@ export default function SalesMapScreen() {
 
             <View className="mt-2 border-t border-white/10 pt-2">
               <Text className="text-xs uppercase tracking-wide text-white/50">
-                {shownCount} accounts shown
+                {isLoading
+                  ? "Loading accounts…"
+                  : isError
+                    ? "Failed to load accounts"
+                    : isFiltered
+                      ? `${shownCount} of ${accounts.length} accounts shown`
+                      : `${accounts.length} accounts shown`}
               </Text>
             </View>
           </View>
         ) : null}
       </View>
 
-      {/* ── Inline toast for stubbed actions ── */}
+      {/* ── Add Account form ── */}
+      <AccountForm
+        visible={addAccountOpen}
+        onClose={() => setAddAccountOpen(false)}
+        orgId={orgId}
+      />
+
+      {/* ── Inline toast ── */}
       {toast ? (
         <View
           style={{ bottom: insets.bottom + 24 }}
-          className="absolute left-0 right-0 items-center"
+          className="absolute left-0 right-0 z-40 items-center"
           pointerEvents="none"
         >
-          <View className="rounded-full bg-black/85 px-4 py-2">
-            <Text className="text-sm text-white">{toast}</Text>
+          <View className="max-w-[90%] rounded-full bg-black/85 px-4 py-2">
+            <Text className="text-center text-sm text-white">{toast}</Text>
           </View>
         </View>
       ) : null}

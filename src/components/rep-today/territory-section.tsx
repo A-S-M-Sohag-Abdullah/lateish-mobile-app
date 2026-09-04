@@ -3,7 +3,7 @@ import { MapPin, Plus, Search } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
-import { AccountForm } from "@/components/rep-today/account-form";
+import { AccountForm } from "@/components/accounts/account-form";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Text } from "@/components/ui/text";
 import { useOrganizations } from "@/hooks/use-organizations";

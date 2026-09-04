@@ -9,6 +9,10 @@ import {
   type PickedPlace,
 } from "@/components/rep-today/place-picker";
 import { CenteredPopup } from "@/components/ui/centered-popup";
+import {
+  GooglePlacesInput,
+  type PlaceSelection,
+} from "@/components/ui/google-places-input";
 import { Input } from "@/components/ui/input";
 import { SelectField } from "@/components/ui/select-field";
 import { Text } from "@/components/ui/text";
@@ -27,9 +31,10 @@ const typeToSlug = (label: string) =>
   label === "On-Premise" ? "on-premise" : label === "Off-Premise" ? "off-premise" : "";
 
 /**
- * Infer account type + a canonical channel slug from an OSM place's type/class,
- * so picking a venue pre-fills the selects. Ported from the web
- * add-account-dialog, but mapped to the mobile channel slugs in channels.ts.
+ * Infer account type + a canonical channel slug from an OSM place's type/class
+ * (from the "pick from map" fallback picker), so selecting a venue pre-fills
+ * the selects. Ported from the web add-account-dialog, but mapped to this
+ * app's canonical channel slugs in channels.ts.
  */
 function inferAccountFields(osmType: string, osmClass: string): {
   type: string;
@@ -58,7 +63,38 @@ function inferAccountFields(osmType: string, osmClass: string): {
   return { type: "", channel: "" };
 }
 
-/** "Create New Account" popup, opened from the Rep Today Territory tab. */
+/**
+ * Same inference, from Google Places' `types` array instead of OSM's
+ * type/class pair — ported from the web's inferAccountFieldsFromGoogleTypes,
+ * but mapped onto this app's canonical channel slugs (the web version
+ * references two slugs — "off-licence", "chain-retailer" — that don't
+ * actually exist in channels.ts; fixed here to valid ones).
+ */
+function inferAccountFieldsFromGoogleTypes(types: string[]): {
+  type: string;
+  channel: string;
+} {
+  const has = (t: string) => types.includes(t);
+  if (has("night_club")) return { type: "on-premise", channel: "premium-nightlife" };
+  if (has("bar")) return { type: "on-premise", channel: "modern-cocktail-bar" };
+  if (has("lodging")) return { type: "on-premise", channel: "hotel-bar" };
+  if (has("restaurant") || has("cafe") || has("meal_takeaway") || has("meal_delivery"))
+    return { type: "on-premise", channel: "casual-food-beverage" };
+  if (has("liquor_store")) return { type: "off-premise", channel: "independent-retailer" };
+  if (has("supermarket") || has("grocery_or_supermarket") || has("department_store"))
+    return { type: "off-premise", channel: "convenience-store" };
+  if (has("convenience_store") || has("store"))
+    return { type: "off-premise", channel: "independent-retailer" };
+  return { type: "", channel: "" };
+}
+
+/**
+ * "Create New Account" popup — opened from the Rep Today Territory tab and
+ * from the Sales Map's "Add Account" button. Ported from the web's
+ * AddAccountDialog: Google Places autocomplete on the name field (auto-fills
+ * address/city/region/coordinates + infers type/channel), with the existing
+ * "pick from map" picker kept as a fallback for venues Google doesn't have.
+ */
 export function AccountForm({
   visible,
   onClose,
@@ -139,6 +175,29 @@ export function AccountForm({
     },
   });
 
+  function applyInferred(inferred: { type: string; channel: string }) {
+    if (inferred.type) {
+      setTypeLabel(inferred.type === "on-premise" ? "On-Premise" : "Off-Premise");
+    }
+    if (inferred.channel) {
+      const label = ALL_CHANNELS.find((c) => c.slug === inferred.channel)?.label;
+      if (label) setChannelLabel(label);
+    }
+  }
+
+  // Venue autocomplete on the Account Name field — fills address/city/region
+  // and drops the map pin instantly on selection.
+  function handleGooglePlaceSelect(place: PlaceSelection) {
+    if (place.address) setAddress(place.address);
+    if (place.city) setCity(place.city);
+    if (place.region) setRegion(place.region);
+    if (place.latitude !== null) setLatitude(place.latitude);
+    if (place.longitude !== null) setLongitude(place.longitude);
+    if (place.placeId) setPlaceId(place.placeId);
+    applyInferred(inferAccountFieldsFromGoogleTypes(place.types));
+  }
+
+  // "Pick from map" fallback (OSM-based) — for venues Google Places doesn't have.
   function handlePlacePicked(place: PickedPlace) {
     if (place.name) setName(place.name);
     setAddress(place.address);
@@ -147,15 +206,7 @@ export function AccountForm({
     setLatitude(place.latitude);
     setLongitude(place.longitude);
     setPlaceId(place.place_id);
-
-    const inferred = inferAccountFields(place.osm_type, place.osm_class);
-    if (inferred.type) {
-      setTypeLabel(inferred.type === "on-premise" ? "On-Premise" : "Off-Premise");
-    }
-    if (inferred.channel) {
-      const label = ALL_CHANNELS.find((c) => c.slug === inferred.channel)?.label;
-      if (label) setChannelLabel(label);
-    }
+    applyInferred(inferAccountFields(place.osm_type, place.osm_class));
   }
 
   function reset() {
@@ -197,13 +248,16 @@ export function AccountForm({
         >
           <View className="gap-2">
             <Text className="text-base text-muted-foreground">Account Name *</Text>
-            <Input
+            <GooglePlacesInput
               value={name}
               onChangeText={setName}
-              placeholder="e.g., The Cocktail Club"
-              placeholderTextColor={colors.mutedForeground}
-              className="h-12"
+              onPlaceSelect={handleGooglePlaceSelect}
+              placeholder="Start typing a venue name…"
             />
+            <Text className="text-xs text-muted-foreground">
+              Select a venue from the list to auto-fill address, city, region
+              and map location.
+            </Text>
           </View>
 
           <View className="gap-2">

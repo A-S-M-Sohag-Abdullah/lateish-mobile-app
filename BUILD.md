@@ -37,6 +37,16 @@ Config already in the repo:
 > `supabase_realtime` publication exist, and its **Google/Apple auth providers** must
 > be enabled with `lateish://` in the redirect-URL allow-list. See
 > `../PUSH_NOTIFICATIONS_SETUP.md` and `../APPLE_LOGIN_SETUP.md`.
+>
+> **Sales Map (Google Maps):** needs `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` baked
+> into the build (already set in `eas.json`'s `preview`/`production` profiles)
+> — **any build made before this key was added needs a rebuild** to pick it
+> up. No backend involvement: the app calls Google's Maps JS API (Sales Map)
+> and Places API (Add Account's venue-name autocomplete) directly with this
+> key — see `../project_mobile_sales_map_v2` (Google Maps runs inside the
+> existing WebView, not `react-native-maps`; autocomplete predictions don't
+> work on the Expo *web* target specifically, due to Google's CORS policy on
+> the Places REST API — native iOS/Android are unaffected).
 
 ### ⚠️ This folder MUST be its own git repo
 `mobile/` is git-ignored by the parent repo. EAS uses git to decide what to upload,
