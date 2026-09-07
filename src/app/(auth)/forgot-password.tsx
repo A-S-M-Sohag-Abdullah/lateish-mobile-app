@@ -52,7 +52,7 @@ export default function ForgotPasswordScreen() {
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView
           className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           {/* Outside the ScrollView so it stays pinned while the content
               below is vertically centred. */}

@@ -338,7 +338,7 @@ function KpiFormSheet({
       <View className="flex-1 justify-end bg-black/50">
         <Pressable className="flex-1" onPress={onClose} accessibilityLabel="Close" />
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View
             className="rounded-t-3xl border border-border bg-popover"

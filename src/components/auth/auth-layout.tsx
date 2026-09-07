@@ -53,7 +53,7 @@ export function AuthLayout({
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView
           className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <ScrollView
             // `grow` + `justify-center` centres the block when it is shorter

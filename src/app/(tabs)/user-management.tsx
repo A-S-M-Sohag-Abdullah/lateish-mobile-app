@@ -151,7 +151,7 @@ export default function UserManagementScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
       <ScrollView
         className="flex-1"
@@ -400,7 +400,7 @@ function InviteModal({
             not bubble to it (which on web would otherwise close the modal). */}
         <Pressable className="absolute inset-0 bg-black/60" onPress={onClose} />
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="w-full"
         >
         <View className="w-full gap-4 rounded-2xl border border-border bg-popover p-5">

@@ -176,7 +176,7 @@ export function NitaPanel() {
         />
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="h-[88%]"
         >
           <View
