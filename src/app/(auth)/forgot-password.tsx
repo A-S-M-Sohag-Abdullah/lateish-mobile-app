@@ -5,13 +5,13 @@ import { useGoBack } from "@/hooks/use-go-back";
 import { ArrowLeft } from "lucide-react-native";
 import { useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthField } from "@/components/auth/auth-field";

@@ -2,7 +2,8 @@ import { Image } from "expo-image";
 import { Redirect } from "expo-router";
 import { Building2, LogOut, Users } from "lucide-react-native";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CreateOrganizationForm } from "@/components/setup/create-organization-form";

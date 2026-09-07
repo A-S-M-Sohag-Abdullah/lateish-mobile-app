@@ -1,5 +1,4 @@
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -7,6 +6,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 interface CenteredPopupProps {

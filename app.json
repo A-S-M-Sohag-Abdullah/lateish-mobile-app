@@ -57,8 +57,7 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true,
-            "targetSdkVersion": 34
+            "usesCleartextTraffic": true
           }
         }
       ],
