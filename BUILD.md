@@ -16,8 +16,22 @@ npm install -g eas-cli      # the build tool
 eas login                   # free Expo account (expo.dev/signup)
 ```
 
+> 📌 **iOS team switch (2026-09-07):** the client moved iOS distribution from
+> team `ARTHUR PLAT (Individual)` to **`Lateish Drinks LTD (Company/Organization)`**.
+> Apple would not release the old iOS bundle id (`com.lateish.app`) to the new
+> team — once a bundle id has ever been used for a TestFlight/App Store upload,
+> Apple does not offer a self-service way to free it, even after deleting the
+> App Store Connect app record and waiting 24h+. So **iOS now ships as
+> `com.lateish.mobile`** under the new team; **Android is unaffected** and
+> still ships as `com.lateish.app` (Google Play is a separate identity, no
+> Apple team involved). See the iOS troubleshooting entries below and
+> `../APPLE_LOGIN_SETUP.md` / `../PUSH_NOTIFICATIONS_SETUP.md` for the
+> Sign-in/push side of this same switch.
+
 Config already in the repo:
-- **`app.json`** — name `LATE(ish)`, slug `lateish`, bundle id `com.lateish.app` (iOS + Android), icons, splash.
+- **`app.json`** — name `LATE(ish)`, slug `lateish`. **Bundle ids differ by
+  platform**: Android `com.lateish.app`, iOS `com.lateish.mobile` (see the team
+  switch note above) — icons/splash are shared.
 - **`eas.json`** — build profiles. Each carries an `env` block that decides which
   **backend + Supabase** the build is compiled against:
   - `preview` → internal **APK**, points at the **LAN dev backend**
@@ -116,8 +130,11 @@ Apple sends a **6-digit code to the client's trusted device** — you need that 
 
 ### 2b. Build
 ```bash
-eas build --platform ios --profile production
+$env:EXPO_NO_CAPABILITY_SYNC="1"; eas build --platform ios --profile production
 ```
+(bash: `EXPO_NO_CAPABILITY_SYNC=1 eas build …`) — set this env var **every time**;
+see the capability-sync troubleshooting entry below for why.
+
 - When asked *"Log in to your Apple account?"* → **Yes**.
 - Enter the client's **Apple ID email** and **password**.
 - Apple pushes a **6-digit 2FA code to the client's device** → client sends it to you → type it in.
@@ -132,20 +149,39 @@ Then a series of interactive prompts (in order):
    `app.json` already declares this under `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`,
    so App Store Connect won't ask again after upload — but eas-cli may still prompt here; answer **Y**.
 3. **`Select a Team »`** — the Apple **Developer Team** that will *own* the app. The client's
-   Apple ID belongs to several teams; **the client chose `ARTHUR PLAT - Individual`
-   (team id `3UCFPF9QLM`)**. This is a client decision — see Troubleshooting.
+   Apple ID belongs to several teams; **currently `Lateish Drinks LTD - Company/Organization`
+   (team id `6CK7WB3UD2`)**, chosen by the client after the earlier `ARTHUR PLAT - Individual`
+   (`3UCFPF9QLM`) team's bundle id got stuck (see the note at the top of this doc). Which team
+   to pick is always a client decision — see Troubleshooting.
 4. **`Select a Provider »`** — the App Store Connect org for distribution. **Must match the
-   team → also `ARTHUR PLAT`.** Never mix team and provider entities.
+   team** (currently `Lateish Drinks LTD`). Never mix team and provider entities.
 5. **`Generate a new Apple Distribution Certificate? (Y/n)`** → **Y** to let EAS create &
-   manage it — *unless* the account is at Apple's 3-cert limit (see Troubleshooting).
+   manage it — *unless* the account is at Apple's 3-cert limit (see Troubleshooting; a
+   brand-new team starts with zero certs, so this only bites an established team).
 6. **`Generate a new Apple Provisioning Profile? (Y/n)`** → **Y**. Provisioning profiles
    **are** app-specific (unlike distribution certs), so this is always safe — no effect on
    the client's other apps.
-7. EAS auto-creates the App ID (`com.lateish.app`) if it doesn't exist.
+7. **`Would you like to set up Push Notifications for your project? (Y/n)`** → **Y**.
+8. **`Select the Apple Push Key to use for your project»`** — if EAS offers
+   `[Choose another existing push key] (Recommended)`, **check the Team ID it
+   shows before accepting** — see the APNs troubleshooting entry below; a key
+   from a *different* team must not be reused. Pick `[Add a new push key]`
+   unless the listed key's Team ID matches the team you're building under.
+9. **`Generate a new Apple Push Notifications service key? (Y/n)`** → **Y**.
+10. The App ID (`com.lateish.mobile` for iOS) must already exist with both
+    **Sign in with Apple** and **Push Notifications** capabilities enabled —
+    register it by hand first (`../APPLE_LOGIN_SETUP.md` §4a) rather than
+    relying on EAS to create/patch it; see the capability-sync entry below.
 
 - Cloud build ~20–30 min → `.ipa`.
 - EAS **caches the Apple session (~2 weeks)**, so builds within that window won't re-prompt for 2FA.
   First build sets up credentials; later builds reuse them.
+
+> ⚠️ **The finished `.ipa` download link is not directly installable on an
+> iPhone** the way the Android APK is — this build is signed for App Store
+> distribution, which Apple only allows installing through TestFlight/the App
+> Store. Never send that raw link to the client; always go through `eas submit`
+> + a TestFlight invite (below).
 
 ### 2c. Upload to TestFlight
 ```bash
@@ -156,7 +192,9 @@ Interactive prompts (in order):
 1. **`What would you like to submit?`** → **`Select a build from EAS`** (lists your finished
    cloud builds — no URL/ID copying). *(Shortcut: `eas submit -p ios --profile production --latest`
    skips this and grabs the newest build.)*
-2. **`Which build would you like to submit?`** → pick the **latest `finished` production build**.
+2. **`Which build would you like to submit?`** → pick the **latest `finished` production build**
+   — double-check its bundle id/commit message matches what you expect (old builds under a
+   previous team/bundle id stay listed here too).
 3. **`Generate a new App Store Connect API Key? (Y/n)`** → **Y**. This is the key EAS uses to
    *upload* to App Store Connect (separate from the Apple ID login used to *build*). EAS creates,
    stores, and **reuses it for all future submissions**. No tight per-account cap like certs.
@@ -164,8 +202,14 @@ Interactive prompts (in order):
    submission EAS must **create the app record** in App Store Connect, which can trip the
    narrower `APP_MANAGER` role on permissions — ADMIN avoids a blocked upload. (It's the
    client's own account and EAS stores the key securely.)
-5. If the app doesn't exist yet, EAS creates it (Name `LATE(ish)`, Bundle ID `com.lateish.app`,
-   SKU `lateish`) — or make it manually in **App Store Connect → Apps → “+”**.
+5. If the app doesn't exist yet, EAS tries to auto-create it — **on a brand-new Organization
+   team's first-ever app, this can fail** (`Failed to create App Store app … You must provide a
+   value for the attribute 'companyName'`), even when the Business section already shows the
+   company name. Fix: create the app **manually** first — App Store Connect → **Apps → ➕ → New
+   App** — the manual form has its own required **Company Name** field (fill it with the team's
+   legal name, e.g. `Lateish Drinks LTD`), plus Name, Primary Language, **Bundle ID** (select from
+   the dropdown), SKU, User Access → **Create**. Then re-run `eas submit`; it uploads to the
+   now-existing app instead of trying to create one.
 
 - Upload runs a few min, then Apple **"processes"** the build ~5–15 min before it appears in TestFlight.
 - **First submission only:** App Store Connect may ask for **Export Compliance** — since
@@ -246,12 +290,40 @@ in the repo excludes `node_modules`, `.expo`, `android`, `ios`, etc. → uploads
 The client's Apple ID is a member of **many** teams/providers (personal + several LLCs),
 so EAS can't guess. **This is the client's decision — always ask them**, because the team
 you pick *permanently owns* the app (bundle-id registration, App Store/TestFlight listing,
-billing) and is painful to move later. None of the entities is named "Lateish".
+billing) and — as of the 2026-09-07 team switch — is **effectively impossible to move later**
+(see the next entry). Get the decision right before the very first TestFlight upload.
 
-- **The client chose `ARTHUR PLAT - Individual` (team id `3UCFPF9QLM`).**
-- **Provider must match the team → also `ARTHUR PLAT`.** Never mix (e.g. team = ARTHUR PLAT,
-  provider = SCHEJ) — keep the entity identical across both prompts.
-- To skip these prompts on later builds, pin `"appleTeamId": "3UCFPF9QLM"` in `eas.json`.
+- **Originally `ARTHUR PLAT - Individual` (`3UCFPF9QLM`); now `Lateish Drinks LTD -
+  Company/Organization` (`6CK7WB3UD2`), per the client.**
+- **Provider must match the team** — never mix (e.g. team = Lateish Drinks LTD,
+  provider = ARTHUR PLAT) — keep the entity identical across both prompts.
+- To skip these prompts on later builds, pin `"appleTeamId": "6CK7WB3UD2"` in `eas.json`
+  (not currently pinned — every build re-prompts, which is a deliberate, cheap safety check
+  against building under the wrong team by accident).
+
+### iOS: bundle id "stuck" on a team after a TestFlight upload — no self-service fix
+Once a bundle id has ever been used to create an App Store Connect app (even just for
+internal TestFlight testing, never publicly released), **Apple will not let you delete
+that App ID from the Developer Portal** — the Remove button fails with *"appears to be in
+use by the App Store, so it cannot be removed at this time."* This is **not** a temporary
+propagation delay (we waited 24h+, still blocked) — it's understood to be a largely
+permanent restriction, self-service deletion just isn't offered once an identifier has
+touched App Store Connect. Deleting the App Store Connect app record first does **not**
+free it either.
+
+**What actually happened (2026-09-07):** `com.lateish.app` got stuck on `ARTHUR PLAT`
+after the first TestFlight upload. Moving iOS to `Lateish Drinks LTD` required registering
+a **new bundle id**, `com.lateish.mobile`, instead — see the note at the top of this file.
+Android was unaffected (`com.lateish.app`, separate Google Play identity).
+
+**Only remaining lever** if an identifier truly must be reclaimed: file a ticket with Apple
+Developer Support (developer.apple.com → Contact Us) asking them to manually release it —
+not guaranteed, can take days, not something to block a client's test on.
+
+**Lesson for next time:** confirm the final Apple team **before** the very first
+`eas submit` for a given bundle id — moving teams after that point means a new bundle id,
+which cascades into re-registering Sign in with Apple (Services ID + Key + JWT, see
+`../APPLE_LOGIN_SETUP.md`) and push (new APNs key) from scratch.
 
 ### iOS: `Maximum number of Distribution Certificates generated` (only 3 allowed)
 Apple caps an account at **3 distribution certificates**, and they are **account-wide, not
@@ -275,15 +347,20 @@ to **turn OFF Sign in with Apple** (`APPLE_ID_AUTH`) — but that App ID is the 
 App ID for the `com.lateish.web.auth` Services ID** (Apple login), so Apple refuses to
 remove it. The patch is atomic, so Push got rolled back too.
 
-**Fix:** manage the capabilities by hand and disable the sync.
+**Fix / prevention:** manage the capabilities by hand and disable the sync — do this
+**before the first build for a given App ID**, not as a reaction:
 1. `app.json` declares `ios.usesAppleSignIn: true` so the entitlement matches the App ID.
-2. In the Apple console (Identifiers → `com.lateish.app` → Capabilities) enable ✅
-   **Push Notifications** and leave ✅ **Sign in with Apple** on. Save.
-3. Build with the sync off (PowerShell):
+2. When **registering** the App ID (Apple console → Identifiers → App IDs → ➕), check
+   ✅ **Sign in with Apple** and ✅ **Push Notifications** *at creation time*, not after.
+3. Build with the sync off, always (PowerShell):
    ```powershell
    $env:EXPO_NO_CAPABILITY_SYNC="1"; eas build -p ios --profile production
    ```
    (bash: `EXPO_NO_CAPABILITY_SYNC=1 eas build …`). Persist with `setx EXPO_NO_CAPABILITY_SYNC 1`.
+
+Doing both capabilities up front worked cleanly on the `com.lateish.mobile` App ID
+(`Lateish Drinks LTD` team) — the build log showed `✔ Synced capabilities: No updates`,
+i.e. nothing to patch, so the bug never had a chance to trigger.
 
 ### iOS: `maximum allowed number of team scoped Keys for this service` (APNs push key)
 **Cause:** an **APNs Auth Key is team-wide** (one serves every app, sandbox + production),
@@ -299,6 +376,18 @@ Key" entries), so generating a new one failed.
    Sandbox+Production APNs key they're sure no live app uses (Apple → Keys → Revoke), then
    re-run the build and answer **Yes** to generate a fresh key. Never revoke another live
    app's key (e.g. one named for a different client).
+
+### iOS: EAS offers to "Choose another existing push key (Recommended)" — but it's the wrong team
+When switching Apple teams (e.g. after the 2026-09-07 move to `Lateish Drinks LTD`), EAS's
+"Select the Apple Push Key to use for your project" step lists keys **across every team
+your Apple ID belongs to**, not filtered to the team you're currently building under, and
+still labels the top one "(Recommended)". Push keys are strictly team-scoped — a key whose
+listed `Team ID` doesn't match your current team **cannot** be used and must not be selected.
+
+**Fix:** before accepting an "existing key," check the `Team ID:` shown next to it. If it
+doesn't match the team you're building for, `Ctrl+C`, re-run the build, and choose
+`[Add a new push key]` instead → **Y** to generate. A brand-new team has no key of its own
+yet, so this registers its first one cleanly.
 
 ### Android keystore
 EAS generated and stores it. Before a real Play Store launch, **back it up**:
