@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { Check, ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
-import { Platform, Pressable, ScrollView, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Pressable, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FormError } from "@/components/auth/form-error";
@@ -72,15 +72,12 @@ export default function SecurityScreen() {
         <Text className="text-2xl font-bold">Password and Security</Text>
       </View>
 
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="gap-6 px-4 pb-16 pt-8"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
       >
         <Text className="-mb-2 text-sm text-muted-foreground">
           Set a new password for your account.
@@ -117,20 +114,17 @@ export default function SecurityScreen() {
             <Text className="text-sm text-green-500">Password updated successfully.</Text>
           </View>
         ) : null}
-      </ScrollView>
 
-      <View className="px-4 pb-4 pt-2">
         <Pressable
           onPress={() => save.mutate()}
           disabled={!canSubmit}
-          className="h-14 items-center justify-center rounded-xl bg-white active:opacity-90 disabled:opacity-50"
+          className="mt-2 h-14 items-center justify-center rounded-xl bg-white active:opacity-90 disabled:opacity-50"
         >
           <Text className="text-base font-semibold text-black">
             {save.isPending ? "Updating…" : "Save and Update"}
           </Text>
         </Pressable>
-      </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <BottomTabBar />
     </SafeAreaView>

@@ -10,15 +10,8 @@ import {
   X,
 } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Modal, Pressable, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Line, Polyline } from "react-native-svg";
 
@@ -337,18 +330,16 @@ function KpiFormSheet({
     >
       <View className="flex-1 justify-end bg-black/50">
         <Pressable className="flex-1" onPress={onClose} accessibilityLabel="Close" />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        <View
+          className="rounded-t-3xl border border-border bg-popover"
+          style={{ paddingBottom: insets.bottom }}
         >
-          <View
-            className="rounded-t-3xl border border-border bg-popover"
-            style={{ paddingBottom: insets.bottom }}
+          <KeyboardAwareScrollView
+            contentContainerClassName="gap-4 p-5"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bottomOffset={24}
           >
-            <ScrollView
-              contentContainerClassName="gap-4 p-5"
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
               {/* Header */}
               <View className="flex-row items-start justify-between gap-3">
                 <View className="flex-1 gap-1">
@@ -441,9 +432,8 @@ function KpiFormSheet({
                   </Text>
                 </Pressable>
               </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
+        </View>
       </View>
     </Modal>
   );

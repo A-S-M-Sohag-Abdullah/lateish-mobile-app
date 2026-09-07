@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/button";
@@ -69,14 +70,15 @@ export function WizardShell({
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="gap-6 px-6 py-6"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bottomOffset={24}
       >
         {children}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View
         className="gap-3 px-6 pt-3"

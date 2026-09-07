@@ -1,8 +1,8 @@
 import { useGoBack } from "@/hooks/use-go-back";
 import { Camera, ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
-import { Platform, Pressable, ScrollView, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Pressable, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
@@ -39,15 +39,12 @@ export default function ProfileSettingsScreen() {
         <Text className="text-2xl font-bold">Profile Settings</Text>
       </View>
 
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="gap-6 px-4 pb-16 pt-4"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
       >
         {/* Avatar */}
         <View className="items-center gap-3">
@@ -98,8 +95,7 @@ export default function ProfileSettingsScreen() {
         >
           <Text className="text-base font-semibold text-black">Save and Update</Text>
         </Pressable>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <BottomTabBar />
     </SafeAreaView>

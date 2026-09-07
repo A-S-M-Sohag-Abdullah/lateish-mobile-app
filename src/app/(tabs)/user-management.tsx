@@ -12,15 +12,8 @@ import {
   X,
 } from "lucide-react-native";
 import { Fragment, useState } from "react";
-import {
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Modal, Pressable, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FormError } from "@/components/auth/form-error";
@@ -149,15 +142,12 @@ export default function UserManagementScreen() {
         <Text className="text-2xl font-bold">User Management</Text>
       </View>
 
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerClassName="gap-4 px-4 pb-16 pt-2"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
       >
         {/* Overview */}
         <View className="rounded-2xl border border-border bg-white/[0.03] p-4">
@@ -227,8 +217,7 @@ export default function UserManagementScreen() {
             })}
           </View>
         )}
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <BottomTabBar />
 
@@ -399,11 +388,13 @@ function InviteModal({
         {/* Backdrop as a sibling layer behind the card — clicking the card does
             not bubble to it (which on web would otherwise close the modal). */}
         <Pressable className="absolute inset-0 bg-black/60" onPress={onClose} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="w-full"
+        <KeyboardAwareScrollView
+          className="w-full grow-0"
+          contentContainerClassName="w-full gap-4 rounded-2xl border border-border bg-popover p-5"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={24}
         >
-        <View className="w-full gap-4 rounded-2xl border border-border bg-popover p-5">
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold">Invite a Member</Text>
             <Pressable onPress={onClose} hitSlop={8} className="active:opacity-70">
@@ -465,8 +456,7 @@ function InviteModal({
               {invite.isPending ? "Sending…" : "Send Invite"}
             </Text>
           </Pressable>
-        </View>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </View>
     </Modal>
   );

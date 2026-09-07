@@ -11,10 +11,10 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { CenteredPopup } from "@/components/ui/centered-popup";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -169,11 +169,12 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
           </Text>
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1"
           contentContainerStyle={{ padding: 24, gap: 20 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={24}
         >
           <Pressable
             onPress={() =>
@@ -402,7 +403,7 @@ export function LogInteractionForm({ visible, onClose }: LogInteractionFormProps
               />
             ) : null}
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View className="px-6 pb-4 pt-3">
           <Pressable

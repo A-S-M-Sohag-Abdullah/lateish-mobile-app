@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Map as MapIcon, MapPin } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { FormError } from "@/components/auth/form-error";
 import {
@@ -240,11 +241,12 @@ export function AccountForm({
           </Text>
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1"
           contentContainerStyle={{ padding: 24, gap: 18 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={24}
         >
           <View className="gap-2">
             <Text className="text-base text-muted-foreground">Account Name *</Text>
@@ -357,7 +359,7 @@ export function AccountForm({
           </View>
 
           <FormError error={create.error} />
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View className="flex-row gap-3 px-6 pb-4 pt-3">
           <Pressable

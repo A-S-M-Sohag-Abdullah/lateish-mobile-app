@@ -4,14 +4,8 @@ import { useRouter } from "expo-router";
 import { useGoBack } from "@/hooks/use-go-back";
 import { ArrowLeft } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Pressable, StyleSheet, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthField } from "@/components/auth/auth-field";
@@ -50,25 +44,23 @@ export default function ForgotPasswordScreen() {
       />
 
       <SafeAreaView className="flex-1">
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        {/* Outside the scroll view so it stays pinned while the content
+            below is vertically centred. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => goBack()}
+          className="ml-4 mt-3 h-11 w-11 items-center justify-center rounded-lg active:bg-white/10"
         >
-          {/* Outside the ScrollView so it stays pinned while the content
-              below is vertically centred. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => goBack()}
-            className="ml-4 mt-3 h-11 w-11 items-center justify-center rounded-lg active:bg-white/10"
-          >
-            <ArrowLeft color="#FFFFFF" size={22} />
-          </Pressable>
+          <ArrowLeft color="#FFFFFF" size={22} />
+        </Pressable>
 
-          <ScrollView
-            contentContainerClassName="grow justify-center px-6 pb-10"
-            keyboardShouldPersistTaps="handled"
-          >
+        <KeyboardAwareScrollView
+          className="flex-1"
+          contentContainerClassName="grow justify-center px-6 pb-10"
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={24}
+        >
             <View className="mb-8 items-center gap-3">
               <Text className="text-4xl font-bold text-white">
                 Reset Password
@@ -116,8 +108,7 @@ export default function ForgotPasswordScreen() {
                 </Button>
               </>
             )}
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </View>
   );

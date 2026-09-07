@@ -1,13 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Pressable, StyleSheet, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "@/components/ui/text";
@@ -51,30 +45,27 @@ export function AuthLayout({
       />
 
       <SafeAreaView className="flex-1">
-        <KeyboardAvoidingView
+        <KeyboardAwareScrollView
           className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          // `grow` + `justify-center` centres the block when it is shorter
+          // than the screen, and falls back to normal top-down scrolling
+          // once the keyboard or a small display makes it overflow.
+          contentContainerClassName="grow justify-center px-6 py-8"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bottomOffset={24}
         >
-          <ScrollView
-            // `grow` + `justify-center` centres the block when it is shorter
-            // than the screen, and falls back to normal top-down scrolling
-            // once the keyboard or a small display makes it overflow.
-            contentContainerClassName="grow justify-center px-6 py-8"
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <AuthTabs tab={tab} />
+          <AuthTabs tab={tab} />
 
-            <View className="mb-8 mt-9 items-center gap-3">
-              <Text className="text-4xl font-bold text-white">{title}</Text>
-              <Text className="text-center text-base leading-6 text-white/70">
-                {subtitle}
-              </Text>
-            </View>
+          <View className="mb-8 mt-9 items-center gap-3">
+            <Text className="text-4xl font-bold text-white">{title}</Text>
+            <Text className="text-center text-base leading-6 text-white/70">
+              {subtitle}
+            </Text>
+          </View>
 
-            {children}
-          </ScrollView>
-        </KeyboardAvoidingView>
+          {children}
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </View>
   );

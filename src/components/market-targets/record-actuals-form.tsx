@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { Button } from "@/components/ui/button";
 import { CenteredPopup } from "@/components/ui/centered-popup";
@@ -98,11 +99,12 @@ export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) 
           </Text>
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1"
           contentContainerClassName="gap-5 px-6 py-6"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={24}
         >
           <FieldRow label="Market Target *" prev={prev.target}>
             <Dropdown
@@ -156,7 +158,7 @@ export function RecordActualsForm({ visible, onClose }: RecordActualsFormProps) 
               {(record.error as Error).message}
             </Text>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View className="flex-row gap-3 px-6 pb-4 pt-3">
           <Button variant="secondary" size="lg" className="flex-1" onPress={close}>

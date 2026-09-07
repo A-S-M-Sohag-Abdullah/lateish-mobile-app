@@ -1,12 +1,10 @@
 import {
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 interface CenteredPopupProps {
@@ -47,8 +45,7 @@ export function CenteredPopup({
             onPress={onClose}
           />
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          <View
             style={{
               width: "100%",
               maxWidth: 480,
@@ -58,7 +55,7 @@ export function CenteredPopup({
             <View className="flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-[#080E1B]">
               {children}
             </View>
-          </KeyboardAvoidingView>
+          </View>
         </View>
       </SafeAreaProvider>
     </Modal>
