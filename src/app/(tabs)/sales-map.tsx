@@ -22,7 +22,7 @@ import {
   ZoomOut,
   type LucideIcon,
 } from "lucide-react-native";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -111,8 +111,11 @@ export default function SalesMapScreen() {
   const [viewsOpen, setViewsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [tracking, setTracking] = useState(false);
   const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [routeShowing, setRouteShowing] = useState(false);
+  const watchSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
+  const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const { data: page, isLoading, isError } = useQuery({
     queryKey: ["accounts", orgId],
@@ -211,8 +214,17 @@ export default function SalesMapScreen() {
     setViewsOpen(false);
   }
 
-  // Show the device's current position on the map with a "you are here" marker.
-  async function locateMe() {
+  // Show the device's current position on the map with a "you are here" marker,
+  // and keep it live — as the device moves, the marker follows in real time.
+  // Tapping again stops tracking; only the first fix pans the map, so panning
+  // to look at other markers isn't fought by every subsequent update.
+  async function toggleTracking() {
+    if (tracking) {
+      watchSubscriptionRef.current?.remove();
+      watchSubscriptionRef.current = null;
+      setTracking(false);
+      return;
+    }
     if (locating) return;
     setLocating(true);
     try {
@@ -224,20 +236,68 @@ export default function SalesMapScreen() {
         showToast("Location permission denied");
         return;
       }
+
       const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      mapRef.current?.setUserLocation(
-        pos.coords.latitude,
-        pos.coords.longitude,
-        true,
+      lastLocationRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      mapRef.current?.setUserLocation(pos.coords.latitude, pos.coords.longitude, true);
+
+      watchSubscriptionRef.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 4000,
+          distanceInterval: 8,
+        },
+        (update) => {
+          lastLocationRef.current = {
+            lat: update.coords.latitude,
+            lng: update.coords.longitude,
+          };
+          mapRef.current?.setUserLocation(
+            update.coords.latitude,
+            update.coords.longitude,
+            false,
+          );
+        },
       );
+      setTracking(true);
     } catch {
       showToast("Couldn't get your location");
     } finally {
       setLocating(false);
     }
   }
+
+  // Stop the GPS watcher when the screen unmounts — don't keep tracking in
+  // the background.
+  useEffect(() => {
+    return () => {
+      watchSubscriptionRef.current?.remove();
+    };
+  }, []);
+
+  // The map's WebView fully reloads whenever the account list changes (new
+  // HTML, fresh page — see GoogleSalesMap), which wipes the "you are here"
+  // overlay along with everything else. Re-apply the last known fix after a
+  // reload so live tracking doesn't silently disappear mid-walk just because
+  // an account was added/edited elsewhere.
+  useEffect(() => {
+    if (!tracking || !lastLocationRef.current) return;
+    const t = setTimeout(() => {
+      if (lastLocationRef.current) {
+        mapRef.current?.setUserLocation(
+          lastLocationRef.current.lat,
+          lastLocationRef.current.lng,
+          false,
+        );
+      }
+    }, 800);
+    return () => clearTimeout(t);
+    // Only re-run when the account list itself changes (i.e. the map
+    // rebuilds) — not when `tracking` toggles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts]);
 
   async function planRouteClick() {
     if (routeShowing) {
@@ -563,13 +623,15 @@ export default function SalesMapScreen() {
           <ZoomOut color="#FFFFFF" size={18} />
         </Pressable>
 
-        {/* Locate me — real GPS, drops the "you are here" marker. */}
+        {/* Locate me — real GPS, drops the "you are here" marker and, once
+            active, keeps tracking live as the device moves. Tap again to
+            stop. */}
         <Pressable
-          accessibilityLabel="Show my location"
-          onPress={locateMe}
+          accessibilityLabel={tracking ? "Stop tracking my location" : "Show my location"}
+          onPress={toggleTracking}
           disabled={locating}
           className="h-10 w-10 items-center justify-center rounded-lg"
-          style={{ backgroundColor: FAB_DARK }}
+          style={{ backgroundColor: tracking ? "#2563EB" : FAB_DARK }}
         >
           {locating ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
