@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGoBack } from "@/hooks/use-go-back";
 import { Check, ChevronLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FormError } from "@/components/auth/form-error";
@@ -53,6 +53,10 @@ export default function OrganizationsScreen() {
         <Text className="text-2xl font-bold">Organization</Text>
       </View>
 
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
       <ScrollView
         className="flex-1"
         contentContainerClassName="gap-5 px-4 pb-16 pt-2"
@@ -128,6 +132,7 @@ export default function OrganizationsScreen() {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <BottomTabBar />
     </SafeAreaView>

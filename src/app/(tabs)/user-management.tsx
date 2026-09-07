@@ -12,7 +12,15 @@ import {
   X,
 } from "lucide-react-native";
 import { Fragment, useState } from "react";
-import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FormError } from "@/components/auth/form-error";
@@ -141,6 +149,10 @@ export default function UserManagementScreen() {
         <Text className="text-2xl font-bold">User Management</Text>
       </View>
 
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
       <ScrollView
         className="flex-1"
         contentContainerClassName="gap-4 px-4 pb-16 pt-2"
@@ -216,6 +228,7 @@ export default function UserManagementScreen() {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <BottomTabBar />
 
@@ -386,6 +399,10 @@ function InviteModal({
         {/* Backdrop as a sibling layer behind the card — clicking the card does
             not bubble to it (which on web would otherwise close the modal). */}
         <Pressable className="absolute inset-0 bg-black/60" onPress={onClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="w-full"
+        >
         <View className="w-full gap-4 rounded-2xl border border-border bg-popover p-5">
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold">Invite a Member</Text>
@@ -449,6 +466,7 @@ function InviteModal({
             </Text>
           </Pressable>
         </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

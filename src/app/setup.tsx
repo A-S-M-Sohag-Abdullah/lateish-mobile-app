@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Redirect } from "expo-router";
 import { Building2, LogOut, Users } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CreateOrganizationForm } from "@/components/setup/create-organization-form";
@@ -44,12 +44,16 @@ export default function SetupScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <KeyboardAvoidingView
         className="flex-1"
-        contentContainerClassName="grow justify-center px-5 py-8"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="grow justify-center px-5 py-8"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {view === "choice" ? (
           <View className="gap-6">
             <View className="items-center gap-2">
@@ -82,7 +86,8 @@ export default function SetupScreen() {
         ) : (
           <JoinOrganizationFlow onBack={() => setView("choice")} />
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
