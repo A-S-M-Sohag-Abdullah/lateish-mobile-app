@@ -6,13 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/ui/text";
@@ -175,10 +174,7 @@ export function NitaPanel() {
           onPress={() => setOpen(false)}
         />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="h-[88%]"
-        >
+        <View className="h-[88%]">
           <View
             className="flex-1 overflow-hidden rounded-t-3xl border border-border"
             style={{ paddingTop: insets.top > 0 ? 8 : 12 }}
@@ -272,41 +268,47 @@ export function NitaPanel() {
             </ScrollView>
 
             {/* Input — a single pill holding the + icon and the field, with a
-                separate send button (dark when empty, red once there's text). */}
-            <View
-              className="flex-row items-center gap-3 px-4 pt-3"
-              style={{ paddingBottom: insets.bottom + 10 }}
-            >
-              <View className="h-12 flex-1 flex-row items-center gap-2 rounded-full bg-white/[0.05] pl-4 pr-2">
-                <Plus color={colors.mutedForeground} size={22} />
-                <TextInput
-                  value={input}
-                  onChangeText={setInput}
-                  onSubmitEditing={handleSend}
-                  placeholder="Ask NITA AI anything..."
-                  placeholderTextColor={colors.mutedForeground}
-                  maxLength={500}
-                  returnKeyType="send"
-                  className="h-full flex-1 text-base text-foreground"
-                />
-              </View>
-              <Pressable
-                onPress={handleSend}
-                disabled={!input.trim() || send.isPending}
-                accessibilityLabel="Send"
-                className={cn(
-                  "h-12 w-12 items-center justify-center rounded-full active:opacity-90",
-                  input.trim() ? "bg-[#7C1D1E]" : "bg-white/[0.05]",
-                )}
+                separate send button (dark when empty, red once there's text).
+                KeyboardStickyView translates this bar up to sit right above
+                the keyboard instead of resizing the panel around it —
+                KeyboardAvoidingView's resize approach never reliably
+                revealed it on Android in this modal. */}
+            <KeyboardStickyView>
+              <View
+                className="flex-row items-center gap-3 bg-[#060A13] px-4 pt-3"
+                style={{ paddingBottom: insets.bottom + 10 }}
               >
-                <Send
-                  color={input.trim() ? "#FFFFFF" : colors.mutedForeground}
-                  size={20}
-                />
-              </Pressable>
-            </View>
+                <View className="h-12 flex-1 flex-row items-center gap-2 rounded-full bg-white/[0.05] pl-4 pr-2">
+                  <Plus color={colors.mutedForeground} size={22} />
+                  <TextInput
+                    value={input}
+                    onChangeText={setInput}
+                    onSubmitEditing={handleSend}
+                    placeholder="Ask NITA AI anything..."
+                    placeholderTextColor={colors.mutedForeground}
+                    maxLength={500}
+                    returnKeyType="send"
+                    className="h-full flex-1 text-base text-foreground"
+                  />
+                </View>
+                <Pressable
+                  onPress={handleSend}
+                  disabled={!input.trim() || send.isPending}
+                  accessibilityLabel="Send"
+                  className={cn(
+                    "h-12 w-12 items-center justify-center rounded-full active:opacity-90",
+                    input.trim() ? "bg-[#7C1D1E]" : "bg-white/[0.05]",
+                  )}
+                >
+                  <Send
+                    color={input.trim() ? "#FFFFFF" : colors.mutedForeground}
+                    size={20}
+                  />
+                </Pressable>
+              </View>
+            </KeyboardStickyView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
