@@ -1,8 +1,9 @@
-import { useTheme } from "@/contexts/theme-context";
-import { colorsByScheme, type ColorTokens } from "@/lib/theme";
+import { darkColors, type ColorTokens } from "@/lib/theme";
 
-/** Literal colour values for the active scheme — for icons, navigators, charts. */
+/**
+ * Literal colour values for icons, navigators, charts and `placeholderTextColor`.
+ * The app is dark-only, so this is always the dark palette.
+ */
 export function useThemeColors(): ColorTokens {
-  const { resolvedTheme } = useTheme();
-  return colorsByScheme[resolvedTheme];
+  return darkColors;
 }

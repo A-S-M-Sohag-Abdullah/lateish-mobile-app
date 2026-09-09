@@ -29,7 +29,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useQuery } from "@tanstack/react-query";
@@ -468,8 +467,6 @@ export default function SalesMapScreen() {
 
   return (
     <View className="flex-1 bg-[#0B1220]">
-      <StatusBar style="dark" />
-
       {/* Full-bleed map (extends under the status bar, like the design).
           Held until accounts resolve so it mounts once with real data. */}
       {isLoading ? (

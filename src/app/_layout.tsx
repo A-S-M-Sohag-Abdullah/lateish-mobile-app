@@ -121,7 +121,7 @@ function AppShell() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
-  const { hydrated, resolvedTheme } = useTheme();
+  const { hydrated } = useTheme();
   const authLoading = useAuthStore((s) => s.loading);
   const session = useAuthStore((s) => s.session);
   const colors = useThemeColors();
@@ -163,13 +163,8 @@ function AppShell() {
 
   return (
     <>
-      <StatusBar
-        style={
-          // The splash is dark whatever the theme, so the icons must be light
-          // until it has gone.
-          !splashHidden || resolvedTheme === "dark" ? "light" : "dark"
-        }
-      />
+      {/* The app is dark-only, so the status bar icons are always light. */}
+      <StatusBar style="light" />
 
       {/* Mounted underneath the splash so the first screen is laid out and
           painted before the fade begins. */}
