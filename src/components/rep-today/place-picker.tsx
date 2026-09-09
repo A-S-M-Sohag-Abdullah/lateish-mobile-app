@@ -102,71 +102,100 @@ async function nominatimSearch(
   return res.json();
 }
 
-// The Leaflet map runs in a WebView; results are pushed in via injected JS and
-// marker taps are posted back out. Mirrors front-end place-picker-dialog.tsx.
-const MAP_HTML = `<!DOCTYPE html>
+// The map runs in a WebView (native) / iframe (web) hosting the Google Maps
+// JavaScript API — same engine as the Sales Map (src/components/sales-map/
+// google-map.tsx), so it matches the rest of the app. Search results are pushed
+// in via injected JS and marker taps are posted back out; the window-function +
+// postMessage contract is unchanged from the old Leaflet version.
+function buildMapHtml(apiKey: string): string {
+  return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body, #map { height:100%; margin:0; padding:0; background:#0B1220; }
-  .leaflet-container { background:#0B1220; font-family:-apple-system, system-ui, sans-serif; }
 </style>
 </head>
 <body>
 <div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  var map = L.map('map', { zoomControl:false, attributionControl:true }).setView([51.5,-0.1], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom:19,
-  }).addTo(map);
+  var map, infoWindow, markers = {}, selectedId = null;
 
   function post(o){
     var s = JSON.stringify(o);
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s);
     else if (window.parent) window.parent.postMessage(s, '*');
   }
-  function iconHtml(active){
+
+  function pinIcon(active){
     var fill = active ? '#2563eb' : '#ef4444';
     var stroke = active ? '#1d4ed8' : '#b91c1c';
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">'
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">'
       + '<path d="M12 0C5.373 0 0 5.373 0 12c0 8 12 20 12 20S24 20 24 12C24 5.373 18.627 0 12 0z" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.5"/>'
       + '<circle cx="12" cy="12" r="5" fill="white"/></svg>';
+    return {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(24, 32),
+      anchor: new google.maps.Point(12, 32),
+    };
   }
-  function makeIcon(active){ return L.divIcon({ html:iconHtml(active), className:'', iconSize:[24,32], iconAnchor:[12,32] }); }
-
-  var markers = {};
-  var selectedId = null;
 
   window.setResults = function (list) {
-    Object.keys(markers).forEach(function (k) { map.removeLayer(markers[k]); });
+    Object.keys(markers).forEach(function (k) { markers[k].setMap(null); });
     markers = {}; selectedId = null;
+    if (infoWindow) infoWindow.close();
     if (!list || !list.length) return;
-    var bounds = [];
+    var bounds = new google.maps.LatLngBounds();
     list.forEach(function (r) {
       var lat = parseFloat(r.lat), lon = parseFloat(r.lon);
-      bounds.push([lat, lon]);
-      var m = L.marker([lat, lon], { icon: makeIcon(false) }).addTo(map)
-        .bindTooltip(r.name, { direction:'top', offset:[0,-32] });
-      m.on('click', function () { post({ type:'select', id:r.place_id }); });
+      bounds.extend({ lat: lat, lng: lon });
+      var m = new google.maps.Marker({
+        position: { lat: lat, lng: lon }, map: map, icon: pinIcon(false), title: r.name,
+      });
+      m.__name = r.name;
+      m.addListener('click', function () { post({ type:'select', id:r.place_id }); });
       markers[r.place_id] = m;
     });
-    map.fitBounds(bounds, { padding:[40,40], maxZoom:15 });
+    map.fitBounds(bounds, 40);
+    google.maps.event.addListenerOnce(map, 'bounds_changed', function () {
+      if (map.getZoom() > 15) map.setZoom(15);
+    });
   };
   window.selectPlace = function (id, lat, lon) {
-    if (selectedId != null && markers[selectedId]) markers[selectedId].setIcon(makeIcon(false));
+    if (selectedId != null && markers[selectedId]) markers[selectedId].setIcon(pinIcon(false));
     selectedId = id;
-    if (markers[id]) { markers[id].setIcon(makeIcon(true)); markers[id].openTooltip(); map.setView([lat, lon], 16, { animate:true }); }
+    var m = markers[id];
+    if (m) {
+      m.setIcon(pinIcon(true));
+      if (!infoWindow) infoWindow = new google.maps.InfoWindow();
+      infoWindow.setContent(
+        '<div style="font-family:system-ui,sans-serif;font-size:12px;color:#111827;padding:2px 4px">' + (m.__name || '') + '</div>'
+      );
+      infoWindow.open({ map: map, anchor: m });
+      map.panTo({ lat: lat, lng: lon });
+      map.setZoom(16);
+    }
   };
-  window.setCenter = function (lat, lon, z) { map.setView([lat, lon], z || 14); };
+  window.setCenter = function (lat, lon, z) {
+    map.setCenter({ lat: lat, lng: lon });
+    map.setZoom(z || 14);
+  };
 
-  post({ type:'ready' });
+  window.initMap = function () {
+    map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 51.5, lng: -0.1 },
+      zoom: 12,
+      disableDefaultUI: true,
+      clickableIcons: false,
+    });
+    post({ type: 'ready' });
+  };
 </script>
+<script src="https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&callback=initMap" async defer></script>
 </body>
 </html>`;
+}
 
 interface Props {
   visible: boolean;
@@ -184,6 +213,8 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
   const pendingRef = useRef<NomResult[] | null>(null);
   const gpsCenterRef = useRef<{ lat: number; lon: number } | null>(null);
 
+  const mapHtml = useMemo(() => buildMapHtml(env.googleMapsApiKey), []);
+
   const [query, setQuery] = useState("");
   const [amenity, setAmenity] = useState("");
   const [results, setResults] = useState<NomResult[]>([]);
@@ -199,23 +230,18 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
 
   // Call a global function inside the map — injected JS on native, a direct
   // contentWindow call through the (same-origin, srcDoc) iframe on web.
-  const call = useCallback(
-    (fn: string, ...args: unknown[]) => {
-      if (Platform.OS === "web") {
-        const win = iframeRef.current?.contentWindow as
-          | (Window & Record<string, (...a: unknown[]) => void>)
-          | null
-          | undefined;
-        if (win && typeof win[fn] === "function") win[fn](...args);
-        return;
-      }
-      const serialized = args.map((a) => JSON.stringify(a)).join(", ");
-      webRef.current?.injectJavaScript(
-        `window.${fn} && window.${fn}(${serialized}); true;`,
-      );
-    },
-    [],
-  );
+  const call = useCallback((fn: string, ...args: unknown[]) => {
+    if (Platform.OS === "web") {
+      const win = iframeRef.current?.contentWindow as
+        (Window & Record<string, (...a: unknown[]) => void>) | null | undefined;
+      if (win && typeof win[fn] === "function") win[fn](...args);
+      return;
+    }
+    const serialized = args.map((a) => JSON.stringify(a)).join(", ");
+    webRef.current?.injectJavaScript(
+      `window.${fn} && window.${fn}(${serialized}); true;`,
+    );
+  }, []);
 
   // Push results into the map (or stash until the map says it's ready).
   const plot = useCallback(
@@ -414,7 +440,10 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
               className="h-11 flex-row items-center gap-1.5 rounded-lg bg-primary px-3 active:opacity-90 disabled:opacity-50"
             >
               {loading ? (
-                <ActivityIndicator color={colors.primaryForeground} size="small" />
+                <ActivityIndicator
+                  color={colors.primaryForeground}
+                  size="small"
+                />
               ) : (
                 <Search color={colors.primaryForeground} size={18} />
               )}
@@ -451,17 +480,23 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
                   onPress={() => handleTypeChange(vt.amenity)}
                   className={cn(
                     "flex-row items-center gap-1 rounded-full border px-2.5 py-1",
-                    active ? "border-primary bg-primary" : "border-input bg-transparent",
+                    active
+                      ? "border-primary bg-primary"
+                      : "border-input bg-transparent",
                   )}
                 >
                   <Icon
-                    color={active ? colors.primaryForeground : colors.mutedForeground}
+                    color={
+                      active ? colors.primaryForeground : colors.mutedForeground
+                    }
                     size={13}
                   />
                   <Text
                     className={cn(
                       "text-xs font-medium",
-                      active ? "text-primary-foreground" : "text-muted-foreground",
+                      active
+                        ? "text-primary-foreground"
+                        : "text-muted-foreground",
                     )}
                   >
                     {vt.label}
@@ -473,12 +508,12 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
         </View>
 
         {/* Map — WebView on native, iframe on web (react-native-webview has no
-            web build). Both host the same Leaflet HTML. */}
+            web build). Both host the same Google Maps HTML. */}
         <View className="flex-1">
           {isWeb ? (
             <iframe
               ref={iframeRef}
-              srcDoc={MAP_HTML}
+              srcDoc={mapHtml}
               title="Find venue on map"
               style={{ border: 0, width: "100%", height: "100%" }}
             />
@@ -486,7 +521,7 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
             <WebView
               ref={webRef}
               originWhitelist={["*"]}
-              source={{ html: MAP_HTML }}
+              source={{ html: mapHtml }}
               onMessage={onMessage}
               style={{ flex: 1, backgroundColor: "#0B1220" }}
               javaScriptEnabled
@@ -511,7 +546,9 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
             <ScrollView keyboardShouldPersistTaps="handled">
               {results.map((r) => {
                 const active = r.place_id === selectedId;
-                const sub = [r.type, r.address.road].filter(Boolean).join(" · ");
+                const sub = [r.type, r.address.road]
+                  .filter(Boolean)
+                  .join(" · ");
                 return (
                   <Pressable
                     key={r.place_id}
@@ -551,7 +588,10 @@ export function PlacePicker({ visible, onClose, onSelect }: Props) {
           style={{ paddingBottom: insets.bottom + 12 }}
         >
           {selected ? (
-            <Text className="mb-2 text-xs text-muted-foreground" numberOfLines={1}>
+            <Text
+              className="mb-2 text-xs text-muted-foreground"
+              numberOfLines={1}
+            >
               Selected:{" "}
               <Text className="font-medium text-foreground">
                 {extractName(selected)}

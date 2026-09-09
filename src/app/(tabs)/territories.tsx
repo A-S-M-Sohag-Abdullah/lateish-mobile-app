@@ -12,11 +12,7 @@ import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import {
-  TIER_BADGE,
-  TIER_SHORT,
-  type ApiTerritory,
-} from "@/types/territory";
+import { TIER_BADGE, TIER_SHORT, type ApiTerritory } from "@/types/territory";
 
 export default function TerritoriesScreen() {
   const goBack = useGoBack();
@@ -29,7 +25,8 @@ export default function TerritoriesScreen() {
   const territoriesKey = ["territories", orgId] as const;
   const { data: territories = [], isLoading } = useQuery({
     queryKey: territoriesKey,
-    queryFn: () => api.get<ApiTerritory[]>(`/organizations/${orgId}/territories`),
+    queryFn: () =>
+      api.get<ApiTerritory[]>(`/organizations/${orgId}/territories`),
     enabled: !!orgId,
   });
 
@@ -56,7 +53,9 @@ export default function TerritoriesScreen() {
             className="h-9 flex-row items-center gap-1.5 rounded-lg bg-primary px-3 active:opacity-90"
           >
             <Plus color={colors.primaryForeground} size={16} />
-            <Text className="text-sm font-medium text-primary-foreground">New</Text>
+            <Text className="text-sm font-medium text-primary-foreground">
+              New
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -81,7 +80,9 @@ export default function TerritoriesScreen() {
             onDone={() => setEditing(null)}
           />
         ) : isLoading ? (
-          <Text className="py-8 text-center text-sm text-muted-foreground">Loading…</Text>
+          <Text className="py-8 text-center text-sm text-muted-foreground">
+            Loading…
+          </Text>
         ) : territories.length === 0 ? (
           <View className="items-center gap-2 py-16">
             <Text className="text-base font-semibold">No territories yet</Text>
@@ -91,7 +92,11 @@ export default function TerritoriesScreen() {
           </View>
         ) : (
           territories.map((t) => (
-            <TerritoryRow key={t.id} territory={t} onPress={() => setEditing(t)} />
+            <TerritoryRow
+              key={t.id}
+              territory={t}
+              onPress={() => setEditing(t)}
+            />
           ))
         )}
       </ScrollView>
@@ -108,7 +113,15 @@ function TerritoryRow({
   territory: ApiTerritory;
   onPress: () => void;
 }) {
-  const location = [territory.state, territory.sub_region].filter(Boolean).join(" • ");
+  const hasSearchArea =
+    territory.center_lat != null && territory.center_lng != null;
+  const location = [
+    territory.state,
+    territory.sub_region,
+    hasSearchArea ? `${territory.search_radius_km}km area` : "area not set",
+  ]
+    .filter(Boolean)
+    .join(" • ");
   return (
     <Pressable
       onPress={onPress}
@@ -132,7 +145,10 @@ function TerritoryRow({
         )}
       >
         <Text
-          className={cn("text-xs font-medium", TIER_BADGE[territory.maturity_tier])}
+          className={cn(
+            "text-xs font-medium",
+            TIER_BADGE[territory.maturity_tier],
+          )}
         >
           {TIER_SHORT[territory.maturity_tier]}
         </Text>

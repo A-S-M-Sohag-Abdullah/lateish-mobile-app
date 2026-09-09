@@ -1,13 +1,19 @@
-import { ArrowLeft, MapPin } from "lucide-react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, MapPin, Sparkles } from "lucide-react-native";
+import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AutoPopulateSheet } from "@/components/market-targets/auto-populate-sheet";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Text } from "@/components/ui/text";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { api } from "@/lib/api";
 import type { TargetRecord } from "@/lib/market-targets-data";
 import { formatCount } from "@/lib/mock-data";
+import type { ApiTerritory } from "@/types/territory";
 
 interface TargetDetailPanelProps {
   target: TargetRecord;
@@ -17,8 +23,37 @@ interface TargetDetailPanelProps {
 /** Body of the slide-in target detail. Rendered inside a RightSheet. */
 export function TargetDetailPanel({ target, onClose }: TargetDetailPanelProps) {
   const colors = useThemeColors();
+  const queryClient = useQueryClient();
+  const { currentOrg } = useOrganizations();
+  const orgId = currentOrg?.id ?? "";
+
   const casesPct = target.cases.current / target.cases.target;
   const distPct = target.distribution.current / target.distribution.target;
+
+  const [autoPopulateOpen, setAutoPopulateOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  // Only fetched to resolve this target's territory + check whether it has a
+  // search area set yet (auto-populate needs one — configured in Territories).
+  const { data: territories = [] } = useQuery({
+    queryKey: ["territories", orgId],
+    queryFn: () =>
+      api.get<ApiTerritory[]>(`/organizations/${orgId}/territories`),
+    enabled: !!orgId && !!target.territoryId,
+  });
+  const territory =
+    territories.find((t) => t.id === target.territoryId) ?? null;
+  const canAutoPopulate =
+    !!territory && territory.center_lat != null && territory.center_lng != null;
+
+  const del = useMutation({
+    mutationFn: () =>
+      api.delete(`/organizations/${orgId}/market-targets/${target.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["market-targets", orgId] });
+      onClose();
+    },
+  });
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
@@ -74,10 +109,16 @@ export function TargetDetailPanel({ target, onClose }: TargetDetailPanelProps) {
 
         {/* A&P Pacing — Inter Medium, 18px, line-height 16 (per spec). */}
         <View className="gap-2">
-          <Text className="font-medium" style={{ fontSize: 18, lineHeight: 16 }}>
+          <Text
+            className="font-medium"
+            style={{ fontSize: 18, lineHeight: 16 }}
+          >
             A&P Pacing
           </Text>
-          <Text className="font-medium" style={{ fontSize: 18, lineHeight: 16 }}>
+          <Text
+            className="font-medium"
+            style={{ fontSize: 18, lineHeight: 16 }}
+          >
             £{formatCount(target.apSpend)}{" "}
             <Text className="font-normal text-muted-foreground">
               / {target.apBudget}
@@ -88,11 +129,66 @@ export function TargetDetailPanel({ target, onClose }: TargetDetailPanelProps) {
         <Text className="text-lg font-medium">{target.momentumNote}</Text>
       </ScrollView>
 
-      <View className="px-6 pb-2 pt-3">
-        <Button variant="brand" size="lg" onPress={onClose}>
-          <Text>Delete Target</Text>
+      <View className="gap-2 px-6 pb-2 pt-3">
+        <Button
+          variant="default"
+          size="lg"
+          disabled={!canAutoPopulate}
+          onPress={() => setAutoPopulateOpen(true)}
+        >
+          <Sparkles color={colors.primaryForeground} size={18} />
+          <Text>Auto-Populate Accounts</Text>
         </Button>
+        {!canAutoPopulate ? (
+          <Text className="text-xs text-muted-foreground">
+            {territory
+              ? "Set a search area on this territory first (Territories) to enable auto-populate."
+              : "This target has no territory assigned, so auto-populate can't run."}
+          </Text>
+        ) : null}
+
+        {confirmingDelete ? (
+          <View className="flex-row gap-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              disabled={del.isPending}
+              onPress={() => setConfirmingDelete(false)}
+            >
+              <Text>Cancel</Text>
+            </Button>
+            <Button
+              variant="brand"
+              size="lg"
+              className="flex-1"
+              disabled={del.isPending}
+              onPress={() => del.mutate()}
+            >
+              <Text>{del.isPending ? "Deleting…" : "Confirm Delete"}</Text>
+            </Button>
+          </View>
+        ) : (
+          <Button
+            variant="brand"
+            size="lg"
+            onPress={() => setConfirmingDelete(true)}
+          >
+            <Text>Delete Target</Text>
+          </Button>
+        )}
       </View>
+
+      {territory && canAutoPopulate ? (
+        <AutoPopulateSheet
+          visible={autoPopulateOpen}
+          onClose={() => setAutoPopulateOpen(false)}
+          orgId={orgId}
+          territory={territory}
+          brandName={target.brandName}
+          channels={target.channels}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

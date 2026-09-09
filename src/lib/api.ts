@@ -55,7 +55,9 @@ async function request<T>(
   return handleResponse<T>(res);
 }
 
-async function requestPaginated<T>(path: string): Promise<PaginatedResponse<T>> {
+async function requestPaginated<T>(
+  path: string,
+): Promise<PaginatedResponse<T>> {
   const headers = await authHeaders();
   const res = await fetch(`${BASE_URL}${path}`, { method: "GET", headers });
 
@@ -65,6 +67,26 @@ async function requestPaginated<T>(path: string): Promise<PaginatedResponse<T>> 
   if (!res.ok) throw new Error(json.error ?? json.message ?? "Request failed");
 
   return { data: json.data as T[], pagination: json.pagination };
+}
+
+// Fetch every page of a paginated endpoint and return one flat array. The
+// backend caps `limit` at 100 (BaseController.getPagination), so callers that
+// genuinely need "all rows" (e.g. the Sales Map — clustering handles the "too
+// many pins" problem) have to loop rather than ask for one huge page. Mirrors
+// the web app's accountsApi.listAll.
+async function requestAll<T>(path: string): Promise<T[]> {
+  const all: T[] = [];
+  let page = 1;
+  for (;;) {
+    const sep = path.includes("?") ? "&" : "?";
+    const res = await requestPaginated<T>(
+      `${path}${sep}page=${page}&limit=100`,
+    );
+    all.push(...res.data);
+    if (res.data.length === 0 || page >= res.pagination.totalPages) break;
+    page++;
+  }
+  return all;
 }
 
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
@@ -85,6 +107,7 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   getPaginated: <T>(path: string) => requestPaginated<T>(path),
+  getAll: <T>(path: string) => requestAll<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),

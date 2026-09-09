@@ -5,6 +5,7 @@ import { WebView } from "react-native-webview";
 import {
   channelColor,
   channelLabel,
+  LAYER_META,
   type SalesAccount,
 } from "@/lib/sales-map-data";
 
@@ -12,6 +13,8 @@ export interface GoogleSalesMapHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   setHidden: (channels: string[]) => void;
+  /** Hide/show whole map layers ("existing" | "target" | "visited"). */
+  setHiddenLayers: (layers: string[]) => void;
   setSearch: (term: string) => void;
   /** Drop/move the "you are here" marker; `center` pans the map onto it. */
   setUserLocation: (lat: number, lng: number, center?: boolean) => void;
@@ -25,24 +28,45 @@ interface GoogleSalesMapProps {
   apiKey: string;
 }
 
-/** Points fed to the map's own JS — colour/label resolved up front. */
+/** Points fed to the map's own JS — colour/label/layer resolved up front.
+ *  Layer 1 (existing) keeps its channel colour; Layers 2/3 take the layer
+ *  colour so the three layers read as visually distinct (matches web). */
 function toPoints(accounts: SalesAccount[]) {
-  return accounts.map((a) => ({
-    id: a.id,
-    lat: a.lat,
-    lng: a.lng,
-    name: a.name,
-    city: a.city,
-    address: a.address,
-    channel: a.channel,
-    accountType: a.accountType,
-    color: channelColor(a.channel),
-    label: channelLabel(a.channel),
-  }));
+  return accounts.map((a) => {
+    const layer = a.layer ?? "existing";
+    const color =
+      layer === "existing" ? channelColor(a.channel) : LAYER_META[layer].color;
+    return {
+      id: a.id,
+      lat: a.lat,
+      lng: a.lng,
+      name: a.name,
+      city: a.city,
+      address: a.address,
+      channel: a.channel,
+      accountType: a.accountType,
+      color,
+      label: channelLabel(a.channel),
+      layer,
+      isVerifiedWin: !!a.isVerifiedWin,
+    };
+  });
 }
 
 function buildHtml(accounts: SalesAccount[], apiKey: string): string {
   const points = JSON.stringify(toPoints(accounts));
+  const layerBadgeJson = JSON.stringify(
+    Object.fromEntries(
+      (Object.keys(LAYER_META) as (keyof typeof LAYER_META)[]).map((k) => [
+        k,
+        {
+          text: LAYER_META[k].badge,
+          bg: LAYER_META[k].badgeBg,
+          fg: LAYER_META[k].badgeFg,
+        },
+      ]),
+    ),
+  );
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -78,11 +102,17 @@ function buildHtml(accounts: SalesAccount[], apiKey: string): string {
 </head>
 <body>
 <div id="map"></div>
+<!-- Marker clustering — the Google-maintained equivalent of Leaflet.markercluster.
+     Loaded sync so it's ready before initMap's first render(); if the CDN is
+     unreachable, render() falls back to plain (un-clustered) markers. -->
+<script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.5.3/dist/index.min.js"></script>
 <script>
   var POINTS = ${points};
+  var LAYER_BADGE = ${layerBadgeJson};
   var hidden = {};
+  var hiddenLayers = {};
   var searchTerm = '';
-  var map, markers = [], infoWindow, userOverlay, routePolyline;
+  var map, markers = [], infoWindow, userOverlay, routePolyline, clusterer = null;
 
   function markerIcon(color) {
     return {
@@ -95,32 +125,58 @@ function buildHtml(accounts: SalesAccount[], apiKey: string): string {
     };
   }
 
+  // Gentle size growth with count, capped — a 400-pin cluster reads bigger than
+  // a 4-pin one without ever dwarfing the map. Matches the web renderer.
+  var clusterRenderer = {
+    render: function (cluster) {
+      var count = cluster.count;
+      var scale = Math.min(16 + Math.sqrt(count) * 2.5, 32);
+      return new google.maps.Marker({
+        position: cluster.position,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: scale,
+          fillColor: '#7C1D1E',
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
+        label: { text: String(count), color: '#ffffff', fontSize: '12px', fontWeight: '600' },
+        zIndex: 1000000 + count,
+      });
+    },
+  };
+
   function popupHtml(p) {
     var location = p.city || p.address || '';
     var typeBg = p.accountType === 'on-premise' ? '#dcfce7' : '#dbeafe';
     var typeColor = p.accountType === 'on-premise' ? '#166534' : '#1e40af';
+    var badge = LAYER_BADGE[p.layer] || LAYER_BADGE.existing;
     return '<div style="min-width:180px;font-family:inherit;color:#111827">'
       + '<p style="font-weight:600;margin:0 0 2px 0;font-size:14px;color:#111827">' + p.name + '</p>'
       + '<p style="font-size:12px;color:#6b7280;margin:0 0 4px 0">' + p.label + '</p>'
       + '<p style="font-size:11px;color:#9ca3af;margin:0">' + location + '</p>'
       + (p.accountType ? '<span style="display:inline-block;margin-top:6px;font-size:10px;padding:2px 6px;border-radius:4px;background:' + typeBg + ';color:' + typeColor + '">' + p.accountType + '</span>' : '')
       + '<div style="width:8px;height:8px;background:' + p.color + ';border-radius:50%;display:inline-block;margin-left:8px;vertical-align:middle"></div>'
+      + '<span style="display:block;margin-top:4px;font-size:10px;padding:2px 6px;border-radius:4px;background:' + badge.bg + ';color:' + badge.fg + '">' + badge.text + '</span>'
+      + (p.isVerifiedWin ? '<span style="display:block;margin-top:4px;font-size:10px;padding:2px 6px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:600">✓ Verified Win</span>' : '')
       + '</div>';
   }
 
   function render() {
+    if (clusterer) clusterer.clearMarkers();
     markers.forEach(function (m) { m.setMap(null); });
     markers = [];
     var q = searchTerm.toLowerCase();
     POINTS.forEach(function (p) {
       if (hidden[p.channel]) return;
+      if (hiddenLayers[p.layer]) return;
       if (q) {
         var hay = (p.name + ' ' + (p.city || '')).toLowerCase();
         if (hay.indexOf(q) === -1) return;
       }
       var m = new google.maps.Marker({
         position: { lat: p.lat, lng: p.lng },
-        map: map,
         icon: markerIcon(p.color),
       });
       m.addListener('click', function () {
@@ -129,6 +185,13 @@ function buildHtml(accounts: SalesAccount[], apiKey: string): string {
       });
       markers.push(m);
     });
+    var MC = window.markerClusterer;
+    if (MC && MC.MarkerClusterer) {
+      if (clusterer) clusterer.addMarkers(markers);
+      else clusterer = new MC.MarkerClusterer({ map: map, markers: markers, renderer: clusterRenderer });
+    } else {
+      markers.forEach(function (m) { m.setMap(map); });
+    }
   }
 
   // Frame every account instead of centering on their midpoint — averaging
@@ -163,6 +226,11 @@ function buildHtml(accounts: SalesAccount[], apiKey: string): string {
   window.setHidden = function (arr) {
     hidden = {};
     (arr || []).forEach(function (c) { hidden[c] = true; });
+    if (map) render();
+  };
+  window.setHiddenLayers = function (arr) {
+    hiddenLayers = {};
+    (arr || []).forEach(function (l) { hiddenLayers[l] = true; });
     if (map) render();
   };
   window.setSearch = function (term) {
@@ -248,85 +316,91 @@ function buildHtml(accounts: SalesAccount[], apiKey: string): string {
  * built once per accounts change — channel visibility/search are toggled
  * through injected JS, never a reload, so panning/zoom state is preserved.
  */
-export const GoogleSalesMap = forwardRef<GoogleSalesMapHandle, GoogleSalesMapProps>(
-  function GoogleSalesMap({ accounts, apiKey }, ref) {
-    const webRef = useRef<WebView>(null);
-    const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const html = useMemo(() => buildHtml(accounts, apiKey), [accounts, apiKey]);
+export const GoogleSalesMap = forwardRef<
+  GoogleSalesMapHandle,
+  GoogleSalesMapProps
+>(function GoogleSalesMap({ accounts, apiKey }, ref) {
+  const webRef = useRef<WebView>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const html = useMemo(() => buildHtml(accounts, apiKey), [accounts, apiKey]);
 
-    // Native: inject JS into the WebView. Web: call the same globals through the
-    // (same-origin, srcDoc) iframe's window — react-native-webview has no web
-    // build, so the map runs in a plain iframe there instead.
-    const run = (js: string) => webRef.current?.injectJavaScript(js + "; true;");
-    const callWeb = (fn: string, ...args: unknown[]) => {
-      const win = iframeRef.current?.contentWindow as
-        | (Window & Record<string, (...a: unknown[]) => void>)
-        | null
-        | undefined;
-      if (win && typeof win[fn] === "function") win[fn](...args);
-    };
+  // Native: inject JS into the WebView. Web: call the same globals through the
+  // (same-origin, srcDoc) iframe's window — react-native-webview has no web
+  // build, so the map runs in a plain iframe there instead.
+  const run = (js: string) => webRef.current?.injectJavaScript(js + "; true;");
+  const callWeb = (fn: string, ...args: unknown[]) => {
+    const win = iframeRef.current?.contentWindow as
+      (Window & Record<string, (...a: unknown[]) => void>) | null | undefined;
+    if (win && typeof win[fn] === "function") win[fn](...args);
+  };
 
-    useImperativeHandle(ref, () =>
-      Platform.OS === "web"
-        ? {
-            zoomIn: () => callWeb("zoomIn"),
-            zoomOut: () => callWeb("zoomOut"),
-            setHidden: (channels) => callWeb("setHidden", channels),
-            setSearch: (term) => callWeb("setSearch", term),
-            setUserLocation: (lat, lng, center = true) =>
-              callWeb("setUserLocation", lat, lng, center),
-            drawRoute: (coords) => callWeb("drawRoute", JSON.stringify(coords)),
-            clearRoute: () => callWeb("clearRoute"),
-          }
-        : {
-            zoomIn: () => run("window.zoomIn && window.zoomIn()"),
-            zoomOut: () => run("window.zoomOut && window.zoomOut()"),
-            setHidden: (channels) =>
-              run(
-                `window.setHidden && window.setHidden(${JSON.stringify(channels)})`,
-              ),
-            setSearch: (term) =>
-              run(`window.setSearch && window.setSearch(${JSON.stringify(term)})`),
-            setUserLocation: (lat, lng, center = true) =>
-              run(
-                `window.setUserLocation && window.setUserLocation(${lat}, ${lng}, ${center})`,
-              ),
-            drawRoute: (coords) =>
-              run(
-                `window.drawRoute && window.drawRoute(${JSON.stringify(JSON.stringify(coords))})`,
-              ),
-            clearRoute: () => run("window.clearRoute && window.clearRoute()"),
-          },
-    );
+  useImperativeHandle(ref, () =>
+    Platform.OS === "web"
+      ? {
+          zoomIn: () => callWeb("zoomIn"),
+          zoomOut: () => callWeb("zoomOut"),
+          setHidden: (channels) => callWeb("setHidden", channels),
+          setHiddenLayers: (layers) => callWeb("setHiddenLayers", layers),
+          setSearch: (term) => callWeb("setSearch", term),
+          setUserLocation: (lat, lng, center = true) =>
+            callWeb("setUserLocation", lat, lng, center),
+          drawRoute: (coords) => callWeb("drawRoute", JSON.stringify(coords)),
+          clearRoute: () => callWeb("clearRoute"),
+        }
+      : {
+          zoomIn: () => run("window.zoomIn && window.zoomIn()"),
+          zoomOut: () => run("window.zoomOut && window.zoomOut()"),
+          setHidden: (channels) =>
+            run(
+              `window.setHidden && window.setHidden(${JSON.stringify(channels)})`,
+            ),
+          setHiddenLayers: (layers) =>
+            run(
+              `window.setHiddenLayers && window.setHiddenLayers(${JSON.stringify(layers)})`,
+            ),
+          setSearch: (term) =>
+            run(
+              `window.setSearch && window.setSearch(${JSON.stringify(term)})`,
+            ),
+          setUserLocation: (lat, lng, center = true) =>
+            run(
+              `window.setUserLocation && window.setUserLocation(${lat}, ${lng}, ${center})`,
+            ),
+          drawRoute: (coords) =>
+            run(
+              `window.drawRoute && window.drawRoute(${JSON.stringify(JSON.stringify(coords))})`,
+            ),
+          clearRoute: () => run("window.clearRoute && window.clearRoute()"),
+        },
+  );
 
-    if (Platform.OS === "web") {
-      return (
-        <View className="flex-1">
-          <iframe
-            ref={iframeRef}
-            srcDoc={html}
-            title="Sales map"
-            style={{ border: 0, width: "100%", height: "100%" }}
-          />
-        </View>
-      );
-    }
-
+  if (Platform.OS === "web") {
     return (
       <View className="flex-1">
-        <WebView
-          ref={webRef}
-          originWhitelist={["*"]}
-          source={{ html }}
-          style={{ flex: 1, backgroundColor: "#0B1220" }}
-          javaScriptEnabled
-          domStorageEnabled
-          // The map handles its own gestures; let it capture the pan/pinch.
-          scrollEnabled={false}
-          overScrollMode="never"
-          setBuiltInZoomControls={false}
+        <iframe
+          ref={iframeRef}
+          srcDoc={html}
+          title="Sales map"
+          style={{ border: 0, width: "100%", height: "100%" }}
         />
       </View>
     );
-  },
-);
+  }
+
+  return (
+    <View className="flex-1">
+      <WebView
+        ref={webRef}
+        originWhitelist={["*"]}
+        source={{ html }}
+        style={{ flex: 1, backgroundColor: "#0B1220" }}
+        javaScriptEnabled
+        domStorageEnabled
+        // The map handles its own gestures; let it capture the pan/pinch.
+        scrollEnabled={false}
+        overScrollMode="never"
+        setBuiltInZoomControls={false}
+      />
+    </View>
+  );
+});

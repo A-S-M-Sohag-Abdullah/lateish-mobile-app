@@ -8,6 +8,11 @@ export interface TargetRecord {
   location: string;
   confidence: Confidence;
   status: TargetStatus;
+  /** Territory this target belongs to — needed to resolve its search area for auto-populate. */
+  territoryId: string | null;
+  brandName: string | null;
+  /** Sales channels (with focus role) chosen for this target — drives auto-populate. */
+  channels: { channel: string; role: string }[];
   cases: { current: number; target: number };
   distribution: { current: number; target: number };
   // Detail fields

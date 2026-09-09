@@ -57,6 +57,10 @@ interface Props {
   onPlaceSelect: (place: PlaceSelection) => void;
   placeholder?: string;
   className?: string;
+  /** Autocomplete place-types filter. Default `"establishment"` (venues, for
+   *  picking an account). Pass `"(cities)"` to pick a city/region instead —
+   *  e.g. a territory's auto-populate search center. */
+  types?: string;
 }
 
 /**
@@ -72,6 +76,7 @@ export function GooglePlacesInput({
   onPlaceSelect,
   placeholder,
   className,
+  types = "establishment",
 }: Props) {
   const colors = useThemeColors();
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -95,7 +100,7 @@ export function GooglePlacesInput({
       try {
         const params = new URLSearchParams({
           input: query,
-          types: "establishment",
+          types,
           sessiontoken: sessionTokenRef.current,
           key: env.googleMapsApiKey,
         });
@@ -112,16 +117,19 @@ export function GooglePlacesInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [value]);
+  }, [value, types]);
 
   async function selectPrediction(prediction: Prediction) {
     setPredictions([]);
-    onChangeText(prediction.description.split(",")[0] ?? prediction.description);
+    onChangeText(
+      prediction.description.split(",")[0] ?? prediction.description,
+    );
     if (!env.googleMapsApiKey) return;
     try {
       const params = new URLSearchParams({
         place_id: prediction.place_id,
-        fields: "name,formatted_address,address_components,geometry,place_id,types",
+        fields:
+          "name,formatted_address,address_components,geometry,place_id,types",
         sessiontoken: sessionTokenRef.current,
         key: env.googleMapsApiKey,
       });
@@ -134,7 +142,8 @@ export function GooglePlacesInput({
       let region = "";
       for (const comp of place.address_components ?? []) {
         if (comp.types.includes("locality")) city = comp.long_name;
-        if (comp.types.includes("administrative_area_level_1")) region = comp.long_name;
+        if (comp.types.includes("administrative_area_level_1"))
+          region = comp.long_name;
       }
 
       onChangeText(place.name);
@@ -157,7 +166,8 @@ export function GooglePlacesInput({
     }
   }
 
-  const showList = focused && (predictions.length > 0 || loading) && value.trim().length >= 2;
+  const showList =
+    focused && (predictions.length > 0 || loading) && value.trim().length >= 2;
 
   return (
     <View className="gap-1">

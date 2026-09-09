@@ -41,6 +41,9 @@ function mapTarget(t: ApiMarketTarget): TargetRecord {
     location,
     confidence,
     status: t.status,
+    territoryId: t.territory_id,
+    brandName: t.brand_name,
+    channels: t.channels ?? [],
     cases: { current: t.case_actual, target: t.case_target },
     distribution: {
       current: t.distribution_actual ?? 0,
@@ -58,13 +61,17 @@ function mapTarget(t: ApiMarketTarget): TargetRecord {
   };
 }
 
-function computeSummary(records: TargetRecord[], symbol: string): TargetSummary {
+function computeSummary(
+  records: TargetRecord[],
+  symbol: string,
+): TargetSummary {
   const totalCases = records.reduce((s, r) => s + r.cases.current, 0);
   const totalDist = records.reduce((s, r) => s + r.distribution.current, 0);
   const totalAP = records.reduce((s, r) => s + r.apSpend, 0);
   const behind = records.filter((r) => r.status === "Behind").length;
   const ahead = records.filter((r) => r.status === "Ahead").length;
-  const momentum = behind > ahead ? "Behind" : ahead > behind ? "Ahead" : "On Track";
+  const momentum =
+    behind > ahead ? "Behind" : ahead > behind ? "Ahead" : "On Track";
 
   return {
     cases: totalCases.toLocaleString("en-US"),
@@ -83,7 +90,9 @@ export function useMarketTargets() {
   const { data, isLoading } = useQuery({
     queryKey: ["market-targets", orgId],
     queryFn: () =>
-      api.getPaginated<ApiMarketTarget>(`/organizations/${orgId}/market-targets`),
+      api.getPaginated<ApiMarketTarget>(
+        `/organizations/${orgId}/market-targets`,
+      ),
     enabled: !!orgId,
   });
 

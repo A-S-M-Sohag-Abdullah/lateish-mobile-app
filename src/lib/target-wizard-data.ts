@@ -1,4 +1,5 @@
 import type { WizardStepMeta } from "@/components/wizard/wizard-shell";
+import { ALL_CHANNELS } from "@/lib/channels";
 
 export type GuardrailType = "fixed" | "nsv";
 export type ConfidenceLevel = "high" | "medium" | "low";
@@ -19,23 +20,33 @@ export interface TargetDraft {
 }
 
 export const TARGET_STEPS: WizardStepMeta[] = [
-  { title: "Territory & Dates", subtitle: "Select territory, brand and set the target date range" },
+  {
+    title: "Territory & Dates",
+    subtitle: "Select territory, brand and set the target date range",
+  },
   { title: "Channels", subtitle: "Choose sales channel with focus roles" },
   { title: "Targets", subtitle: "Set your case and distribution targets" },
-  { title: "A&P Guardrail", subtitle: "Set your case and distribution targets" },
-  { title: "Confidence Level", subtitle: "Set confidence level for this target" },
+  {
+    title: "A&P Guardrail",
+    subtitle: "Set your case and distribution targets",
+  },
+  {
+    title: "Confidence Level",
+    subtitle: "Set confidence level for this target",
+  },
   { title: "Review", subtitle: "Review and confirm your market target" },
 ];
 
-export const CHANNEL_CHOICES = [
-  "Modern cocktails Bar (Trend-learning)",
-  "Aspiring Cocktail Bar",
-  "High Volume Cocktail Bar",
-  "Premium Nightlife / Late Night",
-  "Beer + Shot / Dive Bar",
-  "Agave / Category specialist bar",
-  "Hatted / Starred restaurant",
-] as const;
+// The canonical channel taxonomy labels (on-premise first, then off-premise),
+// verbatim from @/lib/channels — the auto-populate feature matches a target's
+// stored channel against ALL_CHANNELS *by exact label*, so anything else here
+// silently can't be auto-searched. Kept in sync with the web's new-target
+// dialog channel lists. The two "Other" slugs are dropped: they share the
+// label "Other" (a React-key/toggle collision in the flat checkbox list) and
+// have no Places search term anyway.
+export const CHANNEL_CHOICES: readonly string[] = ALL_CHANNELS.filter(
+  (c) => c.slug !== "other-on-premise" && c.slug !== "other-off-premise",
+).map((c) => c.label);
 
 export const GUARDRAIL_CHOICES: {
   id: GuardrailType;

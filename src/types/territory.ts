@@ -10,6 +10,12 @@ export interface ApiTerritory {
   sub_region: string | null;
   maturity_tier: MaturityTier;
   bdm_user_id: string | null;
+  // Search area for the auto-populate (Google Places) feature — null until an
+  // admin picks a center via the territory form's Places city picker.
+  center_lat: number | null;
+  center_lng: number | null;
+  center_place_id: string | null;
+  search_radius_km: number;
   created_at: string;
   updated_at: string;
 }
@@ -20,9 +26,18 @@ export interface CreateTerritoryInput {
   sub_region?: string | null;
   maturity_tier?: MaturityTier;
   bdm_user_id?: string | null;
+  center_lat?: number | null;
+  center_lng?: number | null;
+  center_place_id?: string | null;
+  search_radius_km?: number;
 }
 
-export const MATURITY_TIERS: MaturityTier[] = ["alpha", "beta", "gamma", "delta"];
+export const MATURITY_TIERS: MaturityTier[] = [
+  "alpha",
+  "beta",
+  "gamma",
+  "delta",
+];
 
 export const TIER_LABEL: Record<MaturityTier, string> = {
   alpha: "Alpha — Mature",
