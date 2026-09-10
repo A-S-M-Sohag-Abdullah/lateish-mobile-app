@@ -542,7 +542,7 @@ export default function SalesMapScreen() {
       {/* ── Top toolbar ── */}
       <View
         style={{ paddingTop: insets.top + 8 }}
-        className="absolute left-0 right-0 top-0 z-20 gap-2.5 px-4"
+        className="absolute left-0 right-0 top-0 z-30 gap-2.5 px-4"
         pointerEvents="box-none"
       >
         <View className="flex-row items-center gap-3">
@@ -813,12 +813,12 @@ export default function SalesMapScreen() {
           ) : null}
         </View>
 
-        <View className="my-1 h-px bg-white/10" />
+        <View className="my-1 h-px w-10 self-end bg-white/10" />
 
         <Pressable
           accessibilityLabel="Zoom in"
           onPress={() => mapRef.current?.zoomIn()}
-          className="h-10 w-10 items-center justify-center rounded-lg"
+          className="h-10 w-10 items-center justify-center self-end rounded-lg"
           style={{ backgroundColor: PANEL }}
         >
           <ZoomIn color="#FFFFFF" size={18} />
@@ -826,7 +826,7 @@ export default function SalesMapScreen() {
         <Pressable
           accessibilityLabel="Zoom out"
           onPress={() => mapRef.current?.zoomOut()}
-          className="h-10 w-10 items-center justify-center rounded-lg"
+          className="h-10 w-10 items-center justify-center self-end rounded-lg"
           style={{ backgroundColor: PANEL }}
         >
           <ZoomOut color="#FFFFFF" size={18} />
@@ -841,7 +841,7 @@ export default function SalesMapScreen() {
           }
           onPress={toggleTracking}
           disabled={locating}
-          className="h-10 w-10 items-center justify-center rounded-lg"
+          className="h-10 w-10 items-center justify-center self-end rounded-lg"
           style={{ backgroundColor: tracking ? "#2563EB" : FAB_DARK }}
         >
           {locating ? (

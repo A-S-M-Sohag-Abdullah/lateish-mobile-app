@@ -1,111 +1,62 @@
-import { useMutation } from "@tanstack/react-query";
-import { Link, useRouter } from "expo-router";
-import { useState } from "react";
-import { View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { useRef, useState } from "react";
+import Animated, {
+  SlideInLeft,
+  SlideInRight,
+  SlideOutLeft,
+  SlideOutRight,
+} from "react-native-reanimated";
 
-import { AppleButton } from "@/components/auth/apple-button";
-import { AuthField } from "@/components/auth/auth-field";
-import { AuthLayout } from "@/components/auth/auth-layout";
-import { GoogleButton, OrDivider } from "@/components/auth/google-button";
-import { FormError } from "@/components/auth/form-error";
-import { Button } from "@/components/ui/button";
-import { Text } from "@/components/ui/text";
-import { PREVIEW_MODE, usePreviewStore } from "@/lib/preview";
-import { useAuthStore } from "@/store/auth.store";
+import { AuthLayout, type AuthTab } from "@/components/auth/auth-layout";
+import { SignInForm } from "@/components/auth/sign-in-form";
+import { SignUpForm } from "@/components/auth/sign-up-form";
 
-export default function LoginScreen() {
-  const router = useRouter();
-  const login = useAuthStore((s) => s.login);
-  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle);
-  const signInWithApple = useAuthStore((s) => s.signInWithApple);
+const SLIDE_MS = 260;
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+/**
+ * The signed-out screen. Sign In and Sign Up live here as two panels that the
+ * segmented control slides between in place — the gradient and the control stay
+ * fixed, so it reads as a real toggle rather than a page navigation.
+ *
+ * `/register` redirects here with `?mode=signup` so old links still work.
+ */
+export default function AuthScreen() {
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<AuthTab>(
+    params.mode === "signup" ? "signup" : "signin",
+  );
 
-  const signIn = useMutation({
-    mutationFn: () => login(email.trim(), password),
-    onSuccess: () => router.replace("/"),
-  });
+  // Sign In is the left tab, Sign Up the right one: going to Sign Up travels
+  // forward (new panel enters from the right), going back travels the other way.
+  const forward = useRef(true);
+  // Don't animate the panel that's on screen when the route first opens — only
+  // the switches the user triggers.
+  const [animate, setAnimate] = useState(false);
 
-  const setPreviewSignedIn = usePreviewStore((s) => s.setSignedIn);
-
-  // In preview mode the button just opens the dashboard — no API call.
-  const handleSignIn = () => {
-    if (!PREVIEW_MODE) return signIn.mutate();
-    setPreviewSignedIn(true);
-    router.replace("/");
+  const changeMode = (next: AuthTab) => {
+    if (next === mode) return;
+    forward.current = next === "signup";
+    setAnimate(true);
+    setMode(next);
   };
 
-  const google = useMutation({ mutationFn: signInWithGoogle });
-  const apple = useMutation({ mutationFn: signInWithApple });
-
-  const canSubmit = email.trim().length > 0 && password.length > 0;
-  const busy = signIn.isPending || google.isPending || apple.isPending;
-
   return (
-    <AuthLayout
-      tab="signin"
-      title="Sign In"
-      subtitle="Continue building your business with clarity and confidence."
-    >
-      <View className="gap-5">
-        <AuthField
-          label="Email address"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-        />
-
-        <AuthField
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••••••"
-          secureTextEntry
-          autoCapitalize="none"
-          autoComplete="current-password"
-          textContentType="password"
-          onSubmitEditing={() => canSubmit && handleSignIn()}
-        />
-      </View>
-
-      <Link href="/forgot-password" asChild>
-        <Text className="mt-3 text-right text-base font-bold text-white underline">
-          Forgot Password?
-        </Text>
-      </Link>
-
-      <FormError error={signIn.error ?? google.error ?? apple.error} />
-
-      <Button
-        variant="brand"
-        size="lg"
-        className="mt-5"
-        onPress={handleSignIn}
-        disabled={(!canSubmit && !PREVIEW_MODE) || busy}
-        loading={signIn.isPending}
+    <AuthLayout mode={mode} onModeChange={changeMode}>
+      <Animated.View
+        key={mode}
+        entering={
+          animate
+            ? (forward.current ? SlideInRight : SlideInLeft).duration(SLIDE_MS)
+            : undefined
+        }
+        exiting={
+          animate
+            ? (forward.current ? SlideOutLeft : SlideOutRight).duration(SLIDE_MS)
+            : undefined
+        }
       >
-        <Text>Sign In</Text>
-      </Button>
-
-      <OrDivider />
-
-      <View className="gap-3">
-        <GoogleButton
-          onPress={() => google.mutate()}
-          loading={google.isPending}
-          disabled={busy}
-        />
-        <AppleButton
-          onPress={() => apple.mutate()}
-          loading={apple.isPending}
-          disabled={busy}
-        />
-      </View>
+        {mode === "signin" ? <SignInForm /> : <SignUpForm />}
+      </Animated.View>
     </AuthLayout>
   );
 }
