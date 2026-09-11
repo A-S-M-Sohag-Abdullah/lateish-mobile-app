@@ -11,7 +11,6 @@ import {
   House,
   Map,
   Package,
-  Search,
   Send,
   Settings,
   Sparkles,
@@ -28,7 +27,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -210,20 +208,6 @@ export function Sidebar() {
                   }}
                   contentFit="contain"
                 />
-
-                <View className="h-12 flex-row items-center gap-2.5 rounded-2xl bg-muted px-4">
-                  <View className="shrink-0">
-                    <Search color={colors.mutedForeground} size={20} />
-                  </View>
-                  <TextInput
-                    placeholder="Search"
-                    placeholderTextColor={colors.mutedForeground}
-                    className="flex-1 text-base text-foreground"
-                  />
-                  <View className="rounded-md border border-border px-1.5 py-0.5">
-                    <Text className="text-xs text-muted-foreground">⌘K</Text>
-                  </View>
-                </View>
 
                 {promoVisible ? (
                   <View className="gap-3 rounded-2xl border border-border bg-white/5 p-4">
