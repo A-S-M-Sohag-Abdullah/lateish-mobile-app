@@ -12,9 +12,9 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.0.121:5000/api/v1",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://kwxdbljetrfqjvzbekde.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3eGRibGpldHJmcWp2emJla2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzM1MjAsImV4cCI6MjA5OTYwOTUyMH0.UdxKs16NUquMo_b4rfwUpnLACouVQjXckE0vmvVFA8U",
+        "EXPO_PUBLIC_API_URL": "https://lateish-rjf8.vercel.app/api/v1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://okjgofomfvbbwpxolkmo.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ramdvZm9tZnZiYndweG9sa21vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNTU2ODAsImV4cCI6MjA5MDkzMTY4MH0.4STtDFc-xiRFxH_TfHilVLqbhsY_oc47F2NcAtlJqvQ",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAXdR8vYNCPG8JU24bh3r8j05Eij1A2xtw"
       },
       "android": {
